@@ -60,6 +60,12 @@ Deno.serve(async (req) => {
   if (!cleanEcode) {
     return json({ error: 'Employee code is required' }, 400)
   }
+  // Names get entered in all sorts of casing (ALL CAPS, all lowercase) --
+  // normalize once here so it's consistent everywhere it's displayed.
+  const cleanFullName = String(full_name)
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
   // Fixed default password for every new user (ecodes are often shorter
   // than Supabase's real 6-character minimum, which can't be lowered on
   // this plan). The user is expected to change it after first login
@@ -79,7 +85,7 @@ Deno.serve(async (req) => {
   const { error: profileError } = await adminClient.from('profiles').insert({
     id: created.user.id,
     ecode: cleanEcode,
-    full_name,
+    full_name: cleanFullName,
     role,
     reports_to: role === 'engineer' && reports_to ? reports_to : null,
   })

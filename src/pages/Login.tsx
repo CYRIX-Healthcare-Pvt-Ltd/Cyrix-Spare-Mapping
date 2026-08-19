@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { SpinnerIcon } from '../components/icons'
 import { CyrixLogo } from '../components/CyrixLogo'
+import { BlueStarLogo } from '../components/BlueStarLogo'
 
 export default function Login() {
   const { session, loading, signIn } = useAuth()
@@ -39,10 +40,8 @@ export default function Login() {
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
         <div className="mb-6 flex flex-col items-center gap-3">
           <CyrixLogo className="text-lg" />
-          <div className="text-center">
-            <h1 className="text-lg font-semibold text-slate-900">Blue Star</h1>
-            <p className="text-sm text-slate-500">Sign in to track hospital equipment</p>
-          </div>
+          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400">for</p>
+          <BlueStarLogo className="text-sm" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
