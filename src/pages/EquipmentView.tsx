@@ -9,9 +9,6 @@ import type { EquipmentRow, FacilityRow, FieldDefinitionRow, EquipmentFormValues
 function toFormValues(eq: EquipmentRow): EquipmentFormValues {
   return {
     facility_id: eq.facility_id,
-    name: eq.name,
-    location: eq.location,
-    images: eq.images,
     custom_fields: eq.custom_fields,
   }
 }
@@ -19,9 +16,6 @@ function toFormValues(eq: EquipmentRow): EquipmentFormValues {
 function buildDiff(original: EquipmentFormValues, updated: EquipmentFormValues) {
   const diff: Record<string, unknown> = {}
   if (updated.facility_id !== original.facility_id) diff.facility_id = updated.facility_id
-  if (updated.name !== original.name) diff.name = updated.name
-  if (updated.location !== original.location) diff.location = updated.location
-  if (JSON.stringify(updated.images) !== JSON.stringify(original.images)) diff.images = updated.images
 
   const customDiff: Record<string, unknown> = {}
   for (const key of Object.keys(updated.custom_fields)) {
@@ -102,9 +96,6 @@ export default function EquipmentView() {
       .from('equipment')
       .update({
         facility_id: values.facility_id,
-        name: values.name,
-        location: values.location,
-        images: values.images,
         custom_fields: values.custom_fields,
         updated_by: profile.id,
       })
@@ -189,35 +180,19 @@ export default function EquipmentView() {
         </>
       ) : (
         <>
-          {equipment.images.length > 0 && (
-            <div className="mb-4 grid grid-cols-3 gap-2">
-              {equipment.images.map((src, i) => (
-                <button
-                  key={i}
-                  onClick={() => setLightbox(src)}
-                  className="aspect-square overflow-hidden rounded-lg border border-slate-200"
-                >
-                  <img src={src} alt={`${equipment.name} photo ${i + 1}`} className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-
           <div className="mb-1 flex items-start justify-between gap-2">
             <h1 className="text-lg font-semibold text-slate-900">{equipment.name}</h1>
             {(canEditDirectly || !hasPendingRequest) && (
               <button
                 onClick={() => setEditing(true)}
-                className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="flex shrink-0 items-center gap-1 rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50"
               >
                 <PencilIcon className="h-3.5 w-3.5" />
                 {canEditDirectly ? 'Edit' : 'Request edit'}
               </button>
             )}
           </div>
-          <p className="mb-4 text-sm text-slate-500">
-            {facility?.name ?? 'Unknown facility'} · {equipment.location}
-          </p>
+          <p className="mb-4 text-sm text-slate-500">{facility?.name ?? 'Unknown facility'}</p>
 
           {hasPendingRequest && !canEditDirectly && (
             <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
+import { fetchFieldSuggestions } from '../lib/fieldSuggestions'
 import { ChevronLeftIcon, AlertIcon } from '../components/icons'
 import type { FacilityRow, FieldDefinitionRow, EquipmentFormValues } from '../types/app'
 
@@ -14,6 +15,7 @@ export default function EquipmentNew() {
 
   const [facilities, setFacilities] = useState<FacilityRow[]>([])
   const [fieldDefs, setFieldDefs] = useState<FieldDefinitionRow[]>([])
+  const [suggestions, setSuggestions] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,9 +25,10 @@ export default function EquipmentNew() {
     const currentProfile = profile
 
     async function load() {
-      const [{ data: allFacilities }, { data: fields }] = await Promise.all([
+      const [{ data: allFacilities }, { data: fields }, fieldSuggestions] = await Promise.all([
         supabase.from('facilities').select('*').eq('active', true).order('name'),
         supabase.from('field_definitions').select('*').eq('active', true).order('display_order'),
+        fetchFieldSuggestions(),
       ])
       const scoped =
         currentProfile.role === 'admin'
@@ -33,6 +36,7 @@ export default function EquipmentNew() {
           : (allFacilities ?? []).filter((f) => currentProfile.facilityIds.includes(f.id))
       setFacilities(scoped)
       setFieldDefs(fields ?? [])
+      setSuggestions(fieldSuggestions)
       setLoading(false)
     }
     load()
@@ -43,14 +47,21 @@ export default function EquipmentNew() {
     setSubmitting(true)
     setError(null)
 
+    // No hardcoded "name" field is collected anymore -- the facility already
+    // carries an address (captured via GPS in Admin -> Facilities), so a
+    // free-typed location is redundant. This label is just so the record
+    // has something to be identified by in lists; admins can add a "Name"
+    // custom field if they want engineers choosing their own label.
+    const facility = facilities.find((f) => f.id === values.facility_id)
+    const autoName = facility ? `${facility.name} · ${qr}` : qr
+
     const { data, error: insertError } = await supabase
       .from('equipment')
       .insert({
         qr_value: qr,
         facility_id: values.facility_id,
-        name: values.name,
-        location: values.location,
-        images: values.images,
+        name: autoName,
+        location: '',
         custom_fields: values.custom_fields,
         created_by: profile.id,
       })
@@ -108,13 +119,11 @@ export default function EquipmentNew() {
         fieldDefs={fieldDefs}
         initialValues={{
           facility_id: facilities.length === 1 ? facilities[0].id : '',
-          name: '',
-          location: '',
-          images: [],
           custom_fields: {},
         }}
         submitLabel="Save equipment"
         submitting={submitting}
+        suggestions={suggestions}
         onSubmit={handleSubmit}
       />
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

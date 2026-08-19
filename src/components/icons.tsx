@@ -157,6 +157,15 @@ export function AlertIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function TagIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12.5 3.5H6a2 2 0 0 0-2 2v6.5a2 2 0 0 0 .59 1.41l8 8a2 2 0 0 0 2.82 0l6.5-6.5a2 2 0 0 0 0-2.82l-8-8a2 2 0 0 0-1.41-.59Z" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+    </svg>
+  )
+}
+
 export function MapPinIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>

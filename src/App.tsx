@@ -8,6 +8,7 @@ import Scan from './pages/Scan'
 import EquipmentNew from './pages/EquipmentNew'
 import EquipmentView from './pages/EquipmentView'
 import EditRequests from './pages/EditRequests'
+import TaggedEquipment from './pages/TaggedEquipment'
 import Account from './pages/Account'
 import Facilities from './pages/admin/Facilities'
 import Fields from './pages/admin/Fields'
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/equipment/new" element={<EquipmentNew />} />
             <Route path="/equipment/:id" element={<EquipmentView />} />
             <Route path="/requests" element={<EditRequests />} />
+            <Route path="/tagged" element={<TaggedEquipment />} />
             <Route path="/account" element={<Account />} />
 
             <Route

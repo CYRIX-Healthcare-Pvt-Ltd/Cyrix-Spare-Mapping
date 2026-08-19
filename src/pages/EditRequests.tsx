@@ -165,7 +165,7 @@ export default function EditRequests() {
                     <button
                       onClick={() => setRejectingId(r.id)}
                       disabled={busyId === r.id}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-60"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
                     >
                       <XIcon className="h-3.5 w-3.5" /> Reject
                     </button>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { ImageUploader } from './ImageUploader'
 import { DynamicFieldRenderer } from './DynamicFieldRenderer'
+import { FacilityPicker } from './FacilityPicker'
 import { SpinnerIcon } from './icons'
 import type { EquipmentFormValues, FacilityRow, FieldDefinitionRow } from '../types/app'
 
@@ -12,6 +12,7 @@ export function EquipmentForm({
   submitLabel,
   submitting,
   disabled,
+  suggestions,
   onSubmit,
 }: {
   facilities: FacilityRow[]
@@ -20,6 +21,7 @@ export function EquipmentForm({
   submitLabel: string
   submitting: boolean
   disabled?: boolean
+  suggestions?: Record<string, string[]>
   onSubmit: (values: EquipmentFormValues) => void
 }) {
   const [values, setValues] = useState<EquipmentFormValues>(initialValues)
@@ -29,67 +31,29 @@ export function EquipmentForm({
     onSubmit(values)
   }
 
-  const inputClass =
-    'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:bg-slate-100 disabled:text-slate-500'
-
   return (
     <fieldset disabled={disabled} className="space-y-4">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Facility *</label>
-          <select
-            required
-            value={values.facility_id}
-            onChange={(e) => setValues((v) => ({ ...v, facility_id: e.target.value }))}
-            className={inputClass}
-          >
-            <option value="" disabled>
-              Select a facility…
-            </option>
-            {facilities.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Equipment name *</label>
-          <input
-            required
-            type="text"
-            value={values.name}
-            onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
-            className={inputClass}
-            placeholder="e.g. Infusion Pump"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Location *</label>
-          <input
-            required
-            type="text"
-            value={values.location}
-            onChange={(e) => setValues((v) => ({ ...v, location: e.target.value }))}
-            className={inputClass}
-            placeholder="e.g. 3rd Floor, ICU Bay 2"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Photos</label>
-          <ImageUploader value={values.images} onChange={(images) => setValues((v) => ({ ...v, images }))} />
-        </div>
-
-        <DynamicFieldRenderer
-          fields={fieldDefs}
-          values={values.custom_fields}
-          onChange={(key, val) =>
-            setValues((v) => ({ ...v, custom_fields: { ...v.custom_fields, [key]: val } }))
-          }
+        <FacilityPicker
+          facilities={facilities}
+          value={values.facility_id}
+          onChange={(facility_id) => setValues((v) => ({ ...v, facility_id }))}
         />
+
+        {fieldDefs.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-400">
+            No custom fields set up yet — an admin can add some in Admin → Custom fields.
+          </p>
+        ) : (
+          <DynamicFieldRenderer
+            fields={fieldDefs}
+            values={values.custom_fields}
+            suggestions={suggestions}
+            onChange={(key, val) =>
+              setValues((v) => ({ ...v, custom_fields: { ...v.custom_fields, [key]: val } }))
+            }
+          />
+        )}
 
         <button
           type="submit"

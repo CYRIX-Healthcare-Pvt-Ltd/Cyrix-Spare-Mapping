@@ -4,10 +4,12 @@ import { ImageUploader } from './ImageUploader'
 export function DynamicFieldRenderer({
   fields,
   values,
+  suggestions,
   onChange,
 }: {
   fields: FieldDefinitionRow[]
   values: Record<string, unknown>
+  suggestions?: Record<string, string[]>
   onChange: (key: string, value: unknown) => void
 }) {
   if (fields.length === 0) return null
@@ -20,7 +22,12 @@ export function DynamicFieldRenderer({
             {field.label}
             {field.required && <span className="text-red-500"> *</span>}
           </label>
-          <FieldInput field={field} value={values[field.field_key]} onChange={(v) => onChange(field.field_key, v)} />
+          <FieldInput
+            field={field}
+            value={values[field.field_key]}
+            suggestions={suggestions?.[field.field_key]}
+            onChange={(v) => onChange(field.field_key, v)}
+          />
         </div>
       ))}
     </div>
@@ -30,10 +37,12 @@ export function DynamicFieldRenderer({
 function FieldInput({
   field,
   value,
+  suggestions,
   onChange,
 }: {
   field: FieldDefinitionRow
   value: unknown
+  suggestions?: string[]
   onChange: (value: unknown) => void
 }) {
   const baseClass =
@@ -108,15 +117,32 @@ function FieldInput({
           ))}
         </select>
       )
-    default:
+    default: {
+      // Text fields get suggestions drawn from values already used for this
+      // same field on other equipment — e.g. once one engineer types
+      // "Ventilator", the next one sees it offered instead of retyping (and
+      // risking "ventilator", "Vent", etc. fragmenting what's really one
+      // piece of equipment type).
+      const listId = suggestions?.length ? `suggestions-${field.field_key}` : undefined
       return (
-        <input
-          type="text"
-          className={baseClass}
-          value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          required={field.required}
-        />
+        <>
+          <input
+            type="text"
+            list={listId}
+            className={baseClass}
+            value={(value as string) ?? ''}
+            onChange={(e) => onChange(e.target.value)}
+            required={field.required}
+          />
+          {listId && (
+            <datalist id={listId}>
+              {suggestions!.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+          )}
+        </>
       )
+    }
   }
 }

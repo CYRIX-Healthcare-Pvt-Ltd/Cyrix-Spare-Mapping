@@ -69,10 +69,34 @@ export default function Dashboard() {
         <div>
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Admin</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <AdminLink to="/admin/facilities" icon={BuildingIcon} label="Facilities" />
-            <AdminLink to="/admin/fields" icon={ClipboardIcon} label="Custom fields" />
-            <AdminLink to="/admin/users" icon={UsersIcon} label="Users" />
-            <AdminLink to="/admin/settings" icon={SettingsIcon} label="Settings" />
+            <AdminLink
+              to="/admin/facilities"
+              icon={BuildingIcon}
+              label="Facilities"
+              iconClass="text-blue-600"
+              hoverClass="hover:border-blue-300 hover:bg-blue-50"
+            />
+            <AdminLink
+              to="/admin/fields"
+              icon={ClipboardIcon}
+              label="Custom fields"
+              iconClass="text-violet-600"
+              hoverClass="hover:border-violet-300 hover:bg-violet-50"
+            />
+            <AdminLink
+              to="/admin/users"
+              icon={UsersIcon}
+              label="Users"
+              iconClass="text-orange-600"
+              hoverClass="hover:border-orange-300 hover:bg-orange-50"
+            />
+            <AdminLink
+              to="/admin/settings"
+              icon={SettingsIcon}
+              label="Settings"
+              iconClass="text-indigo-600"
+              hoverClass="hover:border-indigo-300 hover:bg-indigo-50"
+            />
           </div>
         </div>
       )}
@@ -84,17 +108,21 @@ function AdminLink({
   to,
   icon: Icon,
   label,
+  iconClass,
+  hoverClass,
 }: {
   to: string
   icon: (props: { className?: string }) => ReactElement
   label: string
+  iconClass: string
+  hoverClass: string
 }) {
   return (
     <Link
       to={to}
-      className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-center hover:border-brand-300 hover:bg-brand-50"
+      className={`flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-center transition-colors ${hoverClass}`}
     >
-      <Icon className="h-5 w-5 text-brand-700" />
+      <Icon className={`h-5 w-5 ${iconClass}`} />
       <span className="text-xs font-medium text-slate-700">{label}</span>
     </Link>
   )

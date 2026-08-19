@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabaseClient'
 import { getCurrentPosition, reverseGeocode, geolocationErrorMessage } from '../../lib/geolocate'
 import { PlusIcon, TrashIcon, SpinnerIcon, MapPinIcon } from '../../components/icons'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { FacilityRow } from '../../types/app'
 
 export default function Facilities() {
@@ -19,6 +20,7 @@ export default function Facilities() {
   const [locateError, setLocateError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<FacilityRow | null>(null)
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('facilities').select('*').order('name')
@@ -88,10 +90,14 @@ export default function Facilities() {
       setError(`Can't delete "${f.name}" — ${count} equipment record(s) still reference it. Deactivate it instead.`)
       return
     }
-    if (!window.confirm(`Delete facility "${f.name}"? This can't be undone.`)) return
+    setConfirmDelete(f)
+  }
 
-    const { error: deleteError } = await supabase.from('facilities').delete().eq('id', f.id)
+  async function performDelete() {
+    if (!confirmDelete) return
+    const { error: deleteError } = await supabase.from('facilities').delete().eq('id', confirmDelete.id)
     if (deleteError) setError(deleteError.message)
+    setConfirmDelete(null)
     load()
   }
 
@@ -182,15 +188,15 @@ export default function Facilities() {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 onClick={() => toggleActive(f)}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                  f.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                  f.active ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
               >
                 {f.active ? 'Active' : 'Inactive'}
               </button>
               <button
                 onClick={() => handleDelete(f)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
                 aria-label={`Delete ${f.name}`}
               >
                 <TrashIcon className="h-4 w-4" />
@@ -199,6 +205,14 @@ export default function Facilities() {
           </li>
         ))}
       </ul>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={`Delete facility "${confirmDelete?.name}"?`}
+        message="This can't be undone."
+        onConfirm={performDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   )
 }

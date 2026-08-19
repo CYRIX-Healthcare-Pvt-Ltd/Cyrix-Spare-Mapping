@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabaseClient'
 import { PlusIcon, TrashIcon, SpinnerIcon, KeyIcon } from '../../components/icons'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { ProfileRow, FacilityRow } from '../../types/app'
 import type { AppRole } from '../../types/database'
 
@@ -39,6 +40,7 @@ export default function Users() {
   const [resetError, setResetError] = useState<string | null>(null)
   const [editingManagerFor, setEditingManagerFor] = useState<string | null>(null)
   const [managerSelection, setManagerSelection] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<UserRow | null>(null)
 
   const load = useCallback(async () => {
     const [{ data: profileRows }, { data: facilityRows }, { data: assignments }] = await Promise.all([
@@ -99,14 +101,14 @@ export default function Users() {
     load()
   }
 
-  async function handleDelete(u: UserRow) {
-    if (u.id === currentProfile?.id) return
-    if (!window.confirm(`Permanently delete ${u.full_name} (${u.ecode})? This can't be undone.`)) return
-    setBusyId(u.id)
+  async function performDelete() {
+    if (!confirmDelete || confirmDelete.id === currentProfile?.id) return
+    setBusyId(confirmDelete.id)
     const { data, error: fnError } = await supabase.functions.invoke('admin-delete-user', {
-      body: { user_id: u.id },
+      body: { user_id: confirmDelete.id },
     })
     setBusyId(null)
+    setConfirmDelete(null)
     if (fnError || data?.error) {
       setError(data?.error ?? fnError?.message ?? 'Could not delete the user.')
       return
@@ -273,8 +275,8 @@ export default function Users() {
                 <button
                   onClick={() => toggleActive(u)}
                   disabled={busyId === u.id}
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    u.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                    u.active ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
                   {u.active ? 'Active' : 'Inactive'}
@@ -282,16 +284,16 @@ export default function Users() {
                 <button
                   onClick={() => startReset(u)}
                   disabled={busyId === u.id}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                   aria-label={`Reset password for ${u.full_name}`}
                 >
                   <KeyIcon className="h-4 w-4" />
                 </button>
                 {u.id !== currentProfile?.id && (
                   <button
-                    onClick={() => handleDelete(u)}
+                    onClick={() => setConfirmDelete(u)}
                     disabled={busyId === u.id}
-                    className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
                     aria-label={`Delete ${u.full_name}`}
                   >
                     <TrashIcon className="h-4 w-4" />
@@ -403,6 +405,15 @@ export default function Users() {
           </li>
         ))}
       </ul>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={`Permanently delete ${confirmDelete?.full_name}?`}
+        message={`Employee code ${confirmDelete?.ecode}. This can't be undone.`}
+        busy={busyId === confirmDelete?.id}
+        onConfirm={performDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   )
 }

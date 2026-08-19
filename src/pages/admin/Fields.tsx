@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { PlusIcon, TrashIcon, SpinnerIcon } from '../../components/icons'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { FieldDefinitionRow } from '../../types/app'
 import type { FieldType } from '../../types/database'
 
@@ -33,6 +34,7 @@ export default function Fields() {
   const [required, setRequired] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<FieldDefinitionRow | null>(null)
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('field_definitions').select('*').order('display_order')
@@ -90,9 +92,10 @@ export default function Fields() {
     load()
   }
 
-  async function handleDelete(f: FieldDefinitionRow) {
-    if (!window.confirm(`Delete the "${f.label}" field? Existing equipment keeps its saved value, but it will no longer be shown or editable.`)) return
-    await supabase.from('field_definitions').delete().eq('id', f.id)
+  async function performDelete() {
+    if (!confirmDelete) return
+    await supabase.from('field_definitions').delete().eq('id', confirmDelete.id)
+    setConfirmDelete(null)
     load()
   }
 
@@ -176,13 +179,13 @@ export default function Fields() {
                 </button>
                 <button
                   onClick={() => toggleActive(f)}
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    f.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                    f.active ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                   }`}
                 >
                   {f.active ? 'Active' : 'Inactive'}
                 </button>
-                <button onClick={() => handleDelete(f)} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" aria-label={`Delete ${f.label}`}>
+                <button onClick={() => setConfirmDelete(f)} className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700" aria-label={`Delete ${f.label}`}>
                   <TrashIcon className="h-4 w-4" />
                 </button>
               </div>
@@ -190,6 +193,14 @@ export default function Fields() {
           </li>
         ))}
       </ul>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={`Delete "${confirmDelete?.label}"?`}
+        message="Existing equipment keeps its saved value, but it will no longer be shown or editable."
+        onConfirm={performDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   )
 }
