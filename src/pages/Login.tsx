@@ -86,7 +86,8 @@ export default function Login() {
         </form>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          Don't have an employee code? Ask your facility admin to add you.
+          Forgot your password, or don't have an employee code? Only your facility admin can set or reset it —
+          contact them for help.
         </p>
       </div>
     </div>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabaseClient'
-import { PlusIcon, TrashIcon, SpinnerIcon } from '../../components/icons'
+import { PlusIcon, TrashIcon, SpinnerIcon, KeyIcon } from '../../components/icons'
 import type { ProfileRow, FacilityRow } from '../../types/app'
 import type { AppRole } from '../../types/database'
 
@@ -25,13 +25,16 @@ export default function Users() {
   const [ecode, setEcode] = useState('')
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<AppRole>('engineer')
-  const [password, setPassword] = useState('')
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editingFacilitiesFor, setEditingFacilitiesFor] = useState<string | null>(null)
   const [editSelection, setEditSelection] = useState<string[]>([])
+  const [resettingFor, setResettingFor] = useState<string | null>(null)
+  const [resetPassword, setResetPassword] = useState('')
+  const [resetConfirm, setResetConfirm] = useState('')
+  const [resetError, setResetError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const [{ data: profileRows }, { data: facilityRows }, { data: assignments }] = await Promise.all([
@@ -60,7 +63,7 @@ export default function Users() {
     setError(null)
 
     const { data, error: fnError } = await supabase.functions.invoke('admin-create-user', {
-      body: { ecode, full_name: fullName, role, password, facility_ids: selectedFacilities },
+      body: { ecode, full_name: fullName, role, facility_ids: selectedFacilities },
     })
 
     setSubmitting(false)
@@ -72,7 +75,6 @@ export default function Users() {
     setEcode('')
     setFullName('')
     setRole('engineer')
-    setPassword('')
     setSelectedFacilities([])
     load()
   }
@@ -97,6 +99,35 @@ export default function Users() {
       return
     }
     load()
+  }
+
+  function startReset(u: UserRow) {
+    setResettingFor(u.id)
+    setResetPassword('')
+    setResetConfirm('')
+    setResetError(null)
+  }
+
+  async function submitReset(userId: string) {
+    setResetError(null)
+    if (resetPassword.length < 8) {
+      setResetError('Password must be at least 8 characters.')
+      return
+    }
+    if (resetPassword !== resetConfirm) {
+      setResetError("Passwords don't match.")
+      return
+    }
+    setBusyId(userId)
+    const { data, error: fnError } = await supabase.functions.invoke('admin-reset-password', {
+      body: { user_id: userId, password: resetPassword },
+    })
+    setBusyId(null)
+    if (fnError || data?.error) {
+      setResetError(data?.error ?? fnError?.message ?? 'Could not reset the password.')
+      return
+    }
+    setResettingFor(null)
   }
 
   function startEditFacilities(u: UserRow) {
@@ -126,7 +157,14 @@ export default function Users() {
       <form onSubmit={handleAdd} className="mb-6 space-y-3 rounded-xl border border-slate-200 bg-white p-4">
         <p className="text-sm font-medium text-slate-700">Add a user</p>
         <div className="grid grid-cols-2 gap-2">
-          <input required placeholder="Employee code" value={ecode} onChange={(e) => setEcode(e.target.value)} className={inputClass} />
+          <input
+            required
+            minLength={6}
+            placeholder="Employee code (min 6 chars)"
+            value={ecode}
+            onChange={(e) => setEcode(e.target.value)}
+            className={inputClass}
+          />
           <select value={role} onChange={(e) => setRole(e.target.value as AppRole)} className={inputClass}>
             {Object.entries(ROLE_LABEL).map(([value, l]) => (
               <option key={value} value={value}>
@@ -136,14 +174,9 @@ export default function Users() {
           </select>
         </div>
         <input required placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} />
-        <input
-          required
-          type="text"
-          placeholder="Temporary password (min 8 characters)"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
-        />
+        <p className="text-xs text-slate-500">
+          Default password is the employee code (min 6 characters). The user should change it after first login.
+        </p>
 
         <div>
           <p className="mb-1 text-xs font-medium text-slate-500">Facilities</p>
@@ -195,6 +228,14 @@ export default function Users() {
                 >
                   {u.active ? 'Active' : 'Inactive'}
                 </button>
+                <button
+                  onClick={() => startReset(u)}
+                  disabled={busyId === u.id}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  aria-label={`Reset password for ${u.full_name}`}
+                >
+                  <KeyIcon className="h-4 w-4" />
+                </button>
                 {u.id !== currentProfile?.id && (
                   <button
                     onClick={() => handleDelete(u)}
@@ -207,6 +248,41 @@ export default function Users() {
                 )}
               </div>
             </div>
+
+            {resettingFor === u.id && (
+              <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
+                <input
+                  type="password"
+                  placeholder="New password (min 8 characters)"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  className={inputClass}
+                />
+                <input
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={resetConfirm}
+                  onChange={(e) => setResetConfirm(e.target.value)}
+                  className={inputClass}
+                />
+                {resetError && <p className="text-xs text-red-600">{resetError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => submitReset(u.id)}
+                    disabled={busyId === u.id}
+                    className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-white disabled:opacity-60"
+                  >
+                    Set password
+                  </button>
+                  <button
+                    onClick={() => setResettingFor(null)}
+                    className="rounded-lg border border-slate-300 px-3 py-1 text-xs text-slate-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
 
             {editingFacilitiesFor === u.id ? (
               <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">

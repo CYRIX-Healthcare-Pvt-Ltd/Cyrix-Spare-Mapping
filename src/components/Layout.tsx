@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { HomeIcon, ScanIcon, ClipboardIcon, SettingsIcon, LogOutIcon } from './icons'
 
@@ -13,6 +13,13 @@ export function Layout() {
   const navigate = useNavigate()
 
   if (!profile) return null
+
+  const initials = profile.full_name
+    .split(' ')
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
 
   const navItems = [
     { to: '/', label: 'Home', icon: HomeIcon, show: true },
@@ -36,10 +43,15 @@ export function Layout() {
           <span className="font-semibold text-slate-900">Blue Star</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium text-slate-900">{profile.full_name}</p>
-            <p className="text-xs text-slate-500">{ROLE_LABEL[profile.role]}</p>
-          </div>
+          <Link to="/account" className="flex items-center gap-2" aria-label="Your account">
+            <span className="hidden text-right sm:block">
+              <p className="text-sm font-medium text-slate-900 hover:text-brand-700">{profile.full_name}</p>
+              <p className="text-xs text-slate-500">{ROLE_LABEL[profile.role]}</p>
+            </span>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+              {initials}
+            </span>
+          </Link>
           <button
             onClick={handleSignOut}
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"

@@ -74,6 +74,11 @@ admin requires an existing admin. So the very first one is created by hand, once
 3. Log into the app with employee code `admin1` and the password you set. From there,
    use **Admin → Users** to create everyone else normally.
 
+Everyone created via **Admin → Users** gets their employee code as their default
+password (min 6 characters) — no separate temp password to hand out. They can change
+it themselves from **Account** after logging in, or an admin can set a specific new
+one via the key icon next to their name.
+
 ## 4. Deploy to Vercel
 
 1. [vercel.com/new](https://vercel.com/new) → import the `Kevi47/Blue-Star` GitHub repo.

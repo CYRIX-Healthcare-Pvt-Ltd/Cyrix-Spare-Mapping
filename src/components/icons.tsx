@@ -157,6 +157,17 @@ export function AlertIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function KeyIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="7.5" cy="15.5" r="4.5" />
+      <path d="M10.8 12.2 19 4" />
+      <path d="M16 7l3 3" />
+      <path d="M13 4l3 3" />
+    </svg>
+  )
+}
+
 export function SpinnerIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)} className={`animate-spin ${props.className ?? ''}`}>

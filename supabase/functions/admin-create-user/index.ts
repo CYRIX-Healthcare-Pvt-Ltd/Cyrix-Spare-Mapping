@@ -43,19 +43,23 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { ecode, full_name, role, password, facility_ids } = body ?? {}
+  const { ecode, full_name, role, facility_ids } = body ?? {}
 
-  if (!ecode || !full_name || !role || !password) {
-    return json({ error: 'ecode, full_name, role and password are required' }, 400)
+  if (!ecode || !full_name || !role) {
+    return json({ error: 'ecode, full_name and role are required' }, 400)
   }
   if (!VALID_ROLES.includes(role)) {
     return json({ error: 'Invalid role' }, 400)
   }
-  if (String(password).length < 8) {
-    return json({ error: 'Password must be at least 8 characters' }, 400)
-  }
 
   const cleanEcode = String(ecode).trim()
+  // The default password is the employee code itself, so onboarding needs no
+  // separate temp password — the user changes it after first login (Account
+  // page). Supabase's own minimum is 6 characters, so the ecode must be too.
+  if (cleanEcode.length < 6) {
+    return json({ error: 'Employee code must be at least 6 characters — it doubles as the default password.' }, 400)
+  }
+  const password = cleanEcode
   const email = `${cleanEcode.toLowerCase()}@blue-star.internal`
 
   const { data: created, error: createError } = await adminClient.auth.admin.createUser({
