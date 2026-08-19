@@ -45,6 +45,9 @@ export interface Database {
           name: string
           address: string | null
           city: string | null
+          district: string | null
+          latitude: number | null
+          longitude: number | null
           active: boolean
           created_by: string | null
           created_at: string
@@ -54,6 +57,9 @@ export interface Database {
           name: string
           address?: string | null
           city?: string | null
+          district?: string | null
+          latitude?: number | null
+          longitude?: number | null
           active?: boolean
           created_by?: string | null
         }
@@ -61,6 +67,9 @@ export interface Database {
           name: string
           address: string | null
           city: string | null
+          district: string | null
+          latitude: number | null
+          longitude: number | null
           active: boolean
         }>
         Relationships: []
