@@ -1,4 +1,5 @@
 import type { FieldDefinitionRow } from '../types/app'
+import { ImageUploader } from './ImageUploader'
 
 export function DynamicFieldRenderer({
   fields,
@@ -39,6 +40,14 @@ function FieldInput({
     'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
   switch (field.field_type) {
+    case 'image':
+      return (
+        <ImageUploader
+          value={(value as string[]) ?? []}
+          onChange={onChange}
+          max={field.image_max_count ?? 3}
+        />
+      )
     case 'textarea':
       return (
         <textarea

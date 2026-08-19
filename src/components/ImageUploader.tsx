@@ -2,14 +2,14 @@ import { useRef, useState } from 'react'
 import { compressImageToBase64 } from '../lib/imageCompress'
 import { ImageIcon, XIcon, SpinnerIcon } from './icons'
 
-const MAX_IMAGES = 3
-
 export function ImageUploader({
   value,
   onChange,
+  max = 3,
 }: {
   value: string[]
   onChange: (images: string[]) => void
+  max?: number
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -18,7 +18,7 @@ export function ImageUploader({
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
     setError(null)
-    const remaining = MAX_IMAGES - value.length
+    const remaining = max - value.length
     const toProcess = Array.from(files).slice(0, remaining)
     setBusy(true)
     try {
@@ -41,7 +41,7 @@ export function ImageUploader({
       <div className="grid grid-cols-3 gap-2">
         {value.map((src, i) => (
           <div key={i} className="relative aspect-square overflow-hidden rounded-lg border border-slate-200">
-            <img src={src} alt={`Equipment photo ${i + 1}`} className="h-full w-full object-cover" />
+            <img src={src} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
             <button
               type="button"
               onClick={() => removeAt(i)}
@@ -52,7 +52,7 @@ export function ImageUploader({
             </button>
           </div>
         ))}
-        {value.length < MAX_IMAGES && (
+        {value.length < max && (
           <button
             type="button"
             disabled={busy}
@@ -73,7 +73,9 @@ export function ImageUploader({
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />
-      <p className="mt-1 text-xs text-slate-400">Up to {MAX_IMAGES} photos, {value.length}/{MAX_IMAGES} added.</p>
+      <p className="mt-1 text-xs text-slate-400">
+        Up to {max} photos, {value.length}/{max} added.
+      </p>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   )

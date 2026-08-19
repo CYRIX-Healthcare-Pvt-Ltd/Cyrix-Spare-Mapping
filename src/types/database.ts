@@ -5,7 +5,7 @@
 // (you may need to re-apply the `AppRole` / domain helper types below afterwards).
 
 export type AppRole = 'engineer' | 'project_manager' | 'admin'
-export type FieldType = 'text' | 'number' | 'date' | 'dropdown' | 'textarea' | 'boolean'
+export type FieldType = 'text' | 'number' | 'date' | 'dropdown' | 'textarea' | 'boolean' | 'image'
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
 export interface Database {
@@ -18,6 +18,7 @@ export interface Database {
           full_name: string
           role: AppRole
           active: boolean
+          reports_to: string | null
           created_at: string
           updated_at: string
         }
@@ -27,12 +28,14 @@ export interface Database {
           full_name: string
           role?: AppRole
           active?: boolean
+          reports_to?: string | null
         }
         Update: Partial<{
           ecode: string
           full_name: string
           role: AppRole
           active: boolean
+          reports_to: string | null
         }>
         Relationships: []
       }
@@ -75,6 +78,7 @@ export interface Database {
           label: string
           field_type: FieldType
           options: string[]
+          image_max_count: number | null
           required: boolean
           display_order: number
           active: boolean
@@ -86,6 +90,7 @@ export interface Database {
           label: string
           field_type?: FieldType
           options?: string[]
+          image_max_count?: number | null
           required?: boolean
           display_order?: number
           active?: boolean
@@ -95,6 +100,7 @@ export interface Database {
           label: string
           field_type: FieldType
           options: string[]
+          image_max_count: number | null
           required: boolean
           display_order: number
           active: boolean

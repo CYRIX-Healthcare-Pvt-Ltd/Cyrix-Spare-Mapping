@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { ecode, full_name, role, facility_ids } = body ?? {}
+  const { ecode, full_name, role, facility_ids, reports_to } = body ?? {}
 
   if (!ecode || !full_name || !role) {
     return json({ error: 'ecode, full_name and role are required' }, 400)
@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
     ecode: cleanEcode,
     full_name,
     role,
+    reports_to: role === 'engineer' && reports_to ? reports_to : null,
   })
   if (profileError) {
     await adminClient.auth.admin.deleteUser(created.user.id)

@@ -12,6 +12,7 @@ const TYPE_LABEL: Record<FieldType, string> = {
   date: 'Date',
   dropdown: 'Dropdown',
   boolean: 'Yes / No',
+  image: 'Image upload',
 }
 
 function slugify(label: string) {
@@ -28,6 +29,7 @@ export default function Fields() {
   const [label, setLabel] = useState('')
   const [fieldType, setFieldType] = useState<FieldType>('text')
   const [options, setOptions] = useState('')
+  const [imageMaxCount, setImageMaxCount] = useState(3)
   const [required, setRequired] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,6 +55,7 @@ export default function Fields() {
       label,
       field_type: fieldType,
       options: fieldType === 'dropdown' ? options.split(',').map((o) => o.trim()).filter(Boolean) : [],
+      image_max_count: fieldType === 'image' ? imageMaxCount : null,
       required,
       display_order: fields.length,
     })
@@ -64,6 +67,7 @@ export default function Fields() {
     }
     setLabel('')
     setOptions('')
+    setImageMaxCount(3)
     setRequired(false)
     setFieldType('text')
     load()
@@ -121,6 +125,19 @@ export default function Fields() {
             className={inputClass}
           />
         )}
+        {fieldType === 'image' && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Max images for this field</label>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={imageMaxCount}
+              onChange={(e) => setImageMaxCount(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
+              className={inputClass}
+            />
+          </div>
+        )}
         <label className="flex items-center gap-2 text-sm text-slate-700">
           <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
           Required
@@ -147,6 +164,7 @@ export default function Fields() {
                 <p className="text-xs text-slate-500">
                   {TYPE_LABEL[f.field_type]}
                   {f.field_type === 'dropdown' && f.options.length > 0 && `: ${f.options.join(', ')}`}
+                  {f.field_type === 'image' && ` (up to ${f.image_max_count ?? 3})`}
                 </p>
               </div>
               <div className="flex items-center gap-1">

@@ -25,6 +25,7 @@ export default function Users() {
   const [ecode, setEcode] = useState('')
   const [fullName, setFullName] = useState('')
   const [role, setRole] = useState<AppRole>('engineer')
+  const [reportsTo, setReportsTo] = useState('')
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,6 +37,8 @@ export default function Users() {
   const [resetPassword, setResetPassword] = useState('')
   const [resetConfirm, setResetConfirm] = useState('')
   const [resetError, setResetError] = useState<string | null>(null)
+  const [editingManagerFor, setEditingManagerFor] = useState<string | null>(null)
+  const [managerSelection, setManagerSelection] = useState('')
 
   const load = useCallback(async () => {
     const [{ data: profileRows }, { data: facilityRows }, { data: assignments }] = await Promise.all([
@@ -65,7 +68,13 @@ export default function Users() {
     setCreatedPassword(null)
 
     const { data, error: fnError } = await supabase.functions.invoke('admin-create-user', {
-      body: { ecode, full_name: fullName, role, facility_ids: selectedFacilities },
+      body: {
+        ecode,
+        full_name: fullName,
+        role,
+        facility_ids: selectedFacilities,
+        reports_to: role === 'engineer' && reportsTo ? reportsTo : undefined,
+      },
     })
 
     setSubmitting(false)
@@ -78,6 +87,7 @@ export default function Users() {
     setEcode('')
     setFullName('')
     setRole('engineer')
+    setReportsTo('')
     setSelectedFacilities([])
     load()
   }
@@ -149,7 +159,22 @@ export default function Users() {
     load()
   }
 
+  function startEditManager(u: UserRow) {
+    setEditingManagerFor(u.id)
+    setManagerSelection(u.reports_to ?? '')
+  }
+
+  async function saveManager(userId: string) {
+    setBusyId(userId)
+    await supabase.from('profiles').update({ reports_to: managerSelection || null }).eq('id', userId)
+    setBusyId(null)
+    setEditingManagerFor(null)
+    load()
+  }
+
   if (loading) return null
+
+  const managers = users.filter((u) => u.role === 'project_manager')
 
   const inputClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
@@ -176,6 +201,23 @@ export default function Users() {
           </select>
         </div>
         <input required placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} />
+
+        {role === 'engineer' && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Reporting manager</label>
+            <select value={reportsTo} onChange={(e) => setReportsTo(e.target.value)} className={inputClass}>
+              <option value="">No manager assigned</option>
+              {managers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.ecode} — {m.full_name}
+                </option>
+              ))}
+            </select>
+            {managers.length === 0 && (
+              <p className="mt-1 text-xs text-amber-600">No project managers exist yet — add one first if you want to assign one.</p>
+            )}
+          </div>
+        )}
         <p className="text-xs text-slate-500">
           Default password for every new user is <strong>123456</strong>. They should change it after first
           login (Account page), or you can set a specific one anytime via the key icon below.
@@ -329,6 +371,35 @@ export default function Users() {
                       .join(', ')}
               </button>
             )}
+
+            {u.role === 'engineer' &&
+              (editingManagerFor === u.id ? (
+                <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
+                  <select value={managerSelection} onChange={(e) => setManagerSelection(e.target.value)} className={inputClass}>
+                    <option value="">No manager assigned</option>
+                    {managers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.ecode} — {m.full_name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <button onClick={() => saveManager(u.id)} className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-white">
+                      Save
+                    </button>
+                    <button onClick={() => setEditingManagerFor(null)} className="rounded-lg border border-slate-300 px-3 py-1 text-xs text-slate-600">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => startEditManager(u)} className="mt-1.5 text-left text-xs text-slate-500 hover:text-brand-700">
+                  Reports to:{' '}
+                  {u.reports_to
+                    ? (managers.find((m) => m.id === u.reports_to)?.full_name ?? 'Unknown')
+                    : 'no one — tap to assign'}
+                </button>
+              ))}
           </li>
         ))}
       </ul>

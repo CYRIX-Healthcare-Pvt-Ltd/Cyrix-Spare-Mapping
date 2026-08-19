@@ -228,14 +228,38 @@ export default function EquipmentView() {
 
           {fieldDefs.length > 0 && (
             <dl className="mb-4 divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-              {fieldDefs.map((f) => (
-                <div key={f.id} className="flex justify-between gap-4 px-3 py-2 text-sm">
-                  <dt className="text-slate-500">{f.label}</dt>
-                  <dd className="text-right font-medium text-slate-800">
-                    {formatFieldValue(f, equipment.custom_fields[f.field_key])}
-                  </dd>
-                </div>
-              ))}
+              {fieldDefs.map((f) => {
+                const rawValue = equipment.custom_fields[f.field_key]
+                if (f.field_type === 'image') {
+                  const images = Array.isArray(rawValue) ? (rawValue as string[]) : []
+                  return (
+                    <div key={f.id} className="px-3 py-2 text-sm">
+                      <dt className="mb-1.5 text-slate-500">{f.label}</dt>
+                      {images.length === 0 ? (
+                        <dd className="font-medium text-slate-800">—</dd>
+                      ) : (
+                        <dd className="flex flex-wrap gap-2">
+                          {images.map((src, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setLightbox(src)}
+                              className="h-14 w-14 overflow-hidden rounded-lg border border-slate-200"
+                            >
+                              <img src={src} alt={`${f.label} ${i + 1}`} className="h-full w-full object-cover" />
+                            </button>
+                          ))}
+                        </dd>
+                      )}
+                    </div>
+                  )
+                }
+                return (
+                  <div key={f.id} className="flex justify-between gap-4 px-3 py-2 text-sm">
+                    <dt className="text-slate-500">{f.label}</dt>
+                    <dd className="text-right font-medium text-slate-800">{formatFieldValue(f, rawValue)}</dd>
+                  </div>
+                )
+              })}
             </dl>
           )}
 
