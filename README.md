@@ -52,10 +52,11 @@ git push -u origin main
    supabase db push
    ```
    (Or paste the contents of `supabase/migrations/0001_init.sql` into the Dashboard's SQL Editor and run it.)
-5. Deploy the two Edge Functions used by the admin "Add user" / "Delete user" flows:
+5. Deploy the Edge Functions used by the admin "Add user" / "Delete user" / "Reset password" flows:
    ```bash
    supabase functions deploy admin-create-user
    supabase functions deploy admin-delete-user
+   supabase functions deploy admin-reset-password
    ```
    These functions need the project's **service role key** (Project Settings → API → `service_role` secret) available as a secret — but Supabase sets `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` for every Edge Function automatically, so no manual `supabase secrets set` is needed here.
 
