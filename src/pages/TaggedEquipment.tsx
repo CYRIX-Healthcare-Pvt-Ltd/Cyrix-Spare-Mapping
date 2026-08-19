@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { MapPinIcon } from '../components/icons'
+import { formatDate } from '../lib/formatDate'
 import type { EquipmentRow } from '../types/app'
 
 interface DisplayRow extends EquipmentRow {
@@ -88,7 +89,7 @@ export default function TaggedEquipment() {
                 <MapPinIcon className="h-3 w-3 shrink-0" /> {r.facilityName}
               </p>
               <p className="mt-1 text-xs text-slate-400">
-                {new Date(r.created_at).toLocaleDateString()}
+                {formatDate(r.created_at)}
                 {showAttribution && r.taggerName && (
                   <>
                     {' '}

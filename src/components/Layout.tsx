@@ -28,10 +28,10 @@ export function Layout() {
   // the scanner's own red laser theme, Tagged is the positive/done green,
   // Requests is the pending-attention amber used on its badges elsewhere.
   const navItems = [
-    { to: '/', label: 'Home', icon: HomeIcon, show: true, activeText: 'text-brand-700', pillBg: 'bg-brand-50', activeBg: 'bg-brand-50 text-brand-700' },
-    { to: '/scan', label: 'Scan', icon: ScanIcon, show: true, activeText: 'text-purple-600', pillBg: 'bg-purple-50', activeBg: 'bg-purple-50 text-purple-600' },
-    { to: '/tagged', label: 'Tagged', icon: TagIcon, show: true, activeText: 'text-emerald-600', pillBg: 'bg-emerald-50', activeBg: 'bg-emerald-50 text-emerald-600' },
-    { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-amber-600', pillBg: 'bg-amber-50', activeBg: 'bg-amber-50 text-amber-600' },
+    { to: '/', label: 'Home', icon: HomeIcon, show: true, activeText: 'text-brand-700', pillBg: 'bg-brand-50' },
+    { to: '/scan', label: 'Scan', icon: ScanIcon, show: true, activeText: 'text-purple-600', pillBg: 'bg-purple-50' },
+    { to: '/tagged', label: 'Tagged', icon: TagIcon, show: true, activeText: 'text-emerald-600', pillBg: 'bg-emerald-50' },
+    { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-amber-600', pillBg: 'bg-amber-50' },
     {
       to: '/admin/facilities',
       label: 'Admin',
@@ -39,7 +39,6 @@ export function Layout() {
       show: profile.role === 'admin',
       activeText: 'text-indigo-600',
       pillBg: 'bg-indigo-50',
-      activeBg: 'bg-indigo-50 text-indigo-600',
     },
   ].filter((item) => item.show)
 
@@ -95,7 +94,7 @@ export function Layout() {
                     isActive ? pillBg : ''
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${isActive ? activeText : 'text-slate-500'}`} />
+                  <Icon className={`h-5 w-5 ${activeText}`} />
                 </span>
                 <span className={isActive ? activeText : 'text-slate-500'}>{label}</span>
               </>
@@ -105,18 +104,18 @@ export function Layout() {
       </nav>
 
       <nav className="hidden border-t border-slate-200 bg-white px-4 py-2 sm:flex sm:gap-1">
-        {navItems.map(({ to, label, icon: Icon, activeBg }) => (
+        {navItems.map(({ to, label, icon: Icon, activeText, pillBg }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${
-                isActive ? activeBg : 'text-slate-600 hover:bg-slate-100'
+              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive ? `${pillBg} ${activeText}` : 'text-slate-600 hover:bg-slate-100'
               }`
             }
           >
-            <Icon className="h-4 w-4" />
+            <Icon className={`h-4 w-4 ${activeText}`} />
             {label}
           </NavLink>
         ))}

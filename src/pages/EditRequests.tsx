@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { CheckIcon, XIcon, SpinnerIcon } from '../components/icons'
+import { formatDate } from '../lib/formatDate'
 import type { EditRequestRow } from '../types/app'
 
 interface DisplayRow extends EditRequestRow {
@@ -120,7 +121,7 @@ export default function EditRequests() {
             <p className="mb-2 text-xs text-slate-500">
               {r.equipmentLocation} · requested by {r.requesterName}
               {r.requesterEcode && ` (${r.requesterEcode})`} ·{' '}
-              {new Date(r.created_at).toLocaleDateString()}
+              {formatDate(r.created_at)}
             </p>
             <ProposedChanges changes={r.proposed_changes} />
             {r.review_note && <p className="mt-2 text-xs italic text-slate-500">Note: {r.review_note}</p>}

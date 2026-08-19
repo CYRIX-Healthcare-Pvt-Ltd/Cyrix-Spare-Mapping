@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { ChevronLeftIcon, PencilIcon, ClipboardIcon } from '../components/icons'
+import { formatDate } from '../lib/formatDate'
 import type { EquipmentRow, FacilityRow, FieldDefinitionRow, EquipmentFormValues } from '../types/app'
 
 function toFormValues(eq: EquipmentRow): EquipmentFormValues {
@@ -239,10 +240,9 @@ export default function EquipmentView() {
           )}
 
           <p className="text-xs text-slate-400">
-            Tagged {new Date(equipment.created_at).toLocaleDateString()}
+            Tagged {formatDate(equipment.created_at)}
             {taggedBy && ` by ${taggedBy.full_name} (${taggedBy.ecode})`}
-            {equipment.updated_at !== equipment.created_at &&
-              ` · updated ${new Date(equipment.updated_at).toLocaleDateString()}`}
+            {equipment.updated_at !== equipment.created_at && ` · updated ${formatDate(equipment.updated_at)}`}
           </p>
         </>
       )}
