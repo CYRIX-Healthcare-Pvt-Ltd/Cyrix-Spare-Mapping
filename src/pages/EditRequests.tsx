@@ -9,6 +9,7 @@ interface DisplayRow extends EditRequestRow {
   equipmentName: string
   equipmentLocation: string
   requesterName: string
+  requesterEcode: string
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -52,7 +53,7 @@ export default function EditRequests() {
         ? supabase.from('equipment').select('id, name, location').in('id', equipmentIds)
         : Promise.resolve({ data: [] }),
       requesterIds.length
-        ? supabase.from('profiles').select('id, full_name').in('id', requesterIds)
+        ? supabase.from('profiles').select('id, full_name, ecode').in('id', requesterIds)
         : Promise.resolve({ data: [] }),
     ])
 
@@ -65,6 +66,7 @@ export default function EditRequests() {
         equipmentName: equipmentMap.get(r.equipment_id)?.name ?? 'Deleted equipment',
         equipmentLocation: equipmentMap.get(r.equipment_id)?.location ?? '',
         requesterName: profileMap.get(r.requested_by)?.full_name ?? 'Unknown',
+        requesterEcode: profileMap.get(r.requested_by)?.ecode ?? '',
       }))
     )
     setLoading(false)
@@ -116,7 +118,8 @@ export default function EditRequests() {
               </span>
             </div>
             <p className="mb-2 text-xs text-slate-500">
-              {r.equipmentLocation} · requested by {r.requesterName} ·{' '}
+              {r.equipmentLocation} · requested by {r.requesterName}
+              {r.requesterEcode && ` (${r.requesterEcode})`} ·{' '}
               {new Date(r.created_at).toLocaleDateString()}
             </p>
             <ProposedChanges changes={r.proposed_changes} />

@@ -40,6 +40,7 @@ export default function EquipmentView() {
 
   const [equipment, setEquipment] = useState<EquipmentRow | null>(null)
   const [facility, setFacility] = useState<FacilityRow | null>(null)
+  const [taggedBy, setTaggedBy] = useState<{ full_name: string; ecode: string } | null>(null)
   const [allFacilities, setAllFacilities] = useState<FacilityRow[]>([])
   const [fieldDefs, setFieldDefs] = useState<FieldDefinitionRow[]>([])
   const [hasPendingRequest, setHasPendingRequest] = useState(false)
@@ -62,7 +63,7 @@ export default function EquipmentView() {
     }
     setEquipment(eq)
 
-    const [{ data: fac }, { data: facilities }, { data: fields }, { data: pending }] = await Promise.all([
+    const [{ data: fac }, { data: facilities }, { data: fields }, { data: pending }, { data: tagger }] = await Promise.all([
       supabase.from('facilities').select('*').eq('id', eq.facility_id).maybeSingle(),
       supabase.from('facilities').select('*').eq('active', true).order('name'),
       supabase.from('field_definitions').select('*').eq('active', true).order('display_order'),
@@ -73,9 +74,13 @@ export default function EquipmentView() {
         .eq('requested_by', profile.id)
         .eq('status', 'pending')
         .limit(1),
+      eq.created_by
+        ? supabase.from('profiles').select('full_name, ecode').eq('id', eq.created_by).maybeSingle()
+        : Promise.resolve({ data: null }),
     ])
 
     setFacility(fac ?? null)
+    setTaggedBy(tagger ?? null)
     setAllFacilities(
       profile.role === 'admin' ? (facilities ?? []) : (facilities ?? []).filter((f) => profile.facilityIds.includes(f.id))
     )
@@ -236,6 +241,7 @@ export default function EquipmentView() {
 
           <p className="text-xs text-slate-400">
             Tagged {new Date(equipment.created_at).toLocaleDateString()}
+            {taggedBy && ` by ${taggedBy.full_name} (${taggedBy.ecode})`}
             {equipment.updated_at !== equipment.created_at &&
               ` · updated ${new Date(equipment.updated_at).toLocaleDateString()}`}
           </p>

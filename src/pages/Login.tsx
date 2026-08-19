@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabaseClient'
 import { SpinnerIcon } from '../components/icons'
 
 export default function Login() {
@@ -12,6 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
 
   if (!loading && session) {
     const to = (location.state as { from?: string } | null)?.from ?? '/'
@@ -73,6 +75,16 @@ export default function Login() {
             />
           </div>
 
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={() => setShowForgot((v) => !v)}
+              className="text-xs font-medium text-brand-700 hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
+
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <button
@@ -85,11 +97,102 @@ export default function Login() {
           </button>
         </form>
 
+        {showForgot && (
+          <ForgotPasswordPanel
+            onDone={(resolvedEcode) => {
+              setEcode(resolvedEcode)
+              setShowForgot(false)
+            }}
+          />
+        )}
+
         <p className="mt-6 text-center text-xs text-slate-400">
-          Forgot your password, or don't have an employee code? Only your facility admin can set or reset it —
-          contact them for help.
+          Don't have an employee code? Ask your facility admin to add you.
         </p>
       </div>
+    </div>
+  )
+}
+
+function ForgotPasswordPanel({ onDone }: { onDone: (ecode: string) => void }) {
+  const [ecode, setEcode] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords don't match.")
+      return
+    }
+
+    setSubmitting(true)
+    const { data, error: fnError } = await supabase.functions.invoke('forgot-password', {
+      body: { ecode, new_password: newPassword },
+    })
+    setSubmitting(false)
+
+    if (fnError || data?.error) {
+      setError(data?.error ?? fnError?.message ?? 'Could not reset that password.')
+      return
+    }
+    setSuccess(true)
+    window.setTimeout(() => onDone(ecode), 900)
+  }
+
+  return (
+    <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      {success ? (
+        <p className="text-center text-sm text-emerald-600">Password updated — signing you in with it now.</p>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            required
+            type="text"
+            placeholder="Employee code"
+            value={ecode}
+            onChange={(e) => setEcode(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          />
+          <input
+            required
+            type="password"
+            placeholder="New password (min 6 characters)"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          />
+          <input
+            required
+            type="password"
+            placeholder="Confirm new password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          />
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-800 disabled:opacity-60"
+          >
+            {submitting && <SpinnerIcon className="h-4 w-4" />}
+            Reset password
+          </button>
+          <p className="text-center text-[11px] text-slate-400">
+            Admin accounts can't be reset here — an existing admin resets those from Admin → Users.
+          </p>
+        </form>
+      )}
     </div>
   )
 }
