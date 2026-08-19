@@ -50,8 +50,8 @@ Deno.serve(async (req) => {
   if (!user_id || !password) {
     return json({ error: 'user_id and password are required' }, 400)
   }
-  if (String(password).length < 8) {
-    return json({ error: 'Password must be at least 8 characters' }, 400)
+  if (String(password).length < 6) {
+    return json({ error: 'Password must be at least 6 characters' }, 400)
   }
 
   const { error } = await adminClient.auth.admin.updateUserById(user_id, { password })

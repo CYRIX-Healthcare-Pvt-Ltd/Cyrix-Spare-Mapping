@@ -123,8 +123,8 @@ export default function Users() {
 
   async function submitReset(userId: string) {
     setResetError(null)
-    if (resetPassword.length < 8) {
-      setResetError('Password must be at least 8 characters.')
+    if (resetPassword.length < 6) {
+      setResetError('Password must be at least 6 characters.')
       return
     }
     if (resetPassword !== resetConfirm) {
@@ -304,7 +304,7 @@ export default function Users() {
               <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
                 <input
                   type="password"
-                  placeholder="New password (min 8 characters)"
+                  placeholder="New password (min 6 characters)"
                   value={resetPassword}
                   onChange={(e) => setResetPassword(e.target.value)}
                   className={inputClass}
