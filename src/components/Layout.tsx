@@ -29,7 +29,7 @@ export function Layout() {
   // Requests is the pending-attention amber used on its badges elsewhere.
   const navItems = [
     { to: '/', label: 'Home', icon: HomeIcon, show: true, activeText: 'text-brand-700', pillBg: 'bg-brand-50', activeBg: 'bg-brand-50 text-brand-700' },
-    { to: '/scan', label: 'Scan', icon: ScanIcon, show: true, activeText: 'text-red-600', pillBg: 'bg-red-50', activeBg: 'bg-red-50 text-red-600' },
+    { to: '/scan', label: 'Scan', icon: ScanIcon, show: true, activeText: 'text-purple-600', pillBg: 'bg-purple-50', activeBg: 'bg-purple-50 text-purple-600' },
     { to: '/tagged', label: 'Tagged', icon: TagIcon, show: true, activeText: 'text-emerald-600', pillBg: 'bg-emerald-50', activeBg: 'bg-emerald-50 text-emerald-600' },
     { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-amber-600', pillBg: 'bg-amber-50', activeBg: 'bg-amber-50 text-amber-600' },
     {
