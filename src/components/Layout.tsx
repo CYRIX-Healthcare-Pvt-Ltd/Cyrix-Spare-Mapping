@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { HomeIcon, ScanIcon, ClipboardIcon, SettingsIcon, LogOutIcon } from './icons'
+import { CyrixLogo } from './CyrixLogo'
 
 const ROLE_LABEL: Record<string, string> = {
   engineer: 'Engineer',
@@ -36,10 +37,9 @@ export function Layout() {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur">
-        <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-700 text-sm font-bold text-white">
-            BS
-          </span>
+        <div className="flex items-center gap-2.5">
+          <CyrixLogo className="text-[9px]" subtitle={false} />
+          <span className="h-5 w-px bg-slate-200" />
           <span className="font-semibold text-slate-900">Blue Star</span>
         </div>
         <div className="flex items-center gap-3">

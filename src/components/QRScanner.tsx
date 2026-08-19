@@ -90,11 +90,11 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute inset-8 overflow-hidden rounded-xl">
             {CORNER_CLASSES.map((cls) => (
-              <span key={cls} className={`absolute h-6 w-6 border-brand-400 ${cls}`} />
+              <span key={cls} className={`absolute h-6 w-6 border-red-500 ${cls}`} />
             ))}
             {state === 'scanning' && (
               <motion.div
-                className="absolute inset-x-0 h-0.5 bg-brand-400 shadow-[0_0_8px_2px_rgba(96,165,250,0.8)]"
+                className="absolute inset-x-0 h-0.5 bg-red-500 shadow-[0_0_8px_2px_rgba(230,74,95,0.8)]"
                 animate={{ top: ['4%', '94%', '4%'] }}
                 transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
               />

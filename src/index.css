@@ -1,20 +1,74 @@
+/* Font itself is imported from main.tsx (not here) -- Vite/Rolldown
+   wasn't resolving the woff2 url()s referenced from a CSS @import of
+   @fontsource-variable, so the files silently never made it into the
+   build. Importing from JS gets them through the normal asset pipeline. */
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
-  --color-brand-950: #172554;
+  /*
+   * Cyrix Health Care palette, pulled from Cyrix-KPI's tailwind.config.js
+   * — black, red, white, exactly as the logo. No blue in the chrome.
+   *
+   * Overriding Tailwind's own `slate` and `red` scales (rather than only
+   * adding brand-* tokens) means every existing slate- and red- class
+   * already in this codebase picks up the real brand colors for free.
+   *
+   * Black (--color-brand-*, aliased to ink) carries structure and
+   * primary actions. Red stays the single accent, reserved for
+   * destructive actions and errors, so it keeps meaning something.
+   */
+  --color-slate-50: #f7f7f8;
+  --color-slate-100: #eeeef0;
+  --color-slate-200: #d8d9dd;
+  --color-slate-300: #b4b6bd;
+  --color-slate-400: #8a8d97;
+  --color-slate-500: #6b6e79;
+  --color-slate-600: #565962;
+  --color-slate-700: #464851;
+  --color-slate-800: #2b2d34;
+  --color-slate-900: #141519;
+  --color-slate-950: #000000;
 
-  --color-ink-950: #0b1120;
-  --color-ink-900: #0f172a;
+  --color-red-50: #fef2f3;
+  --color-red-100: #fde3e5;
+  --color-red-200: #fbccd0;
+  --color-red-300: #f7a8af;
+  --color-red-400: #f17886;
+  --color-red-500: #e64a5f;
+  --color-red-600: #e30613;
+  --color-red-700: #c00512;
+  --color-red-800: #9e0812;
+  --color-red-900: #7e1426;
+  --color-red-950: #460610;
+
+  --color-brand-50: #f7f7f8;
+  --color-brand-100: #eeeef0;
+  --color-brand-200: #d8d9dd;
+  --color-brand-300: #b4b6bd;
+  --color-brand-400: #8a8d97;
+  --color-brand-500: #6b6e79;
+  --color-brand-600: #565962;
+  --color-brand-700: #141519;
+  --color-brand-800: #0a0a0c;
+  --color-brand-900: #000000;
+  --color-brand-950: #000000;
+
+  --color-ink-950: #000000;
+  --color-ink-900: #141519;
+
+  --font-sans:
+    'Space Grotesk Variable', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root {
+  /* Standard strong easing curves — the built-in CSS ones read as too
+     weak to feel deliberate. Everything that moves should reach for one
+     of these rather than hand-rolling a cubic-bezier. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-press: 160ms;
+  --dur-fast: 200ms;
+  --dur-ui: 250ms;
 }
 
 html,
@@ -25,6 +79,7 @@ body,
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
+  font-family: var(--font-sans);
 }
 
 /* keeps the mobile viewport from rubber-banding/zooming during QR scans */
@@ -32,4 +87,41 @@ body {
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
+}
+
+/* Press feedback on every button in the app, applied once here rather
+   than per-component. Without it a button answers the pointer but never
+   the click, which is most of why an interface feels unresponsive. */
+button:not(:disabled) {
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    opacity var(--dur-fast) ease,
+    transform var(--dur-press) var(--ease-out);
+}
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-pop-in {
+  animation: pop-in var(--dur-fast) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active {
+    transform: none;
+  }
+  .animate-pop-in {
+    animation: none;
+  }
 }

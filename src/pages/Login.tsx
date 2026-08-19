@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { SpinnerIcon } from '../components/icons'
+import { CyrixLogo } from '../components/CyrixLogo'
 
 export default function Login() {
   const { session, loading, signIn } = useAuth()
@@ -36,12 +37,12 @@ export default function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-ink-950 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
-        <div className="mb-6 flex flex-col items-center gap-2">
-          <span className="grid h-12 w-12 place-items-center rounded-xl bg-brand-700 text-lg font-bold text-white">
-            BS
-          </span>
-          <h1 className="text-xl font-semibold text-slate-900">Blue Star</h1>
-          <p className="text-sm text-slate-500">Sign in to track hospital equipment</p>
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <CyrixLogo className="text-lg" />
+          <div className="text-center">
+            <h1 className="text-lg font-semibold text-slate-900">Blue Star</h1>
+            <p className="text-sm text-slate-500">Sign in to track hospital equipment</p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
