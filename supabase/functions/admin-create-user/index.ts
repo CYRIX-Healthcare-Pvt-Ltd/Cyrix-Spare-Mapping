@@ -57,13 +57,14 @@ Deno.serve(async (req) => {
   }
 
   const cleanEcode = String(ecode).trim()
-  // The default password is the employee code itself, so onboarding needs no
-  // separate temp password — the user changes it after first login (Account
-  // page). Supabase's own minimum is 6 characters, so the ecode must be too.
-  if (cleanEcode.length < 6) {
-    return json({ error: 'Employee code must be at least 6 characters — it doubles as the default password.' }, 400)
+  if (!cleanEcode) {
+    return json({ error: 'Employee code is required' }, 400)
   }
-  const password = cleanEcode
+  // Fixed default password for every new user (ecodes are often shorter
+  // than Supabase's real 6-character minimum, which can't be lowered on
+  // this plan). The user is expected to change it after first login
+  // (Account page).
+  const password = '123456'
   const email = `${cleanEcode.toLowerCase()}@blue-star.internal`
 
   const { data: created, error: createError } = await adminClient.auth.admin.createUser({
@@ -95,7 +96,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  return json({ id: created.user.id }, 200)
+  return json({ id: created.user.id, password }, 200)
 })
 
 function json(body: unknown, status: number) {

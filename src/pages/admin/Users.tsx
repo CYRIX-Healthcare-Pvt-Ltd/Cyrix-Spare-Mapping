@@ -28,6 +28,7 @@ export default function Users() {
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [createdPassword, setCreatedPassword] = useState<{ ecode: string; password: string } | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [editingFacilitiesFor, setEditingFacilitiesFor] = useState<string | null>(null)
   const [editSelection, setEditSelection] = useState<string[]>([])
@@ -61,6 +62,7 @@ export default function Users() {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
+    setCreatedPassword(null)
 
     const { data, error: fnError } = await supabase.functions.invoke('admin-create-user', {
       body: { ecode, full_name: fullName, role, facility_ids: selectedFacilities },
@@ -72,6 +74,7 @@ export default function Users() {
       return
     }
 
+    setCreatedPassword({ ecode, password: data.password })
     setEcode('')
     setFullName('')
     setRole('engineer')
@@ -159,8 +162,7 @@ export default function Users() {
         <div className="grid grid-cols-2 gap-2">
           <input
             required
-            minLength={6}
-            placeholder="Employee code (min 6 chars)"
+            placeholder="Employee code"
             value={ecode}
             onChange={(e) => setEcode(e.target.value)}
             className={inputClass}
@@ -175,7 +177,8 @@ export default function Users() {
         </div>
         <input required placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} />
         <p className="text-xs text-slate-500">
-          Default password is the employee code (min 6 characters). The user should change it after first login.
+          Default password for every new user is <strong>123456</strong>. They should change it after first
+          login (Account page), or you can set a specific one anytime via the key icon below.
         </p>
 
         <div>
@@ -206,6 +209,12 @@ export default function Users() {
           {submitting ? <SpinnerIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
           Add user
         </button>
+        {createdPassword && (
+          <p className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-700">
+            Created <strong>{createdPassword.ecode}</strong> — default password:{' '}
+            <strong className="font-mono">{createdPassword.password}</strong>
+          </p>
+        )}
       </form>
 
       <ul className="space-y-2">

@@ -160,10 +160,10 @@ export function AlertIcon(props: SVGProps<SVGSVGElement>) {
 export function KeyIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
-      <circle cx="7.5" cy="15.5" r="4.5" />
-      <path d="M10.8 12.2 19 4" />
-      <path d="M16 7l3 3" />
-      <path d="M13 4l3 3" />
+      <circle cx="7.5" cy="16.5" r="3.5" />
+      <path d="M10 14 20.5 3.5" />
+      <path d="M15.5 8 18 10.5" />
+      <path d="M18.5 4.5 21 7" />
     </svg>
   )
 }

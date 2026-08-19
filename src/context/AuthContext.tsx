@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, ecodeToEmail } from '../lib/supabaseClient'
@@ -54,11 +54,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(await loadProfile(current.user.id))
   }, [])
 
+  // Tracks whose profile is currently loaded, so we can tell a real sign-in
+  // (identity changes) apart from a silent background token refresh (same
+  // identity) — only the former should re-show a loading state.
+  const lastUserIdRef = useRef<string | null>(null)
+
   useEffect(() => {
     let active = true
 
     supabase.auth.getSession().then(async ({ data: { session: current } }) => {
       if (!active) return
+      lastUserIdRef.current = current?.user.id ?? null
       setSession(current)
       setProfile(current ? await loadProfile(current.user.id) : null)
       setLoading(false)
@@ -67,8 +73,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, current) => {
+      const isNewIdentity = (current?.user.id ?? null) !== lastUserIdRef.current
+      lastUserIdRef.current = current?.user.id ?? null
+
+      // Session and profile must land together — if a route decision (e.g.
+      // ProtectedRoute) is made while session is set but profile hasn't
+      // caught up yet, it bounces back to /login and can get stuck blank.
+      if (isNewIdentity) setLoading(true)
       setSession(current)
       setProfile(current ? await loadProfile(current.user.id) : null)
+      if (isNewIdentity) setLoading(false)
     })
 
     return () => {
