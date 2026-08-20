@@ -95,6 +95,8 @@ export default function EquipmentNew() {
       action: 'created',
       changes: { facility_id: values.facility_id, custom_fields: values.custom_fields },
       performed_by: profile.id,
+      latitude: position?.lat ?? null,
+      longitude: position?.lng ?? null,
     })
 
     // First tag at a facility with no recorded GPS yet establishes its

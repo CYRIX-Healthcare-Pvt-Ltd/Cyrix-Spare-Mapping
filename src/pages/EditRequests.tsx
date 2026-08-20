@@ -4,11 +4,12 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { CheckIcon, XIcon, SpinnerIcon } from '../components/icons'
 import { formatDate } from '../lib/formatDate'
-import type { EditRequestRow } from '../types/app'
+import { describeChanges } from '../lib/describeChanges'
+import type { EditRequestRow, EquipmentRow, FacilityRow, FieldDefinitionRow } from '../types/app'
 
 interface DisplayRow extends EditRequestRow {
-  equipmentName: string
-  equipmentLocation: string
+  equipment: EquipmentRow | null
+  facilityName: string
   requesterName: string
   requesterEcode: string
 }
@@ -22,6 +23,8 @@ const STATUS_STYLE: Record<string, string> = {
 export default function EditRequests() {
   const { profile } = useAuth()
   const [rows, setRows] = useState<DisplayRow[]>([])
+  const [fieldDefs, setFieldDefs] = useState<FieldDefinitionRow[]>([])
+  const [facilities, setFacilities] = useState<FacilityRow[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
@@ -43,32 +46,40 @@ export default function EditRequests() {
           .order('created_at', { ascending: false })
           .limit(100)
 
-    const { data: requests } = await query
+    const [{ data: requests }, { data: fields }, { data: facilityRows }] = await Promise.all([
+      query,
+      supabase.from('field_definitions').select('*').eq('active', true).order('display_order'),
+      supabase.from('facilities').select('*'),
+    ])
     const list = requests ?? []
+    setFieldDefs(fields ?? [])
+    setFacilities(facilityRows ?? [])
 
     const equipmentIds = [...new Set(list.map((r) => r.equipment_id))]
     const requesterIds = [...new Set(list.map((r) => r.requested_by))]
 
     const [{ data: equipmentRows }, { data: profileRows }] = await Promise.all([
-      equipmentIds.length
-        ? supabase.from('equipment').select('id, name, location').in('id', equipmentIds)
-        : Promise.resolve({ data: [] }),
+      equipmentIds.length ? supabase.from('equipment').select('*').in('id', equipmentIds) : Promise.resolve({ data: [] }),
       requesterIds.length
         ? supabase.from('profiles').select('id, full_name, ecode').in('id', requesterIds)
         : Promise.resolve({ data: [] }),
     ])
 
     const equipmentMap = new Map((equipmentRows ?? []).map((e) => [e.id, e]))
+    const facilityMap = new Map((facilityRows ?? []).map((f) => [f.id, f.name]))
     const profileMap = new Map((profileRows ?? []).map((p) => [p.id, p]))
 
     setRows(
-      list.map((r) => ({
-        ...r,
-        equipmentName: equipmentMap.get(r.equipment_id)?.name ?? 'Deleted equipment',
-        equipmentLocation: equipmentMap.get(r.equipment_id)?.location ?? '',
-        requesterName: profileMap.get(r.requested_by)?.full_name ?? 'Unknown',
-        requesterEcode: profileMap.get(r.requested_by)?.ecode ?? '',
-      }))
+      list.map((r) => {
+        const equipment = equipmentMap.get(r.equipment_id) ?? null
+        return {
+          ...r,
+          equipment,
+          facilityName: equipment ? (facilityMap.get(equipment.facility_id) ?? 'Unknown facility') : '',
+          requesterName: profileMap.get(r.requested_by)?.full_name ?? 'Unknown',
+          requesterEcode: profileMap.get(r.requested_by)?.ecode ?? '',
+        }
+      })
     )
     setLoading(false)
   }, [profile, canReview])
@@ -112,18 +123,23 @@ export default function EditRequests() {
           <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-1 flex items-start justify-between gap-2">
               <Link to={`/equipment/${r.equipment_id}`} className="font-medium text-slate-900 hover:underline">
-                {r.equipmentName}
+                {r.equipment?.name ?? 'Deleted equipment'}
               </Link>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[r.status]}`}>
                 {r.status}
               </span>
             </div>
             <p className="mb-2 text-xs text-slate-500">
-              {r.equipmentLocation} · requested by {r.requesterName}
+              {r.facilityName} · requested by {r.requesterName}
               {r.requesterEcode && ` (${r.requesterEcode})`} ·{' '}
               {formatDate(r.created_at)}
             </p>
-            <ProposedChanges changes={r.proposed_changes} />
+            <ProposedChanges
+              changes={r.proposed_changes}
+              fieldDefs={fieldDefs}
+              facilities={facilities}
+              current={r.equipment ?? undefined}
+            />
             {r.review_note && <p className="mt-2 text-xs italic text-slate-500">Note: {r.review_note}</p>}
 
             {canReview && r.status === 'pending' && (
@@ -181,15 +197,24 @@ export default function EditRequests() {
   )
 }
 
-function ProposedChanges({ changes }: { changes: Record<string, unknown> }) {
-  const keys = Object.keys(changes)
-  if (keys.length === 0) return null
+function ProposedChanges({
+  changes,
+  fieldDefs,
+  facilities,
+  current,
+}: {
+  changes: Record<string, unknown>
+  fieldDefs: FieldDefinitionRow[]
+  facilities: FacilityRow[]
+  current?: EquipmentRow
+}) {
+  const details = describeChanges(changes, fieldDefs, facilities, current)
+  if (details.length === 0) return null
   return (
     <ul className="space-y-0.5 text-xs text-slate-600">
-      {keys.map((k) => (
-        <li key={k}>
-          <span className="font-medium">{k === 'custom_fields' ? 'fields' : k}:</span>{' '}
-          {typeof changes[k] === 'object' ? JSON.stringify(changes[k]) : String(changes[k])}
+      {details.map((d, i) => (
+        <li key={i}>
+          <span className="font-medium">{d.label}:</span> {d.value}
         </li>
       ))}
     </ul>

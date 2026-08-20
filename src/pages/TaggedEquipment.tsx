@@ -80,7 +80,7 @@ export default function TaggedEquipment() {
   if (loading || !profile) return null
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6">
+    <div className="mx-auto max-w-md px-4 py-6 sm:max-w-5xl">
       <h1 className="mb-1 text-lg font-semibold text-slate-900">Tagged equipment</h1>
       <p className="mb-4 text-sm text-slate-500">
         {profile.role === 'engineer'

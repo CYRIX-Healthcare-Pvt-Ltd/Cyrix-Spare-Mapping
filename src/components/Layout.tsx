@@ -1,5 +1,7 @@
-import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabaseClient'
 import { HomeIcon, ScanIcon, ClipboardIcon, TagIcon, SettingsIcon, LogOutIcon } from './icons'
 import { CyrixLogo } from './CyrixLogo'
 import { BlueStarLogo } from './BlueStarLogo'
@@ -13,6 +15,23 @@ const ROLE_LABEL: Record<string, string> = {
 export function Layout() {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [pendingCount, setPendingCount] = useState(0)
+
+  // Re-fetched on every route change (not just once) so approving/rejecting
+  // a request elsewhere in the app is reflected here without a full reload.
+  useEffect(() => {
+    if (!profile) return
+    const query =
+      profile.role === 'engineer'
+        ? supabase
+            .from('edit_requests')
+            .select('id', { count: 'exact', head: true })
+            .eq('requested_by', profile.id)
+            .eq('status', 'pending')
+        : supabase.from('edit_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+    query.then(({ count }) => setPendingCount(count ?? 0))
+  }, [profile, location.pathname])
 
   if (!profile) return null
 
@@ -87,7 +106,14 @@ export function Layout() {
               }`
             }
           >
-            <Icon className={`h-4 w-4 ${activeText}`} />
+            <span className="relative">
+              <Icon className={`h-4 w-4 ${activeText}`} />
+              {to === '/requests' && pendingCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 grid h-3 min-w-3 place-items-center rounded-full bg-red-600 px-0.5 text-[8px] font-bold leading-none text-white">
+                  {pendingCount > 9 ? '9+' : pendingCount}
+                </span>
+              )}
+            </span>
             {label}
           </NavLink>
         ))}
@@ -108,11 +134,16 @@ export function Layout() {
             {({ isActive }) => (
               <>
                 <span
-                  className={`grid h-8 w-11 place-items-center rounded-full transition-colors ${
+                  className={`relative grid h-8 w-11 place-items-center rounded-full transition-colors ${
                     isActive ? pillBg : ''
                   }`}
                 >
                   <Icon className={`h-5 w-5 ${activeText}`} />
+                  {to === '/requests' && pendingCount > 0 && (
+                    <span className="absolute right-1.5 top-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-red-600 px-0.5 text-[9px] font-bold leading-none text-white">
+                      {pendingCount > 9 ? '9+' : pendingCount}
+                    </span>
+                  )}
                 </span>
                 <span className={isActive ? activeText : 'text-slate-500'}>{label}</span>
               </>

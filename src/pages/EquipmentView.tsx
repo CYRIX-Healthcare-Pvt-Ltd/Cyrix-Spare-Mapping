@@ -3,9 +3,11 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
-import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon, XIcon, TagIcon, MapPinIcon } from '../components/icons'
+import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon, XIcon, TagIcon, MapPinIcon, AlertIcon } from '../components/icons'
 import { formatDate } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
+import { describeChanges } from '../lib/describeChanges'
+import { getCurrentPosition } from '../lib/geolocate'
 import { haversineDistanceMeters, formatDistance, DISTANCE_WARNING_METERS } from '../lib/distance'
 import type { EquipmentRow, FacilityRow, FieldDefinitionRow, EquipmentFormValues, EquipmentHistoryRow } from '../types/app'
 
@@ -13,6 +15,13 @@ interface HistoryEntry extends EquipmentHistoryRow {
   performerName: string | null
   performerEcode: string | null
 }
+
+interface Coords {
+  lat: number
+  lng: number
+}
+
+type PerformEdit = (values: EquipmentFormValues, position: Coords | null) => Promise<void>
 
 function toFormValues(eq: EquipmentRow): EquipmentFormValues {
   return {
@@ -36,34 +45,26 @@ function buildDiff(original: EquipmentFormValues, updated: EquipmentFormValues) 
   return diff
 }
 
-// Turns a history row's `changes` (same shape as an edit-request diff --
-// facility_id and/or a custom_fields object) into plain "label: value" pairs
-// for display, resolving custom field keys to their admin-defined labels.
-function describeChanges(
-  changes: Record<string, unknown>,
-  fieldDefs: FieldDefinitionRow[],
-  facilities: FacilityRow[]
-): { label: string; value: string }[] {
-  const out: { label: string; value: string }[] = []
-  if (typeof changes.facility_id === 'string') {
-    const facilityName = facilities.find((f) => f.id === changes.facility_id)?.name ?? 'Unknown facility'
-    out.push({ label: 'Facility', value: facilityName })
+// Same shape as buildDiff's output, but each changed value is wrapped as
+// {from, to} instead of just the new value -- only equipment_history reads
+// this enriched shape (for the "Ventilator → CT Scan" style log entries).
+// edit_requests.proposed_changes must stay the flat buildDiff shape, since
+// resolve_edit_request() merges it straight into equipment.custom_fields.
+function buildHistoryChanges(original: EquipmentFormValues, updated: EquipmentFormValues) {
+  const changes: Record<string, unknown> = {}
+  if (updated.facility_id !== original.facility_id) {
+    changes.facility_id = { from: original.facility_id, to: updated.facility_id }
   }
-  const customFields = changes.custom_fields
-  if (customFields && typeof customFields === 'object') {
-    for (const [key, value] of Object.entries(customFields as Record<string, unknown>)) {
-      const field = fieldDefs.find((f) => f.field_key === key)
-      if (field) {
-        out.push({
-          label: field.label,
-          value: field.field_type === 'image' ? `${Array.isArray(value) ? value.length : 0} photo(s)` : formatFieldValue(field, value),
-        })
-      } else {
-        out.push({ label: key, value: String(value) })
-      }
+
+  const customChanges: Record<string, unknown> = {}
+  for (const key of Object.keys(updated.custom_fields)) {
+    if (JSON.stringify(updated.custom_fields[key]) !== JSON.stringify(original.custom_fields[key])) {
+      customChanges[key] = { from: original.custom_fields[key] ?? null, to: updated.custom_fields[key] }
     }
   }
-  return out
+  if (Object.keys(customChanges).length > 0) changes.custom_fields = customChanges
+
+  return changes
 }
 
 export default function EquipmentView() {
@@ -73,6 +74,7 @@ export default function EquipmentView() {
   const [equipment, setEquipment] = useState<EquipmentRow | null>(null)
   const [facility, setFacility] = useState<FacilityRow | null>(null)
   const [taggedBy, setTaggedBy] = useState<{ full_name: string; ecode: string } | null>(null)
+  const [updatedBy, setUpdatedBy] = useState<{ full_name: string; ecode: string } | null>(null)
   const [allFacilities, setAllFacilities] = useState<FacilityRow[]>([])
   const [fieldDefs, setFieldDefs] = useState<FieldDefinitionRow[]>([])
   const [hasPendingRequest, setHasPendingRequest] = useState(false)
@@ -84,6 +86,10 @@ export default function EquipmentView() {
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [distanceWarning, setDistanceWarning] = useState<string | null>(null)
+  const [pendingEdit, setPendingEdit] = useState<{ values: EquipmentFormValues; position: Coords | null; perform: PerformEdit } | null>(
+    null
+  )
 
   const load = useCallback(async () => {
     if (!id || !profile) return
@@ -97,7 +103,7 @@ export default function EquipmentView() {
     }
     setEquipment(eq)
 
-    const [{ data: fac }, { data: facilities }, { data: fields }, { data: pending }, { data: tagger }, { data: historyRows }] =
+    const [{ data: fac }, { data: facilities }, { data: fields }, { data: pending }, { data: tagger }, { data: updater }, { data: historyRows }] =
       await Promise.all([
         supabase.from('facilities').select('*').eq('id', eq.facility_id).maybeSingle(),
         supabase.from('facilities').select('*').eq('active', true).order('name'),
@@ -112,11 +118,15 @@ export default function EquipmentView() {
         eq.created_by
           ? supabase.from('profiles').select('full_name, ecode').eq('id', eq.created_by).maybeSingle()
           : Promise.resolve({ data: null }),
-        supabase.from('equipment_history').select('*').eq('equipment_id', id).order('performed_at', { ascending: false }),
+        eq.updated_by
+          ? supabase.from('profiles').select('full_name, ecode').eq('id', eq.updated_by).maybeSingle()
+          : Promise.resolve({ data: null }),
+        supabase.from('equipment_history').select('*').eq('equipment_id', id).order('performed_at', { ascending: true }),
       ])
 
     setFacility(fac ?? null)
     setTaggedBy(tagger ?? null)
+    setUpdatedBy(updater ?? null)
     setAllFacilities(
       profile.role === 'admin' ? (facilities ?? []) : (facilities ?? []).filter((f) => profile.facilityIds.includes(f.id))
     )
@@ -143,12 +153,10 @@ export default function EquipmentView() {
     load()
   }, [load])
 
-  async function handleDirectUpdate(values: EquipmentFormValues) {
+  async function performDirectUpdate(values: EquipmentFormValues, position: Coords | null) {
     if (!equipment || !profile) return
-    setSubmitting(true)
-    setError(null)
 
-    const diff = buildDiff(toFormValues(equipment), values)
+    const historyChanges = buildHistoryChanges(toFormValues(equipment), values)
 
     const { error: updateError } = await supabase
       .from('equipment')
@@ -159,16 +167,17 @@ export default function EquipmentView() {
       })
       .eq('id', equipment.id)
 
-    if (!updateError && Object.keys(diff).length > 0) {
+    if (!updateError && Object.keys(historyChanges).length > 0) {
       await supabase.from('equipment_history').insert({
         equipment_id: equipment.id,
         action: 'updated',
-        changes: diff,
+        changes: historyChanges,
         performed_by: profile.id,
+        latitude: position?.lat ?? null,
+        longitude: position?.lng ?? null,
       })
     }
 
-    setSubmitting(false)
     if (updateError) {
       setError(updateError.message)
       return
@@ -177,7 +186,7 @@ export default function EquipmentView() {
     await load()
   }
 
-  async function handleRequestEdit(values: EquipmentFormValues) {
+  async function performRequestEdit(values: EquipmentFormValues, position: Coords | null) {
     if (!equipment || !profile) return
     const diff = buildDiff(toFormValues(equipment), values)
     if (Object.keys(diff).length === 0) {
@@ -185,14 +194,13 @@ export default function EquipmentView() {
       return
     }
 
-    setSubmitting(true)
-    setError(null)
     const { error: insertError } = await supabase.from('edit_requests').insert({
       equipment_id: equipment.id,
       requested_by: profile.id,
       proposed_changes: diff,
+      latitude: position?.lat ?? null,
+      longitude: position?.lng ?? null,
     })
-    setSubmitting(false)
 
     if (insertError) {
       setError(insertError.message)
@@ -200,6 +208,42 @@ export default function EquipmentView() {
     }
     setEditing(false)
     setHasPendingRequest(true)
+  }
+
+  async function submitWithGpsCheck(values: EquipmentFormValues, perform: PerformEdit) {
+    setSubmitting(true)
+    setError(null)
+
+    let position: Coords | null = null
+    try {
+      const pos = await getCurrentPosition()
+      position = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+    } catch {
+      // GPS is best-effort -- never blocks an edit on its own.
+    }
+
+    const targetFacility = allFacilities.find((f) => f.id === values.facility_id)
+    if (position && targetFacility?.latitude != null && targetFacility?.longitude != null) {
+      const distance = haversineDistanceMeters(position.lat, position.lng, targetFacility.latitude, targetFacility.longitude)
+      if (distance > DISTANCE_WARNING_METERS) {
+        setSubmitting(false)
+        setPendingEdit({ values, position, perform })
+        setDistanceWarning(formatDistance(distance))
+        return
+      }
+    }
+
+    await perform(values, position)
+    setSubmitting(false)
+  }
+
+  async function confirmEditAnyway() {
+    if (!pendingEdit) return
+    setSubmitting(true)
+    setDistanceWarning(null)
+    await pendingEdit.perform(pendingEdit.values, pendingEdit.position)
+    setSubmitting(false)
+    setPendingEdit(null)
   }
 
   if (loading) return null
@@ -216,11 +260,6 @@ export default function EquipmentView() {
   }
 
   const canEditDirectly = profile.role === 'project_manager' || profile.role === 'admin'
-
-  const tagDistanceMeters =
-    equipment.tag_latitude != null && equipment.tag_longitude != null && facility?.latitude != null && facility?.longitude != null
-      ? haversineDistanceMeters(equipment.tag_latitude, equipment.tag_longitude, facility.latitude, facility.longitude)
-      : null
 
   return (
     <div className="mx-auto max-w-md px-4 py-6">
@@ -239,8 +278,37 @@ export default function EquipmentView() {
             initialValues={toFormValues(equipment)}
             submitLabel={canEditDirectly ? 'Save changes' : 'Submit request'}
             submitting={submitting}
-            onSubmit={canEditDirectly ? handleDirectUpdate : handleRequestEdit}
+            disabled={!!distanceWarning}
+            onSubmit={(values) => submitWithGpsCheck(values, canEditDirectly ? performDirectUpdate : performRequestEdit)}
           />
+
+          {distanceWarning && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="flex items-start gap-1.5 text-sm text-amber-800">
+                <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                You're {distanceWarning} from this facility's recorded location. Continue anyway?
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={confirmEditAnyway}
+                  disabled={submitting}
+                  className="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                >
+                  {submitting ? 'Saving…' : 'Continue anyway'}
+                </button>
+                <button
+                  onClick={() => {
+                    setDistanceWarning(null)
+                    setPendingEdit(null)
+                  }}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => setEditing(false)}
@@ -324,7 +392,13 @@ export default function EquipmentView() {
             <p className="text-xs text-slate-400">
               Tagged {formatDate(equipment.created_at)}
               {taggedBy && ` by ${taggedBy.full_name} (${taggedBy.ecode})`}
-              {equipment.updated_at !== equipment.created_at && ` · updated ${formatDate(equipment.updated_at)}`}
+              {equipment.updated_at !== equipment.created_at && (
+                <>
+                  {' '}
+                  · updated {formatDate(equipment.updated_at)}
+                  {updatedBy && ` by ${updatedBy.full_name} (${updatedBy.ecode})`}
+                </>
+              )}
             </p>
             <button
               onClick={() => setHistoryOpen(true)}
@@ -365,6 +439,10 @@ export default function EquipmentView() {
               {history.length === 0 && <li className="px-4 py-6 text-center text-sm text-slate-400">No history yet.</li>}
               {history.map((h) => {
                 const details = describeChanges(h.changes, fieldDefs, allFacilities)
+                const entryDistance =
+                  h.latitude != null && h.longitude != null && facility?.latitude != null && facility?.longitude != null
+                    ? haversineDistanceMeters(h.latitude, h.longitude, facility.latitude, facility.longitude)
+                    : null
                 return (
                   <li key={h.id} className="flex gap-3 px-4 py-3">
                     <span
@@ -381,16 +459,14 @@ export default function EquipmentView() {
                       <p className="text-xs text-slate-500">
                         {h.performerName ? `${h.performerName}${h.performerEcode ? ` (${h.performerEcode})` : ''}` : 'Unknown user'}
                       </p>
-                      {h.action === 'created' && tagDistanceMeters !== null && (
+                      {entryDistance !== null && (
                         <span
                           className={`mt-1 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                            tagDistanceMeters > DISTANCE_WARNING_METERS
-                              ? 'bg-amber-50 text-amber-700'
-                              : 'bg-emerald-50 text-emerald-700'
+                            entryDistance > DISTANCE_WARNING_METERS ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
                           }`}
                         >
                           <MapPinIcon className="h-3 w-3" />
-                          {formatDistance(tagDistanceMeters)} from facility
+                          {formatDistance(entryDistance)} from facility
                         </span>
                       )}
                       {details.length > 0 && (

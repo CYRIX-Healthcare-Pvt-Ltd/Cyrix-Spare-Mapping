@@ -163,12 +163,16 @@ export interface Database {
           reviewed_by: string | null
           reviewed_at: string | null
           review_note: string | null
+          latitude: number | null
+          longitude: number | null
           created_at: string
         }
         Insert: {
           equipment_id: string
           requested_by: string
           proposed_changes: Record<string, unknown>
+          latitude?: number | null
+          longitude?: number | null
         }
         Update: never
         Relationships: []
@@ -192,12 +196,16 @@ export interface Database {
           changes: Record<string, unknown>
           performed_by: string | null
           performed_at: string
+          latitude: number | null
+          longitude: number | null
         }
         Insert: {
           equipment_id: string
           action: 'created' | 'updated'
           changes?: Record<string, unknown>
           performed_by?: string | null
+          latitude?: number | null
+          longitude?: number | null
         }
         Update: never
         Relationships: []
