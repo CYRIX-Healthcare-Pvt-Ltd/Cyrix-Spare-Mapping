@@ -215,6 +215,17 @@ export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 12a9 9 0 0 1 15.3-6.5L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.3 6.5L3 16" />
+      <path d="M3 21v-5h5" />
+    </svg>
+  )
+}
+
 export function HistoryIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>

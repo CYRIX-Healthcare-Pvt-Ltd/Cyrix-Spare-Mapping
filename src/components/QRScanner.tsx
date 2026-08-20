@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckIcon, AlertIcon, ImageIcon, SpinnerIcon } from './icons'
+import { CheckIcon, AlertIcon, ImageIcon, SpinnerIcon, RefreshIcon } from './icons'
 
 type ScanState = 'starting' | 'scanning' | 'success' | 'camera-error'
 
 const READER_ID = 'qr-reader-region'
 const FILE_READER_ID = 'qr-reader-file-region'
+
+// A code has to be read continuously for this long before it's accepted --
+// otherwise the camera sweeping past an unrelated code while the user is
+// still aiming at the right one gets grabbed by mistake.
+const CONFIRM_MS = 1000
 
 const CORNER_CLASSES = [
   'top-0 left-0 border-t-4 border-l-4 rounded-tl-lg',
@@ -18,12 +23,17 @@ const CORNER_CLASSES = [
 export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
   const [state, setState] = useState<ScanState>('starting')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [resultText, setResultText] = useState<string | null>(null)
   const decodedRef = useRef(false)
+  const pendingRef = useRef<{ text: string; since: number } | null>(null)
+  const scannerRef = useRef<Html5Qrcode | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const scanner = new Html5Qrcode(READER_ID, { verbose: false })
+    scannerRef.current = scanner
     decodedRef.current = false
+    pendingRef.current = null
 
     scanner
       .start(
@@ -31,14 +41,15 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
           if (decodedRef.current) return
-          decodedRef.current = true
-          setState('success')
-          scanner
-            .stop()
-            .catch(() => {})
-            .finally(() => {
-              window.setTimeout(() => onDecode(decodedText), 550)
-            })
+          const now = Date.now()
+          if (pendingRef.current?.text === decodedText) {
+            if (now - pendingRef.current.since < CONFIRM_MS) return
+            decodedRef.current = true
+            setResultText(decodedText)
+            setState('success')
+          } else {
+            pendingRef.current = { text: decodedText, since: now }
+          }
         },
         () => {
           /* fires continuously while no code is in frame — expected, ignore */
@@ -57,30 +68,42 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
     }
   }, [onDecode])
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      setErrorMsg(null)
-      let el = document.getElementById(FILE_READER_ID)
-      if (!el) {
-        el = document.createElement('div')
-        el.id = FILE_READER_ID
-        el.style.display = 'none'
-        document.body.appendChild(el)
-      }
-      const fileScanner = new Html5Qrcode(FILE_READER_ID, { verbose: false })
-      try {
-        const text = await fileScanner.scanFile(file, false)
-        decodedRef.current = true
-        setState('success')
-        window.setTimeout(() => onDecode(text), 400)
-      } catch {
-        setErrorMsg('No QR code found in that photo. Try a clearer, closer shot.')
-      } finally {
-        fileScanner.clear()
-      }
-    },
-    [onDecode]
-  )
+  const handleFile = useCallback(async (file: File) => {
+    setErrorMsg(null)
+    let el = document.getElementById(FILE_READER_ID)
+    if (!el) {
+      el = document.createElement('div')
+      el.id = FILE_READER_ID
+      el.style.display = 'none'
+      document.body.appendChild(el)
+    }
+    const fileScanner = new Html5Qrcode(FILE_READER_ID, { verbose: false })
+    try {
+      const text = await fileScanner.scanFile(file, false)
+      decodedRef.current = true
+      setResultText(text)
+      setState('success')
+    } catch {
+      setErrorMsg('No QR code found in that photo. Try a clearer, closer shot.')
+    } finally {
+      fileScanner.clear()
+    }
+  }, [])
+
+  function handleContinue() {
+    if (!resultText) return
+    scannerRef.current
+      ?.stop()
+      .catch(() => {})
+      .finally(() => onDecode(resultText))
+  }
+
+  function handleRetake() {
+    decodedRef.current = false
+    pendingRef.current = null
+    setResultText(null)
+    setState((s) => (s === 'success' ? 'scanning' : s))
+  }
 
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center gap-4 px-4 py-6">
@@ -129,23 +152,48 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
         </div>
       </div>
 
-      <p className="text-center text-sm text-slate-500">
-        Line the QR code up inside the frame — it scans automatically.
-      </p>
+      {state === 'success' && resultText ? (
+        <div className="w-full max-w-xs animate-pop-in space-y-3">
+          <p className="truncate rounded-lg bg-slate-100 px-3 py-2 text-center font-mono text-xs text-slate-600">{resultText}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleRetake}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <RefreshIcon className="h-4 w-4" /> Retake
+            </button>
+            <button
+              type="button"
+              onClick={handleContinue}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
+            >
+              <CheckIcon className="h-4 w-4" /> Continue
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="text-center text-sm text-slate-500">
+            Line the QR code up inside the frame — it scans automatically.
+          </p>
 
-      {errorMsg && (
-        <p className="flex items-center gap-1.5 text-center text-sm text-amber-700">
-          <AlertIcon className="h-4 w-4 shrink-0" /> {errorMsg}
-        </p>
+          {errorMsg && (
+            <p className="flex items-center gap-1.5 text-center text-sm text-amber-700">
+              <AlertIcon className="h-4 w-4 shrink-0" /> {errorMsg}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            <ImageIcon className="h-4 w-4" /> Upload a QR photo instead
+          </button>
+        </>
       )}
 
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-      >
-        <ImageIcon className="h-4 w-4" /> Upload a QR photo instead
-      </button>
       <input
         ref={fileInputRef}
         type="file"

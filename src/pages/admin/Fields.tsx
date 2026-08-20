@@ -14,6 +14,7 @@ const TYPE_LABEL: Record<FieldType, string> = {
   dropdown: 'Dropdown',
   boolean: 'Yes / No',
   image: 'Image upload',
+  barcode: 'Barcode / scan',
 }
 
 function slugify(label: string) {

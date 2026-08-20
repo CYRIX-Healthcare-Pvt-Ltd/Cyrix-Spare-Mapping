@@ -5,7 +5,7 @@
 // (you may need to re-apply the `AppRole` / domain helper types below afterwards).
 
 export type AppRole = 'engineer' | 'project_manager' | 'admin'
-export type FieldType = 'text' | 'number' | 'date' | 'dropdown' | 'textarea' | 'boolean' | 'image'
+export type FieldType = 'text' | 'number' | 'date' | 'dropdown' | 'textarea' | 'boolean' | 'image' | 'barcode'
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
 export interface Database {
