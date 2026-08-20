@@ -52,6 +52,11 @@ export default function Fields() {
     setSubmitting(true)
     setError(null)
 
+    // fields.length isn't safe here -- reordering (the up/down arrows below)
+    // or deleting a field can leave display_order with gaps or ties, so a
+    // freshly added field can land on a value another field already has.
+    const nextOrder = fields.length ? Math.max(...fields.map((f) => f.display_order)) + 1 : 0
+
     const key = slugify(label)
     const { error: insertError } = await supabase.from('field_definitions').insert({
       field_key: key,
@@ -60,7 +65,7 @@ export default function Fields() {
       options: fieldType === 'dropdown' ? options.split(',').map((o) => o.trim()).filter(Boolean) : [],
       image_max_count: fieldType === 'image' ? imageMaxCount : null,
       required,
-      display_order: fields.length,
+      display_order: nextOrder,
     })
 
     setSubmitting(false)

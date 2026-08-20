@@ -24,8 +24,10 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
   const [state, setState] = useState<ScanState>('starting')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [resultText, setResultText] = useState<string | null>(null)
+  const [holding, setHolding] = useState(false)
   const decodedRef = useRef(false)
   const pendingRef = useRef<{ text: string; since: number } | null>(null)
+  const holdingTimeoutRef = useRef<number | null>(null)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -41,6 +43,15 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
           if (decodedRef.current) return
+
+          // A code is in frame right now -- show "Hold steady" while we
+          // confirm it, and clear that hint if the code drops out of frame
+          // for a bit (rather than on every single missed scan attempt,
+          // which fires constantly and would just flicker the hint).
+          setHolding(true)
+          if (holdingTimeoutRef.current) window.clearTimeout(holdingTimeoutRef.current)
+          holdingTimeoutRef.current = window.setTimeout(() => setHolding(false), 350)
+
           const now = Date.now()
           if (pendingRef.current?.text === decodedText) {
             if (now - pendingRef.current.since < CONFIRM_MS) return
@@ -101,6 +112,7 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
   function handleRetake() {
     decodedRef.current = false
     pendingRef.current = null
+    setHolding(false)
     setResultText(null)
     setState((s) => (s === 'success' ? 'scanning' : s))
   }
@@ -113,9 +125,12 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute inset-8 overflow-hidden rounded-xl">
             {CORNER_CLASSES.map((cls) => (
-              <span key={cls} className={`absolute h-6 w-6 border-purple-400 ${cls}`} />
+              <span
+                key={cls}
+                className={`absolute h-6 w-6 transition-colors duration-200 ${holding ? 'border-emerald-400' : 'border-purple-400'} ${cls}`}
+              />
             ))}
-            {state === 'scanning' && (
+            {state === 'scanning' && !holding && (
               <motion.div
                 className="absolute inset-x-0 h-0.5 bg-purple-400 shadow-[0_0_8px_2px_rgba(192,132,252,0.8)]"
                 animate={{ top: ['4%', '94%', '4%'] }}
@@ -174,8 +189,8 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
         </div>
       ) : (
         <>
-          <p className="text-center text-sm text-slate-500">
-            Line the QR code up inside the frame — it scans automatically.
+          <p className={`text-center text-sm ${holding ? 'font-medium text-emerald-600' : 'text-slate-500'}`}>
+            {holding ? 'Got it — hold steady…' : 'Line the QR code up inside the frame — it scans automatically.'}
           </p>
 
           {errorMsg && (
