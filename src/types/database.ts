@@ -125,6 +125,8 @@ export interface Database {
           location: string
           images: string[]
           custom_fields: Record<string, unknown>
+          tag_latitude: number | null
+          tag_longitude: number | null
           created_by: string | null
           updated_by: string | null
           created_at: string
@@ -137,6 +139,8 @@ export interface Database {
           location: string
           images?: string[]
           custom_fields?: Record<string, unknown>
+          tag_latitude?: number | null
+          tag_longitude?: number | null
           created_by?: string | null
         }
         Update: Partial<{
@@ -178,6 +182,24 @@ export interface Database {
         }
         Insert: { key: string; value: unknown; updated_by?: string | null }
         Update: Partial<{ value: unknown; updated_by: string | null }>
+        Relationships: []
+      }
+      equipment_history: {
+        Row: {
+          id: string
+          equipment_id: string
+          action: 'created' | 'updated'
+          changes: Record<string, unknown>
+          performed_by: string | null
+          performed_at: string
+        }
+        Insert: {
+          equipment_id: string
+          action: 'created' | 'updated'
+          changes?: Record<string, unknown>
+          performed_by?: string | null
+        }
+        Update: never
         Relationships: []
       }
     }

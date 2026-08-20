@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabaseClient'
-import { PlusIcon, TrashIcon, SpinnerIcon, KeyIcon } from '../../components/icons'
+import { PlusIcon, TrashIcon, SpinnerIcon, KeyIcon, UploadIcon } from '../../components/icons'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { BulkUploadModal, type RowOutcome } from '../../components/BulkUploadModal'
+import { FacilityMultiSelect } from '../../components/FacilityMultiSelect'
 import type { ProfileRow, FacilityRow } from '../../types/app'
 import type { AppRole } from '../../types/database'
 
@@ -13,8 +15,47 @@ const ROLE_LABEL: Record<AppRole, string> = {
   admin: 'Admin',
 }
 
+const VALID_ROLES: AppRole[] = ['engineer', 'project_manager', 'admin']
+
 interface UserRow extends ProfileRow {
   facilityIds: string[]
+}
+
+interface UserImportRow {
+  ecode: string
+  full_name: string
+  role: AppRole
+  reports_to_ecode: string | null
+  facility_names: string[]
+}
+
+function parseUserRow(raw: Record<string, string>): { data: UserImportRow } | { error: string } {
+  const ecode = raw.ecode?.trim()
+  const full_name = raw.full_name?.trim()
+  if (!ecode) return { error: 'ecode is required' }
+  if (!full_name) return { error: 'full_name is required' }
+
+  const roleRaw = raw.role?.trim()
+  if (!roleRaw) return { error: 'role is required' }
+  const roleKey = roleRaw.toLowerCase().replace(/[\s-]+/g, '_') as AppRole
+  if (!VALID_ROLES.includes(roleKey)) {
+    return { error: `Invalid role "${roleRaw}" (use engineer, project_manager, or admin)` }
+  }
+
+  const facility_names = (raw.facility_names ?? '')
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  return {
+    data: {
+      ecode,
+      full_name,
+      role: roleKey,
+      reports_to_ecode: raw.reports_to_ecode?.trim() || null,
+      facility_names,
+    },
+  }
 }
 
 export default function Users() {
@@ -41,6 +82,7 @@ export default function Users() {
   const [editingManagerFor, setEditingManagerFor] = useState<string | null>(null)
   const [managerSelection, setManagerSelection] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<UserRow | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   const load = useCallback(async () => {
     const [{ data: profileRows }, { data: facilityRows }, { data: assignments }] = await Promise.all([
@@ -174,6 +216,48 @@ export default function Users() {
     load()
   }
 
+  async function submitUserRows(
+    rows: UserImportRow[],
+    onProgress: (done: number, total: number) => void
+  ): Promise<RowOutcome[]> {
+    const ecodeToId = new Map(users.map((u) => [u.ecode.toLowerCase(), u.id]))
+    const facilityByName = new Map(facilities.map((f) => [f.name.toLowerCase(), f.id]))
+
+    const outcomes: RowOutcome[] = []
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const warnings: string[] = []
+
+      let reportsTo: string | undefined
+      if (row.role === 'engineer' && row.reports_to_ecode) {
+        const id = ecodeToId.get(row.reports_to_ecode.toLowerCase())
+        if (id) reportsTo = id
+        else warnings.push(`manager "${row.reports_to_ecode}" not found`)
+      }
+
+      const facility_ids: string[] = []
+      for (const name of row.facility_names) {
+        const id = facilityByName.get(name.toLowerCase())
+        if (id) facility_ids.push(id)
+        else warnings.push(`facility "${name}" not found`)
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke('admin-create-user', {
+        body: { ecode: row.ecode, full_name: row.full_name, role: row.role, facility_ids, reports_to: reportsTo },
+      })
+
+      if (fnError || data?.error) {
+        outcomes.push({ status: 'error', message: data?.error ?? fnError?.message ?? 'Could not create user' })
+      } else {
+        ecodeToId.set(row.ecode.toLowerCase(), data.id)
+        const base = `Created — password ${data.password}`
+        outcomes.push({ status: 'ok', message: warnings.length ? `${base} (${warnings.join('; ')})` : base })
+      }
+      onProgress(i + 1, rows.length)
+    }
+    return outcomes
+  }
+
   if (loading) return null
 
   const managers = users.filter((u) => u.role === 'project_manager')
@@ -182,7 +266,16 @@ export default function Users() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
-      <h1 className="mb-4 text-lg font-semibold text-slate-900">Users</h1>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h1 className="text-lg font-semibold text-slate-900">Users</h1>
+        <button
+          type="button"
+          onClick={() => setBulkOpen(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+        >
+          <UploadIcon className="h-3.5 w-3.5" /> Bulk upload
+        </button>
+      </div>
 
       <form onSubmit={handleAdd} className="mb-6 space-y-3 rounded-xl border border-slate-200 bg-white p-4">
         <p className="text-sm font-medium text-slate-700">Add a user</p>
@@ -227,21 +320,7 @@ export default function Users() {
 
         <div>
           <p className="mb-1 text-xs font-medium text-slate-500">Facilities</p>
-          <div className="flex flex-wrap gap-2">
-            {facilities.map((f) => (
-              <label key={f.id} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1 text-xs">
-                <input
-                  type="checkbox"
-                  checked={selectedFacilities.includes(f.id)}
-                  onChange={(e) =>
-                    setSelectedFacilities((sel) => (e.target.checked ? [...sel, f.id] : sel.filter((id) => id !== f.id)))
-                  }
-                  className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600"
-                />
-                {f.name}
-              </label>
-            ))}
-          </div>
+          <FacilityMultiSelect facilities={facilities} selected={selectedFacilities} onChange={setSelectedFacilities} />
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -339,21 +418,7 @@ export default function Users() {
 
             {editingFacilitiesFor === u.id ? (
               <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
-                <div className="flex flex-wrap gap-2">
-                  {facilities.map((f) => (
-                    <label key={f.id} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2 py-1 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={editSelection.includes(f.id)}
-                        onChange={(e) =>
-                          setEditSelection((sel) => (e.target.checked ? [...sel, f.id] : sel.filter((id) => id !== f.id)))
-                        }
-                        className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600"
-                      />
-                      {f.name}
-                    </label>
-                  ))}
-                </div>
+                <FacilityMultiSelect facilities={facilities} selected={editSelection} onChange={setEditSelection} />
                 <div className="flex gap-2">
                   <button onClick={() => saveFacilities(u.id)} className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-white">
                     Save
@@ -365,12 +430,18 @@ export default function Users() {
               </div>
             ) : (
               <button onClick={() => startEditFacilities(u)} className="mt-1.5 text-left text-xs text-slate-500 hover:text-brand-700">
-                {u.facilityIds.length === 0
-                  ? 'No facilities assigned — tap to assign'
-                  : facilities
+                {u.facilityIds.length === 0 ? (
+                  'No facilities assigned — tap to assign'
+                ) : (
+                  <>
+                    {facilities
                       .filter((f) => u.facilityIds.includes(f.id))
+                      .slice(0, 4)
                       .map((f) => f.name)
                       .join(', ')}
+                    {u.facilityIds.length > 4 && ` +${u.facilityIds.length - 4} more`}
+                  </>
+                )}
               </button>
             )}
 
@@ -413,6 +484,19 @@ export default function Users() {
         busy={busyId === confirmDelete?.id}
         onConfirm={performDelete}
         onCancel={() => setConfirmDelete(null)}
+      />
+
+      <BulkUploadModal<UserImportRow>
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        title="Bulk upload users"
+        description="Import many users at once from a CSV file. Every new login gets the default password 123456."
+        templateFilename="users_template.csv"
+        templateHeaders={['ecode', 'full_name', 'role', 'reports_to_ecode', 'facility_names']}
+        templateSampleRows={[['E2001', 'Jane Doe', 'engineer', 'E1001', 'GH Ekm; City Hospital']]}
+        parseRow={(raw) => parseUserRow(raw)}
+        submitRows={submitUserRows}
+        onImported={load}
       />
     </div>
   )

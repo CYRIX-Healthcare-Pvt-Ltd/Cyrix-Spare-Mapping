@@ -14,6 +14,7 @@ export function EquipmentForm({
   disabled,
   suggestions,
   onSubmit,
+  onCreateFacility,
 }: {
   facilities: FacilityRow[]
   fieldDefs: FieldDefinitionRow[]
@@ -23,6 +24,7 @@ export function EquipmentForm({
   disabled?: boolean
   suggestions?: Record<string, string[]>
   onSubmit: (values: EquipmentFormValues) => void
+  onCreateFacility?: (input: { name: string; district: string | null; city: string | null }) => Promise<FacilityRow>
 }) {
   const [values, setValues] = useState<EquipmentFormValues>(initialValues)
 
@@ -38,6 +40,7 @@ export function EquipmentForm({
           facilities={facilities}
           value={values.facility_id}
           onChange={(facility_id) => setValues((v) => ({ ...v, facility_id }))}
+          onCreateFacility={onCreateFacility}
         />
 
         {fieldDefs.length === 0 ? (

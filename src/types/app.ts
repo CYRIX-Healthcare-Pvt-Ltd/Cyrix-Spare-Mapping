@@ -6,6 +6,7 @@ export type FieldDefinitionRow = Database['public']['Tables']['field_definitions
 export type EquipmentRow = Database['public']['Tables']['equipment']['Row']
 export type EditRequestRow = Database['public']['Tables']['edit_requests']['Row']
 export type AppSettingRow = Database['public']['Tables']['app_settings']['Row']
+export type EquipmentHistoryRow = Database['public']['Tables']['equipment_history']['Row']
 
 // Facility is the only field the app itself requires (it drives access
 // control). Everything else an engineer fills in is admin-defined custom

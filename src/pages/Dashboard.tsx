@@ -53,10 +53,10 @@ export default function Dashboard() {
       </Link>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <Link to="/tagged" className="rounded-xl border border-slate-200 bg-white p-4 hover:border-brand-300">
           <p className="text-2xl font-semibold text-slate-900">{equipmentCount ?? '—'}</p>
           <p className="text-sm text-slate-500">Equipment tracked</p>
-        </div>
+        </Link>
         <Link to="/requests" className="rounded-xl border border-slate-200 bg-white p-4 hover:border-brand-300">
           <p className="text-2xl font-semibold text-slate-900">{requestCount ?? '—'}</p>
           <p className="text-sm text-slate-500">
@@ -80,15 +80,15 @@ export default function Dashboard() {
               to="/admin/fields"
               icon={ClipboardIcon}
               label="Custom fields"
-              iconClass="text-violet-600"
-              hoverClass="hover:border-violet-300 hover:bg-violet-50"
+              iconClass="text-cyan-600"
+              hoverClass="hover:border-cyan-300 hover:bg-cyan-50"
             />
             <AdminLink
               to="/admin/users"
               icon={UsersIcon}
               label="Users"
-              iconClass="text-orange-600"
-              hoverClass="hover:border-orange-300 hover:bg-orange-50"
+              iconClass="text-lime-600"
+              hoverClass="hover:border-lime-300 hover:bg-lime-50"
             />
             <AdminLink
               to="/admin/settings"

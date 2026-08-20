@@ -25,20 +25,20 @@ export function Layout() {
 
   // Each tab gets its own active color rather than one uniform brand tint,
   // so the row reads at a glance instead of just "on vs off": Scan matches
-  // the scanner's own red laser theme, Tagged is the positive/done green,
-  // Requests is the pending-attention amber used on its badges elsewhere.
+  // the scanner's own purple laser theme, Tagged is the positive/done green,
+  // Requests is a dark yellow, Admin uses the Cyrix brand red.
   const navItems = [
     { to: '/', label: 'Home', icon: HomeIcon, show: true, activeText: 'text-brand-700', pillBg: 'bg-brand-50' },
     { to: '/scan', label: 'Scan', icon: ScanIcon, show: true, activeText: 'text-purple-600', pillBg: 'bg-purple-50' },
     { to: '/tagged', label: 'Tagged', icon: TagIcon, show: true, activeText: 'text-emerald-600', pillBg: 'bg-emerald-50' },
-    { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-amber-600', pillBg: 'bg-amber-50' },
+    { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-yellow-600', pillBg: 'bg-yellow-50' },
     {
       to: '/admin/facilities',
       label: 'Admin',
       icon: SettingsIcon,
       show: profile.role === 'admin',
-      activeText: 'text-indigo-600',
-      pillBg: 'bg-indigo-50',
+      activeText: 'text-red-600',
+      pillBg: 'bg-red-50',
     },
   ].filter((item) => item.show)
 
@@ -75,6 +75,24 @@ export function Layout() {
         </div>
       </header>
 
+      <nav className="sticky top-[57px] z-20 hidden border-b border-slate-200 bg-white px-4 py-2 sm:flex sm:gap-1">
+        {navItems.map(({ to, label, icon: Icon, activeText, pillBg }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                isActive ? `${pillBg} ${activeText}` : 'text-slate-600 hover:bg-slate-100'
+              }`
+            }
+          >
+            <Icon className={`h-4 w-4 ${activeText}`} />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
       <main className="flex-1 pb-20 sm:pb-6">
         <Outlet />
       </main>
@@ -99,24 +117,6 @@ export function Layout() {
                 <span className={isActive ? activeText : 'text-slate-500'}>{label}</span>
               </>
             )}
-          </NavLink>
-        ))}
-      </nav>
-
-      <nav className="hidden border-t border-slate-200 bg-white px-4 py-2 sm:flex sm:gap-1">
-        {navItems.map(({ to, label, icon: Icon, activeText, pillBg }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                isActive ? `${pillBg} ${activeText}` : 'text-slate-600 hover:bg-slate-100'
-              }`
-            }
-          >
-            <Icon className={`h-4 w-4 ${activeText}`} />
-            {label}
           </NavLink>
         ))}
       </nav>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PlusIcon, SpinnerIcon } from './icons'
 import type { FacilityRow } from '../types/app'
 
 function uniqueSorted(values: (string | null)[]): string[] {
@@ -18,14 +19,18 @@ export function FacilityPicker({
   facilities,
   value,
   onChange,
+  onCreateFacility,
 }: {
   facilities: FacilityRow[]
   value: string
   onChange: (facilityId: string) => void
+  onCreateFacility?: (input: { name: string; district: string | null; city: string | null }) => Promise<FacilityRow>
 }) {
   const [district, setDistrict] = useState('')
   const [city, setCity] = useState('')
   const [facilityText, setFacilityText] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   // Stay in sync if the selected facility changes from outside (e.g. only
   // one facility exists and the parent auto-selected it).
@@ -77,6 +82,7 @@ export function FacilityPicker({
 
   function handleFacilityTextChange(text: string) {
     setFacilityText(text)
+    setCreateError(null)
     const match = facilitiesFiltered.find((f) => f.name.toLowerCase() === text.toLowerCase())
     if (match) {
       onChange(match.id)
@@ -84,6 +90,23 @@ export function FacilityPicker({
       setCity(match.city ?? '')
     } else {
       onChange('')
+    }
+  }
+
+  async function handleCreate() {
+    if (!onCreateFacility || !facilityText.trim()) return
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const created = await onCreateFacility({ name: facilityText.trim(), district: district || null, city: city || null })
+      onChange(created.id)
+      setDistrict(created.district ?? district)
+      setCity(created.city ?? city)
+      setFacilityText(created.name)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Could not add this facility.')
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -138,7 +161,21 @@ export function FacilityPicker({
           ))}
         </datalist>
         {facilityText && !value && (
-          <p className="mt-1 text-xs text-amber-600">No facility matches that name exactly — pick one from the list.</p>
+          <div className="mt-1.5">
+            <p className="text-xs text-amber-600">No facility matches that name exactly.</p>
+            {onCreateFacility && (
+              <button
+                type="button"
+                onClick={handleCreate}
+                disabled={creating}
+                className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-brand-200 px-2.5 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-60"
+              >
+                {creating ? <SpinnerIcon className="h-3.5 w-3.5" /> : <PlusIcon className="h-3.5 w-3.5" />}
+                {creating ? 'Capturing location…' : `Add "${facilityText}" as a new facility`}
+              </button>
+            )}
+            {createError && <p className="mt-1 text-xs text-red-600">{createError}</p>}
+          </div>
         )}
       </div>
     </div>
