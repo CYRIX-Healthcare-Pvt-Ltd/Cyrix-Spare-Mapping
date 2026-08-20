@@ -116,7 +116,7 @@ export default function EquipmentNew() {
         .eq('id', facility.id)
     }
 
-    navigate(`/equipment/${data.id}`, { replace: true })
+    navigate('/scan', { replace: true, state: { toast: `Equipment added at ${facility?.name ?? 'facility'}` } })
   }
 
   async function handleSubmit(values: EquipmentFormValues) {

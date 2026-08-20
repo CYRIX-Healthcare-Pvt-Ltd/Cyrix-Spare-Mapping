@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
@@ -70,6 +70,7 @@ function buildHistoryChanges(original: EquipmentFormValues, updated: EquipmentFo
 export default function EquipmentView() {
   const { id } = useParams<{ id: string }>()
   const { profile } = useAuth()
+  const navigate = useNavigate()
 
   const [equipment, setEquipment] = useState<EquipmentRow | null>(null)
   const [facility, setFacility] = useState<FacilityRow | null>(null)
@@ -263,9 +264,13 @@ export default function EquipmentView() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-6">
-      <Link to="/" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
+      >
         <ChevronLeftIcon className="h-4 w-4" /> Back
-      </Link>
+      </button>
 
       {editing ? (
         <>
@@ -388,21 +393,22 @@ export default function EquipmentView() {
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-slate-400">
-              Tagged {formatDate(equipment.created_at)}
-              {taggedBy && ` by ${taggedBy.full_name} (${taggedBy.ecode})`}
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-0.5">
+              <p className="text-xs text-slate-400">
+                Tagged {formatDate(equipment.created_at)}
+                {taggedBy && ` by ${taggedBy.full_name} (${taggedBy.ecode})`}
+              </p>
               {equipment.updated_at !== equipment.created_at && (
-                <>
-                  {' '}
-                  · updated {formatDate(equipment.updated_at)}
+                <p className="text-xs text-slate-400">
+                  Updated {formatDate(equipment.updated_at)}
                   {updatedBy && ` by ${updatedBy.full_name} (${updatedBy.ecode})`}
-                </>
+                </p>
               )}
-            </p>
+            </div>
             <button
               onClick={() => setHistoryOpen(true)}
-              className="flex shrink-0 items-center gap-1 text-xs font-medium text-slate-500 hover:text-brand-700"
+              className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
             >
               <HistoryIcon className="h-3.5 w-3.5" /> History
             </button>
@@ -435,33 +441,36 @@ export default function EquipmentView() {
                 <XIcon className="h-4 w-4" />
               </button>
             </div>
-            <ul className="flex-1 divide-y divide-slate-100 overflow-y-auto">
-              {history.length === 0 && <li className="px-4 py-6 text-center text-sm text-slate-400">No history yet.</li>}
-              {history.map((h) => {
+            <ul className="flex-1 overflow-y-auto p-4">
+              {history.length === 0 && <li className="py-6 text-center text-sm text-slate-400">No history yet.</li>}
+              {history.map((h, i) => {
                 const details = describeChanges(h.changes, fieldDefs, allFacilities)
                 const entryDistance =
                   h.latitude != null && h.longitude != null && facility?.latitude != null && facility?.longitude != null
                     ? haversineDistanceMeters(h.latitude, h.longitude, facility.latitude, facility.longitude)
                     : null
                 return (
-                  <li key={h.id} className="flex gap-3 px-4 py-3">
-                    <span
-                      className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${
-                        h.action === 'created' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
-                      }`}
-                    >
-                      {h.action === 'created' ? <TagIcon className="h-3.5 w-3.5" /> : <PencilIcon className="h-3.5 w-3.5" />}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-800">
-                        {h.action === 'created' ? 'Tagged' : 'Edited'} · {formatDate(h.performed_at)}
-                      </p>
+                  <li key={h.id} className="flex gap-3">
+                    <div className="relative flex w-7 shrink-0 flex-col items-center">
+                      <span
+                        className={`z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full ${
+                          h.action === 'created' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
+                        }`}
+                      >
+                        {h.action === 'created' ? <TagIcon className="h-3.5 w-3.5" /> : <PencilIcon className="h-3.5 w-3.5" />}
+                      </span>
+                      {i < history.length - 1 && <span className="w-px flex-1 bg-slate-200" />}
+                    </div>
+                    <div className="min-w-0 flex-1 pb-5">
+                      <p className="text-sm font-semibold text-slate-900">{h.action === 'created' ? 'Tagged' : 'Edited'}</p>
                       <p className="text-xs text-slate-500">
                         {h.performerName ? `${h.performerName}${h.performerEcode ? ` (${h.performerEcode})` : ''}` : 'Unknown user'}
+                        {' · '}
+                        {formatDate(h.performed_at)}
                       </p>
                       {entryDistance !== null && (
                         <span
-                          className={`mt-1 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                          className={`mt-1.5 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                             entryDistance > DISTANCE_WARNING_METERS ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
                           }`}
                         >
@@ -470,10 +479,10 @@ export default function EquipmentView() {
                         </span>
                       )}
                       {details.length > 0 && (
-                        <ul className="mt-1 space-y-0.5 text-xs text-slate-600">
-                          {details.map((d, i) => (
-                            <li key={i}>
-                              <span className="font-medium">{d.label}:</span> {d.value}
+                        <ul className="mt-1.5 space-y-1 rounded-lg bg-slate-50 px-2.5 py-2 text-xs text-slate-600">
+                          {details.map((d, i2) => (
+                            <li key={i2}>
+                              <span className="font-medium text-slate-700">{d.label}:</span> {d.value}
                             </li>
                           ))}
                         </ul>

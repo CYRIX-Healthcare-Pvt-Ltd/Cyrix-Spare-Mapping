@@ -1,12 +1,15 @@
 import { useCallback, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { QRScanner } from '../components/QRScanner'
+import { Toast } from '../components/Toast'
 import { supabase } from '../lib/supabaseClient'
 import { AlertIcon } from '../components/icons'
 
 export default function Scan() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [lookupError, setLookupError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>((location.state as { toast?: string } | null)?.toast ?? null)
 
   const handleDecode = useCallback(
     async (text: string) => {
@@ -29,6 +32,15 @@ export default function Scan() {
 
   return (
     <div>
+      {toast && (
+        <Toast
+          message={toast}
+          onDismiss={() => {
+            setToast(null)
+            navigate(location.pathname, { replace: true })
+          }}
+        />
+      )}
       <QRScanner onDecode={handleDecode} />
       {lookupError && (
         <p className="mx-auto flex max-w-sm items-center gap-1.5 px-4 text-sm text-red-600">
