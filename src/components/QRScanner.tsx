@@ -101,12 +101,18 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
     }
   }, [])
 
-  function handleContinue() {
+  async function handleContinue() {
     if (!resultText) return
-    scannerRef.current
-      ?.stop()
-      .catch(() => {})
-      .finally(() => onDecode(resultText))
+    // Hand the value back no matter what happens to the camera. stop() throws
+    // outright when the scanner isn't running (e.g. the value came from an
+    // uploaded photo after a camera error), and chaining off it meant a throw
+    // there swallowed the handoff and the button appeared dead.
+    try {
+      if (scannerRef.current?.isScanning) await scannerRef.current.stop()
+    } catch {
+      /* best-effort -- the camera is torn down on unmount anyway */
+    }
+    onDecode(resultText)
   }
 
   function handleRetake() {
@@ -181,7 +187,7 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
             <button
               type="button"
               onClick={handleContinue}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-650"
             >
               <CheckIcon className="h-4 w-4" /> Continue
             </button>

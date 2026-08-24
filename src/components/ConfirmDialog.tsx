@@ -40,7 +40,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={busy}
             className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60 ${
-              danger ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-700 hover:bg-brand-800'
+              danger ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-700 hover:bg-brand-650'
             }`}
           >
             {confirmLabel}

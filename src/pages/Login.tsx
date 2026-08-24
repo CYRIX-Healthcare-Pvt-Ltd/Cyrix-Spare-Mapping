@@ -90,7 +90,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-800 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
           >
             {submitting && <SpinnerIcon className="h-4 w-4" />}
             Sign in
@@ -183,7 +183,7 @@ function ForgotPasswordPanel({ onDone }: { onDone: (ecode: string) => void }) {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-800 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
           >
             {submitting && <SpinnerIcon className="h-4 w-4" />}
             Reset password

@@ -215,6 +215,15 @@ export interface Database {
           id: string
           item_code: string
           item_name: string
+          in_stock: number | null
+          item_cost: number | null
+          additional_identifier: string | null
+          item_group: string | null
+          parent_equipment: string | null
+          make: string | null
+          model: string | null
+          // Generated column (migration 0012) -- read-only, never inserted.
+          name_normalized: string
           active: boolean
           created_at: string
           updated_at: string
@@ -222,11 +231,25 @@ export interface Database {
         Insert: {
           item_code: string
           item_name: string
+          in_stock?: number | null
+          item_cost?: number | null
+          additional_identifier?: string | null
+          item_group?: string | null
+          parent_equipment?: string | null
+          make?: string | null
+          model?: string | null
           active?: boolean
         }
         Update: Partial<{
           item_code: string
           item_name: string
+          in_stock: number | null
+          item_cost: number | null
+          additional_identifier: string | null
+          item_group: string | null
+          parent_equipment: string | null
+          make: string | null
+          model: string | null
           active: boolean
         }>
         Relationships: []
@@ -239,6 +262,8 @@ export interface Database {
           barcode: string | null
           cyrix_item_code: string | null
           cyrix_item_name: string | null
+          // Generated column (migration 0012) -- read-only, never inserted.
+          name_normalized: string
           active: boolean
           created_at: string
           updated_at: string

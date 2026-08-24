@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { formatDate } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { TrashIcon } from '../components/icons'
 import type { EquipmentRow, FieldDefinitionRow } from '../types/app'
 
 interface DisplayRow extends EquipmentRow {
@@ -21,11 +23,14 @@ export default function TaggedEquipment() {
   const [fieldDefs, setFieldDefs] = useState<FieldDefinitionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [showAttribution, setShowAttribution] = useState(false)
+  const [selected, setSelected] = useState<string[]>([])
+  const [confirmMode, setConfirmMode] = useState<'selected' | 'all' | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
-  useEffect(() => {
-    if (!profile) return
+  const isAdmin = profile?.role === 'admin'
 
-    async function load() {
+  const load = useCallback(async () => {
+      if (!profile) return
       const attribution = profile!.role === 'project_manager' || profile!.role === 'admin'
       setShowAttribution(attribution)
 
@@ -73,9 +78,32 @@ export default function TaggedEquipment() {
         }))
       )
       setLoading(false)
-    }
-    load()
   }, [profile])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  function toggleRow(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  function toggleAll() {
+    setSelected((prev) => (prev.length === rows.length ? [] : rows.map((r) => r.id)))
+  }
+
+  async function performDelete() {
+    const ids = confirmMode === 'all' ? rows.map((r) => r.id) : selected
+    if (ids.length === 0) return
+    setDeleting(true)
+    // equipment_history rows cascade on delete (migration 0006); edit_requests
+    // cascade too (0001), so removing the equipment row is enough.
+    await supabase.from('equipment').delete().in('id', ids)
+    setDeleting(false)
+    setConfirmMode(null)
+    setSelected([])
+    await load()
+  }
 
   if (loading || !profile) return null
 
@@ -90,11 +118,47 @@ export default function TaggedEquipment() {
 
       {rows.length === 0 && <p className="text-sm text-slate-500">Nothing tagged yet.</p>}
 
+      {isAdmin && rows.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-slate-500">
+            {selected.length > 0 ? `${selected.length} selected` : `${rows.length} tagged`}
+          </span>
+          <span className="flex-1" />
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setConfirmMode('selected')}
+              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+            >
+              <TrashIcon className="h-3.5 w-3.5" /> Delete selected
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setConfirmMode('all')}
+            className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+          >
+            <TrashIcon className="h-3.5 w-3.5" /> Delete all
+          </button>
+        </div>
+      )}
+
       {rows.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-xs text-slate-500">
+                {isAdmin && (
+                  <th className="w-10 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selected.length === rows.length && rows.length > 0}
+                      onChange={toggleAll}
+                      className="h-4 w-4 rounded border-slate-300 text-brand-600"
+                      aria-label="Select all"
+                    />
+                  </th>
+                )}
                 <th className="whitespace-nowrap px-3 py-2 font-medium">District</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">City</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">Warehouse</th>
@@ -111,6 +175,17 @@ export default function TaggedEquipment() {
             <tbody className="divide-y divide-slate-100">
               {rows.map((r) => (
                 <tr key={r.id} onClick={() => navigate(`/equipment/${r.id}`)} className="cursor-pointer hover:bg-slate-50">
+                  {isAdmin && (
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(r.id)}
+                        onChange={() => toggleRow(r.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-brand-600"
+                        aria-label={`Select ${r.name}`}
+                      />
+                    </td>
+                  )}
                   <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.facilityDistrict ?? '—'}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.facilityCity ?? '—'}</td>
                   <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-900">
@@ -147,6 +222,20 @@ export default function TaggedEquipment() {
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmMode !== null}
+        title={
+          confirmMode === 'all'
+            ? `Delete all ${rows.length} tagged item${rows.length === 1 ? '' : 's'}?`
+            : `Delete ${selected.length} selected item${selected.length === 1 ? '' : 's'}?`
+        }
+        message="Their QR codes become unmapped and can be tagged again. Tag history for these items is removed too. This can't be undone."
+        confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+        busy={deleting}
+        onConfirm={performDelete}
+        onCancel={() => setConfirmMode(null)}
+      />
     </div>
   )
 }

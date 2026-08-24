@@ -1,14 +1,28 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { UploadIcon, SearchIcon, SpinnerIcon } from '../../components/icons'
+import { UploadIcon, SearchIcon, SpinnerIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '../../components/icons'
 import { BulkUploadModal, type RowOutcome } from '../../components/BulkUploadModal'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { BplItemRow, CyrixItemRow } from '../../types/app'
 
 type Tab = 'bpl' | 'cyrix'
 
+interface PendingDelete {
+  table: 'bpl_item_master' | 'cyrix_item_master'
+  id: string
+  label: string
+}
+
 interface CyrixImportRow {
   item_code: string
   item_name: string
+  in_stock: number | null
+  item_cost: number | null
+  additional_identifier: string | null
+  item_group: string | null
+  parent_equipment: string | null
+  make: string | null
+  model: string | null
 }
 
 interface BplImportRow {
@@ -19,12 +33,37 @@ interface BplImportRow {
   cyrix_item_name: string | null
 }
 
+function parseNumber(value: string | undefined): { ok: true; value: number | null } | { ok: false } {
+  const clean = value?.trim()
+  if (!clean) return { ok: true, value: null }
+  const n = Number(clean.replace(/,/g, ''))
+  return Number.isFinite(n) ? { ok: true, value: n } : { ok: false }
+}
+
 function parseCyrixRow(raw: Record<string, string>): { data: CyrixImportRow } | { error: string } {
   const item_code = raw.item_code?.trim()
   const item_name = raw.item_name?.trim()
   if (!item_code) return { error: 'item_code is required' }
   if (!item_name) return { error: 'item_name is required' }
-  return { data: { item_code, item_name } }
+
+  const in_stock = parseNumber(raw.in_stock)
+  if (!in_stock.ok) return { error: `Invalid in_stock "${raw.in_stock}"` }
+  const item_cost = parseNumber(raw.item_cost)
+  if (!item_cost.ok) return { error: `Invalid item_cost "${raw.item_cost}"` }
+
+  return {
+    data: {
+      item_code,
+      item_name,
+      in_stock: in_stock.value,
+      item_cost: item_cost.value,
+      additional_identifier: raw.additional_identifier?.trim() || null,
+      item_group: raw.item_group?.trim() || null,
+      parent_equipment: raw.parent_equipment?.trim() || null,
+      make: raw.make?.trim() || null,
+      model: raw.model?.trim() || null,
+    },
+  }
 }
 
 function parseBplRow(raw: Record<string, string>): { data: BplImportRow } | { error: string } {
@@ -61,19 +100,33 @@ export default function ItemMasters() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [bulkOpen, setBulkOpen] = useState<Tab | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<PendingDelete | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [page, setPage] = useState(0)
+
+  // A new search or tab has its own result set, so any page offset from the
+  // previous one is meaningless -- and page 3 of a 2-page result renders empty.
+  useEffect(() => {
+    setPage(0)
+  }, [search, tab])
 
   const load = useCallback(async () => {
     setLoading(true)
     const term = search.trim()
+    const from = page * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
 
-    // Search runs server-side: these catalogues can be many thousands of rows,
-    // so filtering a fully-downloaded list in the browser isn't viable.
-    let bplQuery = supabase.from('bpl_item_master').select('*', { count: 'exact' }).order('item_code').limit(PAGE_SIZE)
-    let cyrixQuery = supabase.from('cyrix_item_master').select('*', { count: 'exact' }).order('item_code').limit(PAGE_SIZE)
+    // Search and paging both run server-side: these catalogues run to tens of
+    // thousands of rows, so filtering or slicing a fully-downloaded list in
+    // the browser isn't viable.
+    let bplQuery = supabase.from('bpl_item_master').select('*', { count: 'exact' }).order('item_code').range(from, to)
+    let cyrixQuery = supabase.from('cyrix_item_master').select('*', { count: 'exact' }).order('item_code').range(from, to)
     if (term) {
       const pattern = `%${term}%`
       bplQuery = bplQuery.or(`item_code.ilike.${pattern},item_name.ilike.${pattern},barcode.ilike.${pattern}`)
-      cyrixQuery = cyrixQuery.or(`item_code.ilike.${pattern},item_name.ilike.${pattern}`)
+      cyrixQuery = cyrixQuery.or(
+        `item_code.ilike.${pattern},item_name.ilike.${pattern},additional_identifier.ilike.${pattern},make.ilike.${pattern},model.ilike.${pattern}`
+      )
     }
 
     const [{ data: bpl, count: bplTotal }, { data: cyrix, count: cyrixTotal }] = await Promise.all([bplQuery, cyrixQuery])
@@ -83,7 +136,7 @@ export default function ItemMasters() {
     setBplCount(bplTotal ?? 0)
     setCyrixCount(cyrixTotal ?? 0)
     setLoading(false)
-  }, [search])
+  }, [search, page])
 
   useEffect(() => {
     const t = setTimeout(load, 250)
@@ -122,6 +175,15 @@ export default function ItemMasters() {
     return outcomes
   }
 
+  async function performDelete() {
+    if (!confirmDelete) return
+    setDeleting(true)
+    await supabase.from(confirmDelete.table).delete().eq('id', confirmDelete.id)
+    setDeleting(false)
+    setConfirmDelete(null)
+    load()
+  }
+
   const activeCount = tab === 'bpl' ? bplCount : cyrixCount
   const shownCount = tab === 'bpl' ? bplRows.length : cyrixRows.length
 
@@ -158,14 +220,14 @@ export default function ItemMasters() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={tab === 'bpl' ? 'Search code, name, or barcode…' : 'Search code or name…'}
+            placeholder={tab === 'bpl' ? 'Search code, name, or barcode…' : 'Search code, name, identifier, make, or model…'}
             className="w-full rounded-lg border border-slate-300 py-2 pl-8 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
           />
         </div>
         <button
           type="button"
           onClick={() => setBulkOpen(tab)}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-800"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-650"
         >
           <UploadIcon className="h-4 w-4" /> Upload
         </button>
@@ -187,12 +249,23 @@ export default function ItemMasters() {
                 <tr className="border-b border-slate-100 text-xs text-slate-500">
                   <th className="whitespace-nowrap px-3 py-2 font-medium">Item code</th>
                   <th className="whitespace-nowrap px-3 py-2 font-medium">Item name</th>
-                  {tab === 'bpl' && (
+                  {tab === 'bpl' ? (
                     <>
                       <th className="whitespace-nowrap px-3 py-2 font-medium">Barcode</th>
                       <th className="whitespace-nowrap px-3 py-2 font-medium">Cyrix item</th>
                     </>
+                  ) : (
+                    <>
+                      <th className="whitespace-nowrap px-3 py-2 text-right font-medium">In stock</th>
+                      <th className="whitespace-nowrap px-3 py-2 text-right font-medium">Item cost</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-medium">Addl. identifier</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-medium">Item group</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-medium">Parent equip</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-medium">Make</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-medium">Model</th>
+                    </>
                   )}
+                  <th className="w-10 px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -214,22 +287,79 @@ export default function ItemMasters() {
                             </span>
                           )}
                         </td>
+                        <td className="px-3 py-2">
+                          <button
+                            onClick={() => setConfirmDelete({ table: 'bpl_item_master', id: r.id, label: `${r.item_code} · ${r.item_name}` })}
+                            className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+                            aria-label={`Delete ${r.item_code}`}
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   : cyrixRows.map((r) => (
                       <tr key={r.id}>
                         <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-600">{r.item_code}</td>
                         <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              (r.in_stock ?? 0) > 0 ? 'bg-blue-50 text-blue-700' : 'text-slate-400'
+                            }`}
+                          >
+                            {r.in_stock ?? 0}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right text-slate-600">
+                          {r.item_cost == null ? '—' : r.item_cost.toLocaleString('en-IN')}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-500">
+                          {r.additional_identifier ?? '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.item_group ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.parent_equipment ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.make ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.model ?? '—'}</td>
+                        <td className="px-3 py-2">
+                          <button
+                            onClick={() => setConfirmDelete({ table: 'cyrix_item_master', id: r.id, label: `${r.item_code} · ${r.item_name}` })}
+                            className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+                            aria-label={`Delete ${r.item_code}`}
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
               </tbody>
             </table>
           </div>
-          {activeCount > shownCount && (
-            <p className="mt-2 text-center text-xs text-slate-400">
-              Showing {shownCount} of {activeCount} — search to narrow it down.
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="text-xs text-slate-500">
+              {activeCount === 0
+                ? 'No items'
+                : `${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + shownCount} of ${activeCount.toLocaleString('en-IN')}`}
             </p>
-          )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0 || loading}
+                className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+              >
+                <ChevronLeftIcon className="h-3.5 w-3.5" /> Previous
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={(page + 1) * PAGE_SIZE >= activeCount || loading}
+                className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+              >
+                Next <ChevronRightIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
         </>
       )}
 
@@ -237,10 +367,22 @@ export default function ItemMasters() {
         open={bulkOpen === 'cyrix'}
         onClose={() => setBulkOpen(null)}
         title="Upload Cyrix item master"
-        description="Our own catalogue. Re-uploading updates items that already exist, matched on item_code."
+        description="Our own catalogue — columns A to I of the item master workbook. Re-uploading updates items that already exist, matched on item_code."
         templateFilename="cyrix_item_master_template.csv"
-        templateHeaders={['item_code', 'item_name']}
-        templateSampleRows={[['CYX-1001', 'Ab -C Sensor Assembly']]}
+        templateHeaders={[
+          'item_code',
+          'item_name',
+          'in_stock',
+          'item_cost',
+          'additional_identifier',
+          'item_group',
+          'parent_equipment',
+          'make',
+          'model',
+        ]}
+        templateSampleRows={[
+          ['I-100002', 'Everflo 230V OPI,Old Birt', '1', '0', '1020009', 'Philips', '', '', ''],
+        ]}
         parseRow={(raw) => parseCyrixRow(raw)}
         submitRows={submitCyrixRows}
         onImported={load}
@@ -257,6 +399,15 @@ export default function ItemMasters() {
         parseRow={(raw) => parseBplRow(raw)}
         submitRows={submitBplRows}
         onImported={load}
+      />
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Delete this item?"
+        message={`${confirmDelete?.label ?? ''} — this removes it from the catalogue. Re-uploading the master file will bring it back.`}
+        busy={deleting}
+        onConfirm={performDelete}
+        onCancel={() => setConfirmDelete(null)}
       />
     </div>
   )

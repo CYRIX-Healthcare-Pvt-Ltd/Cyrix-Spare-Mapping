@@ -61,7 +61,7 @@ export function EquipmentForm({
         <button
           type="submit"
           disabled={submitting || disabled}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-800 disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
         >
           {submitting && <SpinnerIcon className="h-4 w-4" />}
           {submitLabel}

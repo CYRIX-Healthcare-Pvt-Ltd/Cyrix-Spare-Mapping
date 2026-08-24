@@ -41,7 +41,7 @@ export default function Dashboard() {
 
       <Link
         to="/scan"
-        className="flex items-center gap-4 rounded-2xl bg-brand-700 p-5 text-white shadow-lg shadow-brand-700/20 transition hover:bg-brand-800"
+        className="flex items-center gap-4 rounded-2xl bg-brand-700 p-5 text-white shadow-lg shadow-brand-700/20 transition hover:bg-brand-650"
       >
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15">
           <ScanIcon className="h-6 w-6" />

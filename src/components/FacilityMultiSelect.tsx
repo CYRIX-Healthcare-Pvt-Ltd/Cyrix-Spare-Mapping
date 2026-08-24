@@ -142,7 +142,7 @@ export function FacilityMultiSelect({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="w-full rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-800"
+                className="w-full rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-650"
               >
                 Done
               </button>

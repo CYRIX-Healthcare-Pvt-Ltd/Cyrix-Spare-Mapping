@@ -48,6 +48,10 @@
   --color-brand-400: #8a8d97;
   --color-brand-500: #6b6e79;
   --color-brand-600: #565962;
+  /* Hover state for the near-black brand-700 buttons. Going *darker* on
+     hover (to brand-800) was invisible -- #141519 and #0a0a0c are both
+     effectively black -- so the primary buttons lighten instead. */
+  --color-brand-650: #2b2d34;
   --color-brand-700: #141519;
   --color-brand-800: #0a0a0c;
   --color-brand-900: #000000;
