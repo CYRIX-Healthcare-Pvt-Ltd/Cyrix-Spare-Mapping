@@ -5,15 +5,8 @@ import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { fetchFieldSuggestions } from '../lib/fieldSuggestions'
 import { blueStarIdentityFromForm, upsertTaggedBlueStarItem } from '../lib/blueStarItem'
-import { getCurrentPosition, reverseGeocode } from '../lib/geolocate'
-import { haversineDistanceMeters, formatDistance, DISTANCE_WARNING_METERS } from '../lib/distance'
 import { ChevronLeftIcon, AlertIcon } from '../components/icons'
 import type { FacilityRow, FieldDefinitionRow, EquipmentFormValues } from '../types/app'
-
-interface Coords {
-  lat: number
-  lng: number
-}
 
 export default function EquipmentNew() {
   const { profile, refreshProfile } = useAuth()
@@ -27,8 +20,9 @@ export default function EquipmentNew() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [distanceWarning, setDistanceWarning] = useState<string | null>(null)
-  const [pendingSubmit, setPendingSubmit] = useState<{ values: EquipmentFormValues; position: Coords | null } | null>(null)
+  // Set when the spare saved but its catalogue row did not, so the message
+  // can link straight to the spare that now needs finishing off.
+  const [savedId, setSavedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -52,16 +46,16 @@ export default function EquipmentNew() {
     load()
   }, [profile])
 
-  async function performInsert(values: EquipmentFormValues, position: Coords | null) {
+  async function handleSubmit(values: EquipmentFormValues) {
     if (!qr || !profile) return
     setSubmitting(true)
     setError(null)
 
-    // No hardcoded "name" field is collected anymore -- the facility already
-    // carries an address (captured via GPS in Admin -> Facilities), so a
-    // free-typed location is redundant. This label is just so the record
-    // has something to be identified by in lists; admins can add a "Name"
-    // custom field if they want engineers choosing their own label.
+    // No hardcoded "name" field is collected anymore -- the warehouse already
+    // identifies where the spare is, so a free-typed location is redundant.
+    // This label is just so the record has something to be identified by in
+    // lists; admins can add a "Name" custom field if they want engineers
+    // choosing their own label.
     const facility = facilities.find((f) => f.id === values.facility_id)
     const autoName = facility ? `${facility.name} · ${qr}` : qr
 
@@ -73,8 +67,6 @@ export default function EquipmentNew() {
         name: autoName,
         location: '',
         custom_fields: values.custom_fields,
-        tag_latitude: position?.lat ?? null,
-        tag_longitude: position?.lng ?? null,
         created_by: profile.id,
       })
       .select('id')
@@ -96,8 +88,6 @@ export default function EquipmentNew() {
       action: 'created',
       changes: { facility_id: values.facility_id, custom_fields: values.custom_fields },
       performed_by: profile.id,
-      latitude: position?.lat ?? null,
-      longitude: position?.lng ?? null,
     })
 
     // Everything tagged here is one of Blue Star's spares, so the tag has to
@@ -106,89 +96,42 @@ export default function EquipmentNew() {
     // exists so a rejected QR (already tagged) doesn't leave a stray item
     // behind; the RPC matches an existing catalogue row before creating one.
     const identity = blueStarIdentityFromForm(fieldDefs, values.custom_fields, qr)
-    const { item: blueStarItem } = await upsertTaggedBlueStarItem({
+    const { item: blueStarItem, error: itemError } = await upsertTaggedBlueStarItem({
       ...identity,
       cyrixCode: values.cyrix_item_code,
     })
-    if (blueStarItem) {
-      await supabase.from('equipment').update({ bluestar_item_id: blueStarItem.id }).eq('id', data.id)
+
+    // The spare itself is saved by this point, so this can't be retried by
+    // resubmitting -- the QR would come back as already tagged. Say plainly
+    // what didn't happen and link to the spare instead of navigating away as
+    // though everything worked: swallowing this is what let a Cyrix item the
+    // tagger had picked disappear without a word.
+    if (itemError || !blueStarItem) {
+      setSavedId(data.id)
+      setError(
+        `The spare was saved, but it couldn't be added to the Blue Star item master${
+          itemError ? `: ${itemError}` : ''
+        }. Open it to link the Cyrix item.`
+      )
+      return
     }
 
-    // First tag at a facility with no recorded GPS yet establishes its
-    // location -- covers facilities added from the field (before an admin
-    // gets to it) and ones that came in via bulk upload without coordinates.
-    if (position && facility && facility.latitude == null && facility.longitude == null) {
-      const geo = await reverseGeocode(position.lat, position.lng).catch(() => null)
-      await supabase
-        .from('facilities')
-        .update({
-          latitude: position.lat,
-          longitude: position.lng,
-          address: facility.address ?? geo?.address ?? null,
-          district: facility.district ?? geo?.district ?? null,
-          city: facility.city ?? geo?.city ?? null,
-        })
-        .eq('id', facility.id)
-    }
+    await supabase.from('equipment').update({ bluestar_item_id: blueStarItem.id }).eq('id', data.id)
 
     navigate('/scan', { replace: true, state: { toast: `Spare added at ${facility?.name ?? 'warehouse'}` } })
-  }
-
-  async function handleSubmit(values: EquipmentFormValues) {
-    setSubmitting(true)
-    setError(null)
-
-    let position: Coords | null = null
-    try {
-      const pos = await getCurrentPosition()
-      position = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-    } catch {
-      // GPS is best-effort -- never blocks tagging on its own.
-    }
-
-    const facility = facilities.find((f) => f.id === values.facility_id)
-    if (position && facility?.latitude != null && facility?.longitude != null) {
-      const distance = haversineDistanceMeters(position.lat, position.lng, facility.latitude, facility.longitude)
-      if (distance > DISTANCE_WARNING_METERS) {
-        setSubmitting(false)
-        setPendingSubmit({ values, position })
-        setDistanceWarning(formatDistance(distance))
-        return
-      }
-    }
-
-    await performInsert(values, position)
-  }
-
-  async function confirmTagAnyway() {
-    if (!pendingSubmit) return
-    setDistanceWarning(null)
-    await performInsert(pendingSubmit.values, pendingSubmit.position)
-    setPendingSubmit(null)
   }
 
   async function handleCreateFacility(input: { name: string; district: string | null; city: string | null }): Promise<FacilityRow> {
     if (!profile) throw new Error('Not signed in.')
 
-    let coords: Coords | null = null
-    let geo: Awaited<ReturnType<typeof reverseGeocode>> | null = null
-    try {
-      const pos = await getCurrentPosition()
-      coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-      geo = await reverseGeocode(coords.lat, coords.lng)
-    } catch {
-      // Proceed without GPS -- an admin can fill in the location later.
-    }
-
+    // Just the name: an admin fills in the district, city and address from
+    // Admin -> Warehouses. Nothing is captured from the device.
     const { data, error: insertError } = await supabase
       .from('facilities')
       .insert({
         name: input.name,
-        district: input.district ?? geo?.district ?? null,
-        city: input.city ?? geo?.city ?? null,
-        address: geo?.address ?? null,
-        latitude: coords?.lat ?? null,
-        longitude: coords?.lng ?? null,
+        district: input.district,
+        city: input.city,
         created_by: profile.id,
       })
       .select('*')
@@ -236,52 +179,33 @@ export default function EquipmentNew() {
       {/* Card framing only from `sm` up: on a phone the form already fills the
           screen, and a border round it would just be a line inside a line. */}
       <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-6 sm:shadow-sm lg:p-8">
-      <EquipmentForm
-        facilities={facilities}
-        fieldDefs={fieldDefs}
-        initialValues={{
-          facility_id: facilities.length === 1 ? facilities[0].id : '',
-          custom_fields: {},
-          cyrix_item_code: null,
-          cyrix_item_name: null,
-        }}
-        submitLabel="Save spare"
-        submitting={submitting}
-        disabled={!!distanceWarning}
-        suggestions={suggestions}
-        onSubmit={handleSubmit}
-        onCreateFacility={handleCreateFacility}
-      />
+        <EquipmentForm
+          facilities={facilities}
+          fieldDefs={fieldDefs}
+          initialValues={{
+            facility_id: facilities.length === 1 ? facilities[0].id : '',
+            custom_fields: {},
+            cyrix_item_code: null,
+            cyrix_item_name: null,
+          }}
+          submitLabel="Save spare"
+          submitting={submitting}
+          suggestions={suggestions}
+          onSubmit={handleSubmit}
+          onCreateFacility={handleCreateFacility}
+        />
       </div>
 
-      {distanceWarning && (
-        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="flex items-start gap-1.5 text-sm text-amber-800">
-            <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
-            You're {distanceWarning} from this warehouse's recorded location. Tag anyway?
-          </p>
-          <div className="mt-2 flex gap-2">
-            <button
-              onClick={confirmTagAnyway}
-              disabled={submitting}
-              className="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
-            >
-              {submitting ? 'Saving…' : 'Tag anyway'}
-            </button>
-            <button
-              onClick={() => {
-                setDistanceWarning(null)
-                setPendingSubmit(null)
-              }}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-600"
-            >
-              Cancel
-            </button>
-          </div>
+      {error && (
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <p>{error}</p>
+          {savedId && (
+            <Link to={`/equipment/${savedId}`} className="mt-1 inline-block font-medium underline">
+              Open the spare
+            </Link>
+          )}
         </div>
       )}
-
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
     </div>
   )
 }

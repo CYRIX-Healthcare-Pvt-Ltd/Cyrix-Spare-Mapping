@@ -46,6 +46,9 @@ export interface Database {
           address: string | null
           city: string | null
           district: string | null
+        // The app no longer captures location. These columns are left in
+        // place (nullable, never written) so the historical values already
+        // recorded aren't destroyed; nothing reads them.
           latitude: number | null
           longitude: number | null
           active: boolean
@@ -125,6 +128,9 @@ export interface Database {
           location: string
           images: string[]
           custom_fields: Record<string, unknown>
+        // The app no longer captures location. These columns are left in
+        // place (nullable, never written) so the historical values already
+        // recorded aren't destroyed; nothing reads them.
           tag_latitude: number | null
           tag_longitude: number | null
           bluestar_item_id: string | null

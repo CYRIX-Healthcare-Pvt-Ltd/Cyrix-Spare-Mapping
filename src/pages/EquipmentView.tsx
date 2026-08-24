@@ -3,12 +3,10 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
-import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon, AlertIcon } from '../components/icons'
+import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon } from '../components/icons'
 import { formatDate } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
 import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
-import { getCurrentPosition } from '../lib/geolocate'
-import { haversineDistanceMeters, formatDistance, DISTANCE_WARNING_METERS } from '../lib/distance'
 import { blueStarIdentityFromForm, upsertTaggedBlueStarItem } from '../lib/blueStarItem'
 import { setCyrixMapping } from '../lib/mapping'
 import type {
@@ -20,12 +18,7 @@ import type {
 } from '../types/app'
 
 
-interface Coords {
-  lat: number
-  lng: number
-}
-
-type PerformEdit = (values: EquipmentFormValues, position: Coords | null) => Promise<void>
+type PerformEdit = (values: EquipmentFormValues) => Promise<void>
 
 function toFormValues(eq: EquipmentRow, blueStar: BlueStarItemRow | null): EquipmentFormValues {
   return {
@@ -95,10 +88,6 @@ export default function EquipmentView() {
   const [error, setError] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [distanceWarning, setDistanceWarning] = useState<string | null>(null)
-  const [pendingEdit, setPendingEdit] = useState<{ values: EquipmentFormValues; position: Coords | null; perform: PerformEdit } | null>(
-    null
-  )
 
   const load = useCallback(async () => {
     if (!id || !profile) return
@@ -160,7 +149,7 @@ export default function EquipmentView() {
     load()
   }, [load])
 
-  async function performDirectUpdate(values: EquipmentFormValues, position: Coords | null) {
+  async function performDirectUpdate(values: EquipmentFormValues) {
     if (!equipment || !profile) return
 
     const historyChanges = buildHistoryChanges(toFormValues(equipment, blueStarItem), values)
@@ -180,8 +169,6 @@ export default function EquipmentView() {
         action: 'updated',
         changes: historyChanges,
         performed_by: profile.id,
-        latitude: position?.lat ?? null,
-        longitude: position?.lng ?? null,
       })
     }
 
@@ -194,11 +181,16 @@ export default function EquipmentView() {
     // row is brought in line with it in the same breath -- including the Cyrix
     // link, which the RPC routes through the mapping history.
     const identity = blueStarIdentityFromForm(fieldDefs, values.custom_fields, equipment.qr_value)
-    const { item: updatedItem } = await upsertTaggedBlueStarItem({
+    const { item: updatedItem, error: itemError } = await upsertTaggedBlueStarItem({
       ...identity,
       cyrixCode: values.cyrix_item_code,
     })
-    if (updatedItem && updatedItem.id !== equipment.bluestar_item_id) {
+    if (itemError || !updatedItem) {
+      setError(`Saved, but the Blue Star item master couldn't be updated${itemError ? `: ${itemError}` : ''}.`)
+      await load()
+      return
+    }
+    if (updatedItem.id !== equipment.bluestar_item_id) {
       await supabase.from('equipment').update({ bluestar_item_id: updatedItem.id }).eq('id', equipment.id)
     }
 
@@ -206,7 +198,7 @@ export default function EquipmentView() {
     await load()
   }
 
-  async function performRequestEdit(values: EquipmentFormValues, position: Coords | null) {
+  async function performRequestEdit(values: EquipmentFormValues) {
     if (!equipment || !profile) return
 
     // The Cyrix link is deliberately outside the approval flow: re-mapping is
@@ -232,8 +224,6 @@ export default function EquipmentView() {
       equipment_id: equipment.id,
       requested_by: profile.id,
       proposed_changes: diff,
-      latitude: position?.lat ?? null,
-      longitude: position?.lng ?? null,
     })
 
     if (insertError) {
@@ -244,40 +234,11 @@ export default function EquipmentView() {
     setHasPendingRequest(true)
   }
 
-  async function submitWithGpsCheck(values: EquipmentFormValues, perform: PerformEdit) {
+  async function submit(values: EquipmentFormValues, perform: PerformEdit) {
     setSubmitting(true)
     setError(null)
-
-    let position: Coords | null = null
-    try {
-      const pos = await getCurrentPosition()
-      position = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-    } catch {
-      // GPS is best-effort -- never blocks an edit on its own.
-    }
-
-    const targetFacility = allFacilities.find((f) => f.id === values.facility_id)
-    if (position && targetFacility?.latitude != null && targetFacility?.longitude != null) {
-      const distance = haversineDistanceMeters(position.lat, position.lng, targetFacility.latitude, targetFacility.longitude)
-      if (distance > DISTANCE_WARNING_METERS) {
-        setSubmitting(false)
-        setPendingEdit({ values, position, perform })
-        setDistanceWarning(formatDistance(distance))
-        return
-      }
-    }
-
-    await perform(values, position)
+    await perform(values)
     setSubmitting(false)
-  }
-
-  async function confirmEditAnyway() {
-    if (!pendingEdit) return
-    setSubmitting(true)
-    setDistanceWarning(null)
-    await pendingEdit.perform(pendingEdit.values, pendingEdit.position)
-    setSubmitting(false)
-    setPendingEdit(null)
   }
 
   if (loading) return null
@@ -318,8 +279,7 @@ export default function EquipmentView() {
               initialValues={toFormValues(equipment, blueStarItem)}
               submitLabel={canEditDirectly ? 'Save changes' : 'Submit request'}
               submitting={submitting}
-              disabled={!!distanceWarning}
-              onSubmit={(values) => submitWithGpsCheck(values, canEditDirectly ? performDirectUpdate : performRequestEdit)}
+              onSubmit={(values) => submit(values, canEditDirectly ? performDirectUpdate : performRequestEdit)}
             />
           </div>
           {!canEditDirectly && (
@@ -327,33 +287,6 @@ export default function EquipmentView() {
               Changes to the spare's fields go to your manager for approval. The Cyrix item link is applied straight
               away and recorded in the mapping history.
             </p>
-          )}
-
-          {distanceWarning && (
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <p className="flex items-start gap-1.5 text-sm text-amber-800">
-                <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                You're {distanceWarning} from this warehouse's recorded location. Continue anyway?
-              </p>
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={confirmEditAnyway}
-                  disabled={submitting}
-                  className="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
-                >
-                  {submitting ? 'Saving…' : 'Continue anyway'}
-                </button>
-                <button
-                  onClick={() => {
-                    setDistanceWarning(null)
-                    setPendingEdit(null)
-                  }}
-                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-600"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
           )}
 
           <button

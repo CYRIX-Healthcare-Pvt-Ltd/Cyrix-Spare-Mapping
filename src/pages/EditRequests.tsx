@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { CheckIcon, XIcon, SpinnerIcon, SearchIcon, ClipboardIcon, HistoryIcon } from '../components/icons'
+import { CheckIcon, XIcon, SpinnerIcon, ClipboardIcon, HistoryIcon } from '../components/icons'
 import { formatDate, pickTimeFormatter } from '../lib/formatDate'
 import { describeChanges } from '../lib/describeChanges'
 import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
 import type { EditRequestRow, EquipmentRow, EquipmentHistoryRow, FacilityRow, FieldDefinitionRow } from '../types/app'
+import { SearchInput } from '../components/SearchInput'
 
 interface DisplayRow extends EditRequestRow {
   equipment: EquipmentRow | null
@@ -157,15 +158,12 @@ export default function EditRequests() {
           ))}
         </div>
 
-        <div className="relative mt-3 sm:mt-0 sm:flex-1">
-          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={tab === 'requests' ? 'Search spare, person, or status…' : 'Search spare, person, or field…'}
-            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={tab === 'requests' ? 'Search spare, person, or status…' : 'Search spare, person, or field…'}
+          className="mt-3 sm:mt-0 sm:flex-1"
+        />
       </div>
 
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}

@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabaseClient'
-import { getCurrentPosition, reverseGeocode, geolocationErrorMessage } from '../../lib/geolocate'
-import { PlusIcon, TrashIcon, SpinnerIcon, MapPinIcon, UploadIcon, PencilIcon } from '../../components/icons'
+import { PlusIcon, TrashIcon, SpinnerIcon, UploadIcon, PencilIcon } from '../../components/icons'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { BulkUploadModal, type RowOutcome } from '../../components/BulkUploadModal'
 import type { FacilityRow } from '../../types/app'
@@ -13,8 +12,6 @@ interface FacilityImportRow {
   district: string | null
   city: string | null
   address: string | null
-  latitude: number | null
-  longitude: number | null
 }
 
 interface FacilityValues {
@@ -22,23 +19,11 @@ interface FacilityValues {
   district: string | null
   city: string
   address: string | null
-  latitude: number | null
-  longitude: number | null
 }
 
 function parseFacilityRow(raw: Record<string, string>): { data: FacilityImportRow } | { error: string } {
   const name = raw.name?.trim()
   if (!name) return { error: 'Name is required' }
-
-  const parseCoord = (value: string | undefined) => {
-    if (!value || !value.trim()) return { ok: true as const, value: null }
-    const n = Number(value)
-    return Number.isFinite(n) ? { ok: true as const, value: n } : { ok: false as const, value: null }
-  }
-  const latitude = parseCoord(raw.latitude)
-  if (!latitude.ok) return { error: `Invalid latitude "${raw.latitude}"` }
-  const longitude = parseCoord(raw.longitude)
-  if (!longitude.ok) return { error: `Invalid longitude "${raw.longitude}"` }
 
   return {
     data: {
@@ -46,8 +31,6 @@ function parseFacilityRow(raw: Record<string, string>): { data: FacilityImportRo
       district: raw.district?.trim() || null,
       city: raw.city?.trim() || null,
       address: raw.address?.trim() || null,
-      latitude: latitude.value,
-      longitude: longitude.value,
     },
   }
 }
@@ -55,9 +38,8 @@ function parseFacilityRow(raw: Record<string, string>): { data: FacilityImportRo
 const inputClass =
   'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
-// Shared by the "add a facility" card and each row's inline "edit" mode --
-// same fields, same GPS-capture flow, just a different initial state and
-// what happens on submit.
+// Shared by the "add a warehouse" card and each row's inline "edit" mode --
+// same fields, just a different initial state and what happens on submit.
 function FacilityEditor({
   initial,
   submitLabel,
@@ -73,43 +55,14 @@ function FacilityEditor({
   const [address, setAddress] = useState(initial.address ?? '')
   const [city, setCity] = useState(initial.city)
   const [district, setDistrict] = useState<string | null>(initial.district)
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
-    initial.latitude != null && initial.longitude != null ? { lat: initial.latitude, lng: initial.longitude } : null
-  )
-  const [locating, setLocating] = useState(false)
-  const [locateError, setLocateError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  async function handleUseLocation() {
-    setLocating(true)
-    setLocateError(null)
-    try {
-      const position = await getCurrentPosition()
-      const located = await reverseGeocode(position.coords.latitude, position.coords.longitude)
-      setAddress(located.address)
-      if (located.city) setCity(located.city)
-      setDistrict(located.district)
-      setCoords({ lat: located.latitude, lng: located.longitude })
-    } catch (err) {
-      setLocateError(err instanceof Error && err.message.includes('resolve') ? err.message : geolocationErrorMessage(err))
-    } finally {
-      setLocating(false)
-    }
-  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
-    const values: FacilityValues = {
-      name,
-      district,
-      city,
-      address: address || null,
-      latitude: coords?.lat ?? null,
-      longitude: coords?.lng ?? null,
-    }
+    const values: FacilityValues = { name, district, city, address: address || null }
     const submitError = await onSubmit(values)
     setSubmitting(false)
     if (submitError) {
@@ -123,7 +76,6 @@ function FacilityEditor({
       setAddress('')
       setCity('')
       setDistrict(null)
-      setCoords(null)
     }
   }
 
@@ -142,33 +94,16 @@ function FacilityEditor({
         />
         <input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} className={inputClass} />
       </div>
-      <p className="text-xs text-slate-400">District and city are auto-filled by GPS below — edit if they're off.</p>
 
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-500">Address</label>
-        {address ? (
-          <div className="flex items-start justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <span>{address}</span>
-            <MapPinIcon className="h-4 w-4 shrink-0 text-emerald-600" />
-          </div>
-        ) : (
-          <p className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-400">No location set yet</p>
-        )}
-        <button
-          type="button"
-          onClick={handleUseLocation}
-          disabled={locating}
-          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-        >
-          {locating ? <SpinnerIcon className="h-3.5 w-3.5" /> : <MapPinIcon className="h-3.5 w-3.5" />}
-          {locating ? 'Locating…' : address ? 'Re-capture with GPS' : 'Use GPS to set location'}
-        </button>
-        {coords && (
-          <p className="mt-1 text-xs text-slate-400">
-            {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
-          </p>
-        )}
-        {locateError && <p className="mt-1 text-xs text-red-600">{locateError}</p>}
+        <textarea
+          rows={2}
+          placeholder="Street address (optional)"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          className={inputClass}
+        />
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -295,7 +230,7 @@ export default function Facilities() {
       <div className="mb-6">
         <p className="mb-2 text-sm font-medium text-slate-700">Add a warehouse</p>
         <FacilityEditor
-          initial={{ name: '', district: null, city: '', address: null, latitude: null, longitude: null }}
+          initial={{ name: '', district: null, city: '', address: null }}
           submitLabel="Add warehouse"
           onSubmit={handleAddSubmit}
         />
@@ -308,7 +243,7 @@ export default function Facilities() {
           editingId === f.id ? (
             <li key={f.id}>
               <FacilityEditor
-                initial={{ name: f.name, district: f.district, city: f.city ?? '', address: f.address, latitude: f.latitude, longitude: f.longitude }}
+                initial={{ name: f.name, district: f.district, city: f.city ?? '', address: f.address }}
                 submitLabel="Save changes"
                 onSubmit={(values) => handleEditSubmit(f.id, values)}
                 onCancel={() => setEditingId(null)}
@@ -321,16 +256,6 @@ export default function Facilities() {
                 <p className="truncate text-xs text-slate-500">
                   {[f.district, f.city, f.address].filter(Boolean).join(' · ') || '—'}
                 </p>
-                {f.latitude != null && f.longitude != null && (
-                  <a
-                    href={`https://www.google.com/maps?q=${f.latitude},${f.longitude}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-0.5 inline-flex items-center gap-1 text-xs text-brand-700 hover:underline"
-                  >
-                    <MapPinIcon className="h-3 w-3" /> View on map
-                  </a>
-                )}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
@@ -375,7 +300,7 @@ export default function Facilities() {
         title="Bulk upload warehouses"
         description="Import many warehouses at once from a CSV file."
         templateFilename="warehouses_template.csv"
-        templateHeaders={['name', 'district', 'city', 'address', 'latitude', 'longitude']}
+        templateHeaders={['name', 'district', 'city', 'address']}
         templateSampleRows={[['General Hospital', 'Ernakulam', 'Kochi', 'MG Road', '9.9816', '76.2999']]}
         parseRow={(raw) => parseFacilityRow(raw)}
         submitRows={submitFacilityRows}

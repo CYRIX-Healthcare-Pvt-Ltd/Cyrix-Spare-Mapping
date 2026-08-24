@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { pickTimeFormatter } from '../lib/formatDate'
 import { describeChanges } from '../lib/describeChanges'
-import { haversineDistanceMeters, formatDistance, DISTANCE_WARNING_METERS } from '../lib/distance'
-import { SpinnerIcon, XIcon, TagIcon, PencilIcon, MapPinIcon } from './icons'
+import { SpinnerIcon, XIcon, TagIcon, PencilIcon } from './icons'
 import type { EquipmentHistoryRow, FacilityRow, FieldDefinitionRow } from '../types/app'
 
 interface HistoryEntry extends EquipmentHistoryRow {
@@ -19,13 +18,14 @@ function who(name: string | null, ecode: string | null): string {
 }
 
 /**
- * The tag/edit timeline for one spare: who did what, when, how far from the
- * warehouse, and what each field changed from and to.
+ * The tag/edit timeline for one spare: who did what, when, and what each
+ * field changed from and to.
  *
- * Self-contained -- it loads the history, the warehouse (for the distance
- * comparison) and the field definitions itself from an equipment id, so it
- * can be opened from the spare's own page or straight from the recent-changes
- * feed without either caller having to assemble that first.
+ * Self-contained -- it loads the history, the field definitions and the
+ * warehouse list (so a changed warehouse renders as a name) itself from an
+ * equipment id, so it can be opened from the spare's own page or straight
+ * from the recent-changes feed without either caller having to assemble that
+ * first.
  */
 export function EquipmentHistoryDialog({
   equipmentId,
@@ -37,7 +37,6 @@ export function EquipmentHistoryDialog({
   onClose: () => void
 }) {
   const [entries, setEntries] = useState<HistoryEntry[]>([])
-  const [facility, setFacility] = useState<FacilityRow | null>(null)
   const [fieldDefs, setFieldDefs] = useState<FieldDefinitionRow[]>([])
   const [facilities, setFacilities] = useState<FacilityRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,8 +45,7 @@ export function EquipmentHistoryDialog({
     let cancelled = false
 
     async function load() {
-      const [{ data: eq }, { data: historyRows }, { data: fields }, { data: facilityRows }] = await Promise.all([
-        supabase.from('equipment').select('facility_id').eq('id', equipmentId).maybeSingle(),
+      const [{ data: historyRows }, { data: fields }, { data: facilityRows }] = await Promise.all([
         supabase.from('equipment_history').select('*').eq('equipment_id', equipmentId).order('performed_at', { ascending: true }),
         supabase.from('field_definitions').select('*').eq('active', true).order('display_order'),
         supabase.from('facilities').select('*'),
@@ -68,7 +66,6 @@ export function EquipmentHistoryDialog({
       const byId = new Map((people ?? []).map((p) => [p.id, p]))
       setFacilities(facilityRows ?? [])
       setFieldDefs(fields ?? [])
-      setFacility(eq ? ((facilityRows ?? []).find((f) => f.id === eq.facility_id) ?? null) : null)
       setEntries(
         list.map((h) => ({
           ...h,
@@ -121,10 +118,6 @@ export function EquipmentHistoryDialog({
           )}
           {entries.map((h, i) => {
             const details = describeChanges(h.changes, fieldDefs, facilities)
-            const entryDistance =
-              h.latitude != null && h.longitude != null && facility?.latitude != null && facility?.longitude != null
-                ? haversineDistanceMeters(h.latitude, h.longitude, facility.latitude, facility.longitude)
-                : null
             return (
               <li key={h.id} className="flex gap-3">
                 <div className="relative flex w-7 shrink-0 flex-col items-center">
@@ -153,16 +146,6 @@ export function EquipmentHistoryDialog({
                     </p>
                   )}
                   <p className="text-xs text-slate-500">{formatTime(h.performed_at)}</p>
-                  {entryDistance !== null && (
-                    <span
-                      className={`mt-1.5 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                        entryDistance > DISTANCE_WARNING_METERS ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
-                      }`}
-                    >
-                      <MapPinIcon className="h-3 w-3" />
-                      {formatDistance(entryDistance)} from warehouse
-                    </span>
-                  )}
                   {details.length > 0 && (
                     <ul className="mt-1.5 space-y-1 rounded-lg bg-slate-50 px-2.5 py-2 text-xs text-slate-600">
                       {details.map((d, i2) => (

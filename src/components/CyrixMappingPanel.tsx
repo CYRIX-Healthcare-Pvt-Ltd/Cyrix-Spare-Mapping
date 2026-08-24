@@ -5,6 +5,7 @@ import { findCyrixMatches, searchCyrixItems, type ScoredItem } from '../lib/item
 import { SpinnerIcon, CheckIcon, AlertIcon, SearchIcon, PencilIcon, HistoryIcon, LinkIcon, XIcon } from './icons'
 import { MatchBadge, StockBadge } from './ItemBadges'
 import { MappingHistoryDialog } from './MappingHistoryDialog'
+import { SearchInput } from './SearchInput'
 import type { ResolvedItem } from '../lib/itemAutofill'
 import type { BlueStarItemRow, CyrixItemRow } from '../types/app'
 
@@ -281,16 +282,12 @@ export function CyrixMappingPanel({
 
           {searchOpen || changing || suggestions.length === 0 ? (
             <div className="space-y-1.5">
-              <div className="relative">
-                <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={manualTerm}
-                  onChange={(e) => setManualTerm(e.target.value)}
-                  placeholder="Search the Cyrix item master by code or name…"
-                  className="w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-8 pr-2 text-xs focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                />
-              </div>
+              <SearchInput
+                value={manualTerm}
+                onChange={setManualTerm}
+                placeholder="Search the Cyrix item master by code or name…"
+                size="sm"
+              />
               {searching && (
                 <p className="flex items-center gap-1.5 text-xs text-slate-400">
                   <SpinnerIcon className="h-3.5 w-3.5" /> Searching&hellip;

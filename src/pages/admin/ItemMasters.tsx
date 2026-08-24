@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { UploadIcon, DownloadIcon, SearchIcon, SpinnerIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, HistoryIcon } from '../../components/icons'
+import { UploadIcon, DownloadIcon, SpinnerIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, HistoryIcon } from '../../components/icons'
 import { BulkUploadModal, type RowOutcome } from '../../components/BulkUploadModal'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { CyrixPickerDialog } from '../../components/CyrixPickerDialog'
 import { MappingHistoryDialog } from '../../components/MappingHistoryDialog'
 import { downloadXlsx, type CellValue } from '../../lib/xlsx'
 import type { BlueStarItemRow, CyrixItemRow } from '../../types/app'
+import { SearchInput } from '../../components/SearchInput'
 
 type Tab = 'bluestar' | 'cyrix'
 
@@ -299,15 +300,12 @@ export default function ItemMasters() {
       </div>
 
       <div className="mb-4 flex gap-2">
-        <div className="relative flex-1">
-          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={tab === 'bluestar' ? 'Search code, name, or barcode…' : 'Search code, name, identifier, make, or model…'}
-            className="w-full rounded-lg border border-slate-300 py-2 pl-8 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={tab === 'bluestar' ? 'Search code, name, or barcode…' : 'Search code, name, identifier, make, or model…'}
+          className="flex-1"
+        />
         <button
           type="button"
           onClick={handleExport}

@@ -5,8 +5,9 @@ import { supabase } from '../lib/supabaseClient'
 import { formatDate } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { TrashIcon, SearchIcon, TagIcon } from '../components/icons'
+import { TrashIcon, TagIcon } from '../components/icons'
 import type { EquipmentRow, FieldDefinitionRow } from '../types/app'
+import { SearchInput } from '../components/SearchInput'
 
 interface DisplayRow extends EquipmentRow {
   facilityName: string
@@ -158,15 +159,12 @@ export default function TaggedEquipment() {
 
         {rows.length > 0 && (
           <div className="mt-3 flex items-center gap-2 sm:mt-0">
-            <div className="relative flex-1 sm:w-72 sm:flex-none">
-              <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search spare, code, warehouse…"
-                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-              />
-            </div>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search spare, code, warehouse…"
+              className="flex-1 sm:w-72 sm:flex-none"
+            />
           </div>
         )}
       </div>

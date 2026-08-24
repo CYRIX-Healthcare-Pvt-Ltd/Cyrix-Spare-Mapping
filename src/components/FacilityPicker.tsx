@@ -110,9 +110,8 @@ export function FacilityPicker({
     setCreating(true)
     setCreateError(null)
     try {
-      // District and city are left null here -- the GPS capture inside
-      // onCreateFacility reverse-geocodes them, which is more reliable than
-      // anything typed on the tag form.
+      // Name only: an admin fills in district, city and address later from
+      // Admin -> Warehouses. A tagger shouldn't have to know them.
       const created = await onCreateFacility({ name: text.trim(), district: null, city: null })
       onChange(created.id)
       setText(created.name)
@@ -207,7 +206,7 @@ export function FacilityPicker({
             className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-brand-200 px-2.5 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-60"
           >
             {creating ? <SpinnerIcon className="h-3.5 w-3.5" /> : <PlusIcon className="h-3.5 w-3.5" />}
-            {creating ? 'Capturing location…' : `Add "${text.trim()}" as a new warehouse`}
+            {creating ? 'Adding…' : `Add "${text.trim()}" as a new warehouse`}
           </button>
           {createError && <p className="mt-1 text-xs text-red-600">{createError}</p>}
         </div>
