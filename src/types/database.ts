@@ -254,7 +254,7 @@ export interface Database {
         }>
         Relationships: []
       }
-      bpl_item_master: {
+      bluestar_item_master: {
         Row: {
           id: string
           item_code: string

@@ -2,8 +2,8 @@ import type { FieldDefinitionRow } from '../types/app'
 
 /** What a resolved barcode can contribute to the rest of the form. */
 export interface ResolvedItem {
-  bplItemCode: string
-  bplItemName: string
+  blueStarItemCode: string
+  blueStarItemName: string
   cyrixItemCode: string | null
   cyrixItemName: string | null
   make: string | null
@@ -49,10 +49,10 @@ export function valueForField(field: FieldDefinitionRow, item: ResolvedItem): st
   if (has('make', 'brand', 'manufacturer')) return item.make
   if (has('model')) return item.model
   if (has('group', 'category')) return item.itemGroup
-  if (has('item code', 'item_code', 'cyrix code')) return item.cyrixItemCode ?? item.bplItemCode
+  if (has('item code', 'item_code', 'cyrix code')) return item.cyrixItemCode ?? item.blueStarItemCode
   if (has('identifier', 'part no', 'part number')) return item.additionalIdentifier
-  // Prefer our own naming over BPL's for anything name/description shaped.
-  if (has('name', 'description', 'spare', 'equipment')) return item.cyrixItemName ?? item.bplItemName
+  // Prefer our own naming over Blue Star's for anything name/description shaped.
+  if (has('name', 'description', 'spare', 'equipment')) return item.cyrixItemName ?? item.blueStarItemName
 
   return null
 }

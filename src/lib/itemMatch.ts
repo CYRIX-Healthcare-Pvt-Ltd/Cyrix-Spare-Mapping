@@ -62,7 +62,7 @@ function searchTokens(name: string): string[] {
 }
 
 /**
- * Finds Cyrix items that plausibly match a BPL item name.
+ * Finds Cyrix items that plausibly match a Blue Star item name.
  *
  * Narrowing happens in Postgres (against the indexed normalized column) and
  * only the shortlist is scored in the browser -- these catalogues run to
@@ -70,14 +70,14 @@ function searchTokens(name: string): string[] {
  * viable. Callers still get a manual search as a fallback for the cases
  * where nothing scores well enough.
  */
-export async function findCyrixMatches(bplItemName: string, limit = 5): Promise<ScoredItem[]> {
-  const normalized = normalizeItemName(bplItemName)
+export async function findCyrixMatches(blueStarItemName: string, limit = 5): Promise<ScoredItem[]> {
+  const normalized = normalizeItemName(blueStarItemName)
   if (!normalized) return []
 
   // Normalized values are alphanumeric only, so they can't break out of
   // PostgREST's comma/dot-delimited `or` filter syntax.
   const filters = [`name_normalized.like.*${normalized}*`]
-  for (const token of searchTokens(bplItemName)) {
+  for (const token of searchTokens(blueStarItemName)) {
     filters.push(`name_normalized.like.*${normalizeItemName(token)}*`)
   }
 
@@ -93,7 +93,7 @@ export async function findCyrixMatches(bplItemName: string, limit = 5): Promise<
   const byId = new Map<string, CyrixItemRow>()
   for (const row of [...(exact ?? []), ...(fuzzy ?? [])]) byId.set(row.id, row)
 
-  return rankCyrixMatches(bplItemName, [...byId.values()], limit)
+  return rankCyrixMatches(blueStarItemName, [...byId.values()], limit)
 }
 
 /**
@@ -105,11 +105,11 @@ export async function findCyrixMatches(bplItemName: string, limit = 5): Promise<
  * Below that tier, items actually held in stock come first, since those are
  * the ones the tagger is realistically looking at on the shelf.
  */
-export function rankCyrixMatches(bplItemName: string, candidates: CyrixItemRow[], limit = 5): ScoredItem[] {
+export function rankCyrixMatches(blueStarItemName: string, candidates: CyrixItemRow[], limit = 5): ScoredItem[] {
   const stockOf = (item: CyrixItemRow) => (typeof item.in_stock === 'number' ? item.in_stock : 0)
 
   return candidates
-    .map((item) => ({ item, score: similarity(bplItemName, item.item_name) }))
+    .map((item) => ({ item, score: similarity(blueStarItemName, item.item_name) }))
     .filter((m) => m.score >= SUGGESTION_THRESHOLD)
     .sort((a, b) => {
       const exact = Number(b.score === 1) - Number(a.score === 1)

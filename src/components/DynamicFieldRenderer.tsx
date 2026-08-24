@@ -8,12 +8,15 @@ export function DynamicFieldRenderer({
   fields,
   values,
   suggestions,
+  autofilled,
   onChange,
   onItemResolved,
 }: {
   fields: FieldDefinitionRow[]
   values: Record<string, unknown>
   suggestions?: Record<string, string[]>
+  /** Keys of fields filled from a scanned item, marked so the tagger can see what to check. */
+  autofilled?: string[]
   onChange: (key: string, value: unknown) => void
   onItemResolved?: (item: ResolvedItem) => void
 }) {
@@ -29,9 +32,16 @@ export function DynamicFieldRenderer({
     <div className="space-y-4">
       {fields.map((field) => (
         <div key={field.id}>
-          <label className="mb-1 block text-sm font-medium text-slate-700">
-            {field.label}
-            {field.required && <span className="text-red-500"> *</span>}
+          <label className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
+            <span>
+              {field.label}
+              {field.required && <span className="text-red-500"> *</span>}
+            </span>
+            {autofilled?.includes(field.field_key) && (
+              <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                From scan
+              </span>
+            )}
           </label>
           <FieldInput
             field={field}

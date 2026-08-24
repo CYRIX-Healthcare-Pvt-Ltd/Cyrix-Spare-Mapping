@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { DynamicFieldRenderer } from './DynamicFieldRenderer'
 import { FacilityPicker } from './FacilityPicker'
-import { SpinnerIcon, CheckIcon } from './icons'
+import { SpinnerIcon } from './icons'
 import { buildAutofill, type ResolvedItem } from '../lib/itemAutofill'
 import type { EquipmentFormValues, FacilityRow, FieldDefinitionRow } from '../types/app'
 
@@ -69,22 +69,14 @@ export function EquipmentForm({
             No custom fields set up yet — an admin can add some in Admin → Custom fields.
           </p>
         ) : (
-          <>
-            {autofilled.length > 0 && (
-              <p className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-2 text-xs text-emerald-700">
-                <CheckIcon className="h-3.5 w-3.5 shrink-0" />
-                Filled in {autofilled.length} field{autofilled.length === 1 ? '' : 's'} from the scanned item — edit any of
-                them if they're not right.
-              </p>
-            )}
-            <DynamicFieldRenderer
-              fields={fieldDefs}
-              values={values.custom_fields}
-              suggestions={suggestions}
-              onChange={handleFieldChange}
-              onItemResolved={handleItemResolved}
-            />
-          </>
+          <DynamicFieldRenderer
+            fields={fieldDefs}
+            values={values.custom_fields}
+            suggestions={suggestions}
+            autofilled={autofilled}
+            onChange={handleFieldChange}
+            onItemResolved={handleItemResolved}
+          />
         )}
 
         <button

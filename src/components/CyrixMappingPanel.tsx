@@ -3,12 +3,12 @@ import { supabase } from '../lib/supabaseClient'
 import { findCyrixMatches, searchCyrixItems, type ScoredItem } from '../lib/itemMatch'
 import { SpinnerIcon, CheckIcon, AlertIcon, SearchIcon, PencilIcon } from './icons'
 import type { ResolvedItem } from '../lib/itemAutofill'
-import type { BplItemRow, CyrixItemRow } from '../types/app'
+import type { BlueStarItemRow, CyrixItemRow } from '../types/app'
 
 type Lookup =
   | { state: 'idle' }
   | { state: 'looking' }
-  | { state: 'found'; item: BplItemRow }
+  | { state: 'found'; item: BlueStarItemRow }
   | { state: 'missing' }
 
 /** Quantity on hand, so the tagger can tell a real shelf item from a catalogue entry. */
@@ -26,9 +26,9 @@ function StockBadge({ qty }: { qty: number | null }) {
 }
 
 /**
- * Resolves a scanned barcode to a BPL item and, when that item has no Cyrix
+ * Resolves a scanned barcode to a Blue Star item and, when that item has no Cyrix
  * counterpart recorded yet, offers the closest Cyrix items to map it to.
- * Confirming a suggestion writes the mapping onto the BPL row, so it stays
+ * Confirming a suggestion writes the mapping onto the Blue Star row, so it stays
  * resolved for everyone afterwards.
  *
  * This sits under the equipment-name field rather than under the barcode
@@ -50,7 +50,7 @@ export function CyrixMappingPanel({
   const [manualTerm, setManualTerm] = useState('')
   const [manualResults, setManualResults] = useState<CyrixItemRow[]>([])
 
-  const loadSuggestions = useCallback(async (item: BplItemRow) => {
+  const loadSuggestions = useCallback(async (item: BlueStarItemRow) => {
     setLoadingSuggestions(true)
     setSuggestions(await findCyrixMatches(item.item_name))
     setLoadingSuggestions(false)
@@ -58,9 +58,9 @@ export function CyrixMappingPanel({
 
   // Reports the resolved item upward so sibling fields can autofill. Make,
   // model and the rest live on the Cyrix row, so they're only available once
-  // the BPL item has been mapped -- before that the BPL name is all there is.
+  // the Blue Star item has been mapped -- before that the Blue Star name is all there is.
   const reportResolved = useCallback(
-    async (item: BplItemRow, cyrix?: CyrixItemRow | null) => {
+    async (item: BlueStarItemRow, cyrix?: CyrixItemRow | null) => {
       if (!onResolve) return
 
       let detail: CyrixItemRow | null = cyrix ?? null
@@ -74,8 +74,8 @@ export function CyrixMappingPanel({
       }
 
       onResolve({
-        bplItemCode: item.item_code,
-        bplItemName: item.item_name,
+        blueStarItemCode: item.item_code,
+        blueStarItemName: item.item_name,
         cyrixItemCode: detail?.item_code ?? item.cyrix_item_code,
         cyrixItemName: detail?.item_name ?? item.cyrix_item_name,
         make: detail?.make ?? null,
@@ -100,7 +100,7 @@ export function CyrixMappingPanel({
     let cancelled = false
     setLookup({ state: 'looking' })
     const timer = setTimeout(async () => {
-      const { data } = await supabase.from('bpl_item_master').select('*').eq('barcode', code).limit(1)
+      const { data } = await supabase.from('bluestar_item_master').select('*').eq('barcode', code).limit(1)
       if (cancelled) return
 
       const item = data?.[0]
@@ -142,7 +142,7 @@ export function CyrixMappingPanel({
     if (lookup.state !== 'found') return
     setSaving(true)
     const { error } = await supabase
-      .from('bpl_item_master')
+      .from('bluestar_item_master')
       .update({ cyrix_item_code: cyrixItem.item_code, cyrix_item_name: cyrixItem.item_name })
       .eq('id', lookup.item.id)
     setSaving(false)
@@ -181,7 +181,7 @@ export function CyrixMappingPanel({
       {lookup.state === 'missing' && (
         <p className="flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-700">
           <AlertIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          That barcode isn't in the BPL item master, so nothing could be filled in automatically — type the details in
+          That barcode isn't in the Blue Star item master, so nothing could be filled in automatically — type the details in
           yourself.
         </p>
       )}
@@ -189,7 +189,7 @@ export function CyrixMappingPanel({
       {lookup.state === 'found' && (
         <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Scanned BPL item</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Scanned Blue Star item</p>
             <p className="text-sm text-slate-800">
               <span className="font-mono text-xs text-slate-500">{lookup.item.item_code}</span> · {lookup.item.item_name}
             </p>
