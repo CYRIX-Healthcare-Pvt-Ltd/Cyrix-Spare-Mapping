@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { PlusIcon, TrashIcon, SpinnerIcon } from '../../components/icons'
+import { PlusIcon, TrashIcon, SpinnerIcon, PencilIcon } from '../../components/icons'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import type { FieldDefinitionRow } from '../../types/app'
 import type { FieldType } from '../../types/database'
@@ -36,6 +36,14 @@ export default function Fields() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<FieldDefinitionRow | null>(null)
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editLabel, setEditLabel] = useState('')
+  const [editType, setEditType] = useState<FieldType>('text')
+  const [editOptions, setEditOptions] = useState('')
+  const [editImageMax, setEditImageMax] = useState(3)
+  const [editRequired, setEditRequired] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('field_definitions').select('*').order('display_order')
@@ -105,6 +113,40 @@ export default function Fields() {
     load()
   }
 
+  function startEdit(f: FieldDefinitionRow) {
+    setEditingId(f.id)
+    setEditLabel(f.label)
+    setEditType(f.field_type)
+    setEditOptions(f.options.join(', '))
+    setEditImageMax(f.image_max_count ?? 3)
+    setEditRequired(f.required)
+    setEditError(null)
+  }
+
+  async function saveEdit(id: string) {
+    setEditError(null)
+    // field_key is deliberately left alone: it's the key every existing
+    // equipment row stores its value under, so renaming it would orphan all
+    // of that data. The label is free to change.
+    const { error: updateError } = await supabase
+      .from('field_definitions')
+      .update({
+        label: editLabel,
+        field_type: editType,
+        options: editType === 'dropdown' ? editOptions.split(',').map((o) => o.trim()).filter(Boolean) : [],
+        image_max_count: editType === 'image' ? editImageMax : null,
+        required: editRequired,
+      })
+      .eq('id', id)
+
+    if (updateError) {
+      setEditError(updateError.message)
+      return
+    }
+    setEditingId(null)
+    load()
+  }
+
   if (loading) return null
 
   const inputClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
@@ -165,37 +207,114 @@ export default function Fields() {
       <ul className="space-y-2">
         {fields.map((f, i) => (
           <li key={f.id} className="rounded-xl border border-slate-200 bg-white p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="font-medium text-slate-900">
-                  {f.label} {f.required && <span className="text-red-500">*</span>}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {TYPE_LABEL[f.field_type]}
-                  {f.field_type === 'dropdown' && f.options.length > 0 && `: ${f.options.join(', ')}`}
-                  {f.field_type === 'image' && ` (up to ${f.image_max_count ?? 3})`}
-                </p>
+            {editingId === f.id ? (
+              <div className="space-y-3">
+                <input
+                  autoFocus
+                  placeholder="Label"
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  className={inputClass}
+                />
+                <select value={editType} onChange={(e) => setEditType(e.target.value as FieldType)} className={inputClass}>
+                  {Object.entries(TYPE_LABEL).map(([value, l]) => (
+                    <option key={value} value={value}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+                {editType === 'dropdown' && (
+                  <input
+                    placeholder="Options, comma separated"
+                    value={editOptions}
+                    onChange={(e) => setEditOptions(e.target.value)}
+                    className={inputClass}
+                  />
+                )}
+                {editType === 'image' && (
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-500">Max images for this field</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={editImageMax}
+                      onChange={(e) => setEditImageMax(Math.min(10, Math.max(1, Number(e.target.value) || 1)))}
+                      className={inputClass}
+                    />
+                  </div>
+                )}
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={editRequired}
+                    onChange={(e) => setEditRequired(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-brand-600"
+                  />
+                  Required
+                </label>
+                {editType !== f.field_type && (
+                  <p className="rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-700">
+                    Changing the type leaves values already saved on existing equipment as they are — they may not fit
+                    the new type.
+                  </p>
+                )}
+                {editError && <p className="text-sm text-red-600">{editError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => saveEdit(f.id)}
+                    className="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-650"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => move(i, -1)} disabled={i === 0} className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30">
-                  ↑
-                </button>
-                <button onClick={() => move(i, 1)} disabled={i === fields.length - 1} className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30">
-                  ↓
-                </button>
-                <button
-                  onClick={() => toggleActive(f)}
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                    f.active ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  {f.active ? 'Active' : 'Inactive'}
-                </button>
-                <button onClick={() => setConfirmDelete(f)} className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700" aria-label={`Delete ${f.label}`}>
-                  <TrashIcon className="h-4 w-4" />
-                </button>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium text-slate-900">
+                    {f.label} {f.required && <span className="text-red-500">*</span>}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {TYPE_LABEL[f.field_type]}
+                    {f.field_type === 'dropdown' && f.options.length > 0 && `: ${f.options.join(', ')}`}
+                    {f.field_type === 'image' && ` (up to ${f.image_max_count ?? 3})`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => move(i, -1)} disabled={i === 0} className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30">
+                    ↑
+                  </button>
+                  <button onClick={() => move(i, 1)} disabled={i === fields.length - 1} className="rounded p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-30">
+                    ↓
+                  </button>
+                  <button
+                    onClick={() => toggleActive(f)}
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                      f.active ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    {f.active ? 'Active' : 'Inactive'}
+                  </button>
+                  <button
+                    onClick={() => startEdit(f)}
+                    className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                    aria-label={`Edit ${f.label}`}
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setConfirmDelete(f)} className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700" aria-label={`Delete ${f.label}`}>
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </li>
         ))}
       </ul>
@@ -203,7 +322,7 @@ export default function Fields() {
       <ConfirmDialog
         open={!!confirmDelete}
         title={`Delete "${confirmDelete?.label}"?`}
-        message="Existing equipment keeps its saved value, but it will no longer be shown or editable."
+        message="Existing spares keep their saved value, but it will no longer be shown or editable."
         onConfirm={performDelete}
         onCancel={() => setConfirmDelete(null)}
       />

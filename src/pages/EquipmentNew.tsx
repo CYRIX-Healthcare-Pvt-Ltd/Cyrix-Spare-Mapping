@@ -84,7 +84,7 @@ export default function EquipmentNew() {
     if (insertError || !data) {
       setError(
         insertError?.code === '23505'
-          ? 'This QR code is already mapped to a piece of equipment.'
+          ? 'This QR code is already mapped to a spare.'
           : `Could not save: ${insertError?.message ?? 'unknown error'}`
       )
       return
@@ -192,7 +192,7 @@ export default function EquipmentNew() {
     return (
       <div className="mx-auto max-w-sm px-4 py-10 text-center">
         <AlertIcon className="mx-auto mb-3 h-8 w-8 text-amber-500" />
-        <p className="mb-4 text-slate-600">Scan a QR code first to tag a new piece of equipment.</p>
+        <p className="mb-4 text-slate-600">Scan a QR code first to tag a new spare.</p>
         <Link to="/scan" className="font-medium text-brand-700 hover:underline">
           Go to scan
         </Link>
@@ -207,7 +207,7 @@ export default function EquipmentNew() {
       <Link to="/scan" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
         <ChevronLeftIcon className="h-4 w-4" /> Back
       </Link>
-      <h1 className="mb-1 text-lg font-semibold text-slate-900">Tag new equipment</h1>
+      <h1 className="mb-1 text-lg font-semibold text-slate-900">Tag new spare</h1>
       <p className="mb-5 text-sm text-slate-500">
         Code: <span className="font-mono">{qr}</span>
       </p>
@@ -225,7 +225,7 @@ export default function EquipmentNew() {
           facility_id: facilities.length === 1 ? facilities[0].id : '',
           custom_fields: {},
         }}
-        submitLabel="Save equipment"
+        submitLabel="Save spare"
         submitting={submitting}
         disabled={!!distanceWarning}
         suggestions={suggestions}

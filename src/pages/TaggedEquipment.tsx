@@ -109,11 +109,11 @@ export default function TaggedEquipment() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-6 sm:max-w-none sm:px-6 lg:px-8">
-      <h1 className="mb-1 text-lg font-semibold text-slate-900">Tagged equipment</h1>
+      <h1 className="mb-1 text-lg font-semibold text-slate-900">Tagged spares</h1>
       <p className="mb-4 text-sm text-slate-500">
         {profile.role === 'engineer'
-          ? "Equipment you've scanned and tagged."
-          : "Equipment tagged by your team, and you."}
+          ? "Spares you've scanned and tagged."
+          : "Spares tagged by your team, and you."}
       </p>
 
       {rows.length === 0 && <p className="text-sm text-slate-500">Nothing tagged yet.</p>}

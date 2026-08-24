@@ -1,19 +1,29 @@
 import type { FieldDefinitionRow } from '../types/app'
+import { isNameField, type ResolvedItem } from '../lib/itemAutofill'
 import { ImageUploader } from './ImageUploader'
 import { BarcodeItemInput } from './BarcodeItemInput'
+import { CyrixMappingPanel } from './CyrixMappingPanel'
 
 export function DynamicFieldRenderer({
   fields,
   values,
   suggestions,
   onChange,
+  onItemResolved,
 }: {
   fields: FieldDefinitionRow[]
   values: Record<string, unknown>
   suggestions?: Record<string, string[]>
   onChange: (key: string, value: unknown) => void
+  onItemResolved?: (item: ResolvedItem) => void
 }) {
   if (fields.length === 0) return null
+
+  // The scanned barcode drives the item lookup, but its result is shown under
+  // the name field, so the panel needs the barcode field's current value.
+  const barcodeField = fields.find((f) => f.field_type === 'barcode')
+  const barcode = barcodeField ? ((values[barcodeField.field_key] as string) ?? '') : ''
+  const panelAfter = fields.find(isNameField)
 
   return (
     <div className="space-y-4">
@@ -29,8 +39,15 @@ export function DynamicFieldRenderer({
             suggestions={suggestions?.[field.field_key]}
             onChange={(v) => onChange(field.field_key, v)}
           />
+          {barcodeField && panelAfter?.id === field.id && (
+            <CyrixMappingPanel barcode={barcode} onResolve={onItemResolved} />
+          )}
         </div>
       ))}
+
+      {/* No name-shaped field to sit under -- fall back to the end of the form
+          rather than dropping the mapping UI entirely. */}
+      {barcodeField && !panelAfter && <CyrixMappingPanel barcode={barcode} onResolve={onItemResolved} />}
     </div>
   )
 }

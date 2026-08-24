@@ -252,7 +252,7 @@ export default function EquipmentView() {
   if (notFound || !equipment || !profile) {
     return (
       <div className="mx-auto max-w-sm px-4 py-10 text-center text-slate-600">
-        <p className="mb-4">Equipment not found, or you don't have access to it.</p>
+        <p className="mb-4">Spare not found, or you don't have access to it.</p>
         <Link to="/scan" className="font-medium text-brand-700 hover:underline">
           Back to scan
         </Link>
@@ -275,7 +275,7 @@ export default function EquipmentView() {
       {editing ? (
         <>
           <h1 className="mb-4 text-lg font-semibold text-slate-900">
-            {canEditDirectly ? 'Edit equipment' : 'Request an edit'}
+            {canEditDirectly ? 'Edit spare' : 'Request an edit'}
           </h1>
           <EquipmentForm
             facilities={allFacilities}
@@ -421,7 +421,7 @@ export default function EquipmentView() {
           className="fixed inset-0 z-50 grid place-items-center bg-black/90 p-4"
           onClick={() => setLightbox(null)}
         >
-          <img src={lightbox} alt="Equipment full size" className="max-h-full max-w-full rounded-lg object-contain" />
+          <img src={lightbox} alt="Spare full size" className="max-h-full max-w-full rounded-lg object-contain" />
         </div>
       )}
 

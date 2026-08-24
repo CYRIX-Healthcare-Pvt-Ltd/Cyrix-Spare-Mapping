@@ -123,7 +123,7 @@ export default function EditRequests() {
           <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-1 flex items-start justify-between gap-2">
               <Link to={`/equipment/${r.equipment_id}`} className="font-medium text-slate-900 hover:underline">
-                {r.equipment?.name ?? 'Deleted equipment'}
+                {r.equipment?.name ?? 'Deleted spare'}
               </Link>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[r.status]}`}>
                 {r.status}

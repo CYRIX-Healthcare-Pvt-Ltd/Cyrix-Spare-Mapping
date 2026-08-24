@@ -51,8 +51,12 @@ export interface ScoredItem {
 /** Anything at or above this is worth showing as a suggestion. */
 export const SUGGESTION_THRESHOLD = 0.4
 
+// Filler words match almost everything, so they'd crowd real candidates out
+// of the shortlist without narrowing anything.
+const STOPWORDS = new Set(['and', 'for', 'the', 'with', 'without', 'from', 'set', 'kit', 'type', 'new'])
+
 function searchTokens(name: string): string[] {
-  return [...new Set(name.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3))]
+  return [...new Set(name.toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !STOPWORDS.has(t)))]
     .sort((a, b) => b.length - a.length)
     .slice(0, 4)
 }
@@ -72,19 +76,24 @@ export async function findCyrixMatches(bplItemName: string, limit = 5): Promise<
 
   // Normalized values are alphanumeric only, so they can't break out of
   // PostgREST's comma/dot-delimited `or` filter syntax.
-  const filters = [`name_normalized.eq.${normalized}`, `name_normalized.like.*${normalized}*`]
+  const filters = [`name_normalized.like.*${normalized}*`]
   for (const token of searchTokens(bplItemName)) {
     filters.push(`name_normalized.like.*${normalizeItemName(token)}*`)
   }
 
-  const { data } = await supabase
-    .from('cyrix_item_master')
-    .select('*')
-    .eq('active', true)
-    .or(filters.join(','))
-    .limit(50)
+  // Exact matches are fetched separately rather than folded into the broad
+  // `or` below. A single capped, unordered candidate query can drop the exact
+  // match entirely when a common token (e.g. "humidifier") matches more rows
+  // than the cap -- which is precisely the row that must never be missed.
+  const [{ data: exact }, { data: fuzzy }] = await Promise.all([
+    supabase.from('cyrix_item_master').select('*').eq('active', true).eq('name_normalized', normalized).limit(10),
+    supabase.from('cyrix_item_master').select('*').eq('active', true).or(filters.join(',')).limit(50),
+  ])
 
-  return rankCyrixMatches(bplItemName, data ?? [], limit)
+  const byId = new Map<string, CyrixItemRow>()
+  for (const row of [...(exact ?? []), ...(fuzzy ?? [])]) byId.set(row.id, row)
+
+  return rankCyrixMatches(bplItemName, [...byId.values()], limit)
 }
 
 /**
