@@ -127,6 +127,7 @@ export interface Database {
           custom_fields: Record<string, unknown>
           tag_latitude: number | null
           tag_longitude: number | null
+          bluestar_item_id: string | null
           created_by: string | null
           updated_by: string | null
           created_at: string
@@ -141,6 +142,7 @@ export interface Database {
           custom_fields?: Record<string, unknown>
           tag_latitude?: number | null
           tag_longitude?: number | null
+          bluestar_item_id?: string | null
           created_by?: string | null
         }
         Update: Partial<{
@@ -149,6 +151,7 @@ export interface Database {
           location: string
           images: string[]
           custom_fields: Record<string, unknown>
+          bluestar_item_id: string | null
           updated_by: string | null
         }>
         Relationships: []
@@ -265,6 +268,8 @@ export interface Database {
           cyrix_item_name: string | null
           // Generated column (migration 0012) -- read-only, never inserted.
           name_normalized: string
+          /** 'upload' from Blue Star's master file, 'tagged' if created by tagging a spare (0018). */
+          origin: 'upload' | 'tagged'
           active: boolean
           created_at: string
           updated_at: string
@@ -316,6 +321,12 @@ export interface Database {
       // history row and applies the change in one transaction (migration 0015).
       set_cyrix_mapping: {
         Args: { item_id: string; new_cyrix_code: string | null }
+        Returns: Database['public']['Tables']['bluestar_item_master']['Row']
+      }
+      // Tagging a spare records it in Blue Star's catalogue. Definer-only:
+      // engineers can't insert into the catalogue directly (migration 0018).
+      upsert_tagged_bluestar_item: {
+        Args: { p_item_code: string; p_item_name: string; p_barcode: string | null; p_cyrix_code: string | null }
         Returns: Database['public']['Tables']['bluestar_item_master']['Row']
       }
       is_admin: { Args: Record<string, never>; Returns: boolean }

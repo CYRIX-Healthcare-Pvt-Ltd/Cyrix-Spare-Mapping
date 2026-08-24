@@ -272,7 +272,7 @@ export default function ItemMasters() {
   const shownCount = tab === 'bluestar' ? blueStarRows.length : cyrixRows.length
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6 sm:max-w-none sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-none sm:px-6 lg:px-8 lg:py-8">
       <h1 className="mb-1 text-lg font-semibold text-slate-900">Item masters</h1>
       <p className="mb-4 text-sm text-slate-500">
         Blue Star's catalogue is matched by the barcode already on the spare. Cyrix's is our own naming for the same parts.
@@ -336,16 +336,17 @@ export default function ItemMasters() {
         </p>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 text-xs text-slate-500">
-                  <th className="whitespace-nowrap px-3 py-2 font-medium">Item code</th>
-                  <th className="whitespace-nowrap px-3 py-2 font-medium">Item name</th>
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full min-w-max text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50">
+                <tr className="text-xs uppercase tracking-wide text-slate-500">
+                  <th className="whitespace-nowrap px-3 py-2 font-semibold">Item code</th>
+                  <th className="whitespace-nowrap px-3 py-2 font-semibold">Item name</th>
                   {tab === 'bluestar' ? (
                     <>
-                      <th className="whitespace-nowrap px-3 py-2 font-medium">Barcode</th>
-                      <th className="whitespace-nowrap px-3 py-2 font-medium">Cyrix item</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-semibold">Barcode</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-semibold">Cyrix item</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-semibold">Source</th>
                     </>
                   ) : (
                     <>
@@ -365,9 +366,9 @@ export default function ItemMasters() {
                 {tab === 'bluestar'
                   ? blueStarRows.map((r) => (
                       <tr key={r.id}>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-600">{r.item_code}</td>
+                        <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-600">{r.item_code}</td>
                         <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-500">{r.barcode ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-500">{r.barcode ?? '—'}</td>
                         <td className="px-3 py-2 text-slate-600">
                           <button
                             onClick={() => setMappingFor(r)}
@@ -376,7 +377,7 @@ export default function ItemMasters() {
                           >
                             {r.cyrix_item_code ? (
                               <span>
-                                <span className="font-mono text-xs text-slate-500">{r.cyrix_item_code}</span>
+                                <span className="font-mono text-sm text-slate-500">{r.cyrix_item_code}</span>
                                 {r.cyrix_item_name && ` · ${r.cyrix_item_name}`}
                               </span>
                             ) : (
@@ -385,6 +386,17 @@ export default function ItemMasters() {
                               </span>
                             )}
                           </button>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          {/* Where the row came from: Blue Star's own master
+                              file, or a spare tagged in this app. */}
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              r.origin === 'tagged' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {r.origin === 'tagged' ? 'Tagged' : 'Uploaded'}
+                          </span>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">
                           <span className="flex items-center gap-1">
@@ -408,7 +420,7 @@ export default function ItemMasters() {
                     ))
                   : cyrixRows.map((r) => (
                       <tr key={r.id}>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-600">{r.item_code}</td>
+                        <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-600">{r.item_code}</td>
                         <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
                           <span
@@ -422,7 +434,7 @@ export default function ItemMasters() {
                         <td className="whitespace-nowrap px-3 py-2 text-right text-slate-600">
                           {r.item_cost == null ? '—' : r.item_cost.toLocaleString('en-IN')}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-500">
+                        <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-500">
                           {r.additional_identifier ?? '—'}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.item_group ?? '—'}</td>

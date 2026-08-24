@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { fetchFieldSuggestions } from '../lib/fieldSuggestions'
+import { blueStarIdentityFromForm, upsertTaggedBlueStarItem } from '../lib/blueStarItem'
 import { getCurrentPosition, reverseGeocode } from '../lib/geolocate'
 import { haversineDistanceMeters, formatDistance, DISTANCE_WARNING_METERS } from '../lib/distance'
 import { ChevronLeftIcon, AlertIcon } from '../components/icons'
@@ -98,6 +99,20 @@ export default function EquipmentNew() {
       latitude: position?.lat ?? null,
       longitude: position?.lng ?? null,
     })
+
+    // Everything tagged here is one of Blue Star's spares, so the tag has to
+    // reach their catalogue -- that's where the Cyrix link lives, and it's
+    // what makes the item list reflect the work. Done after the equipment row
+    // exists so a rejected QR (already tagged) doesn't leave a stray item
+    // behind; the RPC matches an existing catalogue row before creating one.
+    const identity = blueStarIdentityFromForm(fieldDefs, values.custom_fields, qr)
+    const { item: blueStarItem } = await upsertTaggedBlueStarItem({
+      ...identity,
+      cyrixCode: values.cyrix_item_code,
+    })
+    if (blueStarItem) {
+      await supabase.from('equipment').update({ bluestar_item_id: blueStarItem.id }).eq('id', data.id)
+    }
 
     // First tag at a facility with no recorded GPS yet establishes its
     // location -- covers facilities added from the field (before an admin
@@ -203,13 +218,13 @@ export default function EquipmentNew() {
   if (loading) return null
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6">
+    <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-3xl sm:px-6 lg:max-w-4xl lg:py-8">
       <Link to="/scan" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
         <ChevronLeftIcon className="h-4 w-4" /> Back
       </Link>
-      <h1 className="mb-1 text-lg font-semibold text-slate-900">Tag new spare</h1>
+      <h1 className="mb-1 text-lg font-semibold text-slate-900 lg:text-xl">Tag new Blue Star spare</h1>
       <p className="mb-5 text-sm text-slate-500">
-        Code: <span className="font-mono">{qr}</span>
+        Cyrix code: <span className="font-mono">{qr}</span>
       </p>
 
       {facilities.length === 0 && (
@@ -218,12 +233,17 @@ export default function EquipmentNew() {
         </p>
       )}
 
+      {/* Card framing only from `sm` up: on a phone the form already fills the
+          screen, and a border round it would just be a line inside a line. */}
+      <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-6 sm:shadow-sm lg:p-8">
       <EquipmentForm
         facilities={facilities}
         fieldDefs={fieldDefs}
         initialValues={{
           facility_id: facilities.length === 1 ? facilities[0].id : '',
           custom_fields: {},
+          cyrix_item_code: null,
+          cyrix_item_name: null,
         }}
         submitLabel="Save spare"
         submitting={submitting}
@@ -232,6 +252,7 @@ export default function EquipmentNew() {
         onSubmit={handleSubmit}
         onCreateFacility={handleCreateFacility}
       />
+      </div>
 
       {distanceWarning && (
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">

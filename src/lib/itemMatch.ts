@@ -17,9 +17,20 @@ function bigrams(s: string): Map<string, number> {
 
 /**
  * 0..1 similarity between two item names, ignoring case and punctuation, so
- * "abc" and "ab -c" score 1. Below that it's a Sorensen-Dice coefficient over
- * character bigrams -- forgiving of small spelling and word-order differences
- * without needing a full edit-distance pass over a large catalogue.
+ * "abc" and "ab -c" score 1.
+ *
+ * Below that, one name containing the other outranks anything measured by
+ * overlap. Cyrix names carry the fitment after the part -- "ECG Cable 12 Pin
+ * 5 Lead for Monitor General Meditec G3D" -- so searching "ecg cable 12 pin"
+ * matches a name four times its length. Bigram overlap alone scores that
+ * around 0.38 purely because of the extra words, i.e. below the threshold,
+ * which dropped the very items the tagger was looking for. Containment is
+ * scored on how much of the longer name the match accounts for, floored high
+ * enough that a full phrase match always qualifies.
+ *
+ * Everything else falls back to a Sorensen-Dice coefficient over character
+ * bigrams -- forgiving of small spelling and word-order differences without
+ * needing a full edit-distance pass over a large catalogue.
  */
 export function similarity(a: string, b: string): number {
   const na = normalizeItemName(a)
@@ -27,6 +38,11 @@ export function similarity(a: string, b: string): number {
   if (!na || !nb) return 0
   if (na === nb) return 1
   if (na.length < 2 || nb.length < 2) return 0
+
+  if (na.includes(nb) || nb.includes(na)) {
+    const coverage = Math.min(na.length, nb.length) / Math.max(na.length, nb.length)
+    return 0.5 + 0.5 * coverage
+  }
 
   const ga = bigrams(na)
   const gb = bigrams(nb)
@@ -81,17 +97,36 @@ export async function findCyrixMatches(blueStarItemName: string, limit = 5): Pro
     filters.push(`name_normalized.like.*${normalizeItemName(token)}*`)
   }
 
-  // Exact matches are fetched separately rather than folded into the broad
-  // `or` below. A single capped, unordered candidate query can drop the exact
-  // match entirely when a common token (e.g. "humidifier") matches more rows
-  // than the cap -- which is precisely the row that must never be missed.
-  const [{ data: exact }, { data: fuzzy }] = await Promise.all([
+  // Three queries, strongest signal first, rather than one `or` covering all
+  // of them. A single capped, unordered candidate query silently drops the
+  // best rows: searching "ecg cable 12 pin" also matches "cable" against
+  // thousands of rows, and the cap fills with those long before Postgres
+  // reaches the items whose names contain the whole phrase. Giving the exact
+  // and phrase filters their own budget means a broad token can never crowd
+  // out a strong match. The phrase and token queries are ordered by stock so
+  // that when their cap does bite, it keeps what a tagger can actually pick
+  // off a shelf.
+  const inStockFirst = { ascending: false, nullsFirst: false } as const
+  const [{ data: exact }, { data: phrase }, { data: fuzzy }] = await Promise.all([
     supabase.from('cyrix_item_master').select('*').eq('active', true).eq('name_normalized', normalized).limit(10),
-    supabase.from('cyrix_item_master').select('*').eq('active', true).or(filters.join(',')).limit(50),
+    supabase
+      .from('cyrix_item_master')
+      .select('*')
+      .eq('active', true)
+      .like('name_normalized', `%${normalized}%`)
+      .order('in_stock', inStockFirst)
+      .limit(25),
+    supabase
+      .from('cyrix_item_master')
+      .select('*')
+      .eq('active', true)
+      .or(filters.join(','))
+      .order('in_stock', inStockFirst)
+      .limit(50),
   ])
 
   const byId = new Map<string, CyrixItemRow>()
-  for (const row of [...(exact ?? []), ...(fuzzy ?? [])]) byId.set(row.id, row)
+  for (const row of [...(exact ?? []), ...(phrase ?? []), ...(fuzzy ?? [])]) byId.set(row.id, row)
 
   return rankCyrixMatches(blueStarItemName, [...byId.values()], limit)
 }

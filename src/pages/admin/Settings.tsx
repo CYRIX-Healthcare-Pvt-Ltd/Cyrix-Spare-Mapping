@@ -48,7 +48,7 @@ export default function Settings() {
   const inputClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6">
+    <div className="mx-auto w-full max-w-lg px-4 py-6 sm:max-w-3xl sm:px-6 lg:py-8">
       <h1 className="mb-4 text-lg font-semibold text-slate-900">Settings</h1>
       <form onSubmit={handleSave} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
         {SETTINGS.map(({ key, label, placeholder }) => (

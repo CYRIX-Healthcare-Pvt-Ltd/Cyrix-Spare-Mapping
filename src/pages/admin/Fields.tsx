@@ -152,7 +152,7 @@ export default function Fields() {
   const inputClass = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6">
+    <div className="mx-auto w-full max-w-lg px-4 py-6 sm:max-w-3xl sm:px-6 lg:py-8">
       <h1 className="mb-4 text-lg font-semibold text-slate-900">Custom fields</h1>
       <p className="mb-4 text-sm text-slate-500">
         These fields show up on every equipment record, for every user.

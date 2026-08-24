@@ -280,7 +280,7 @@ export default function Facilities() {
   if (loading) return null
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6">
+    <div className="mx-auto w-full max-w-lg px-4 py-6 sm:max-w-3xl sm:px-6 lg:py-8">
       <div className="mb-4 flex items-center justify-between gap-2">
         <h1 className="text-lg font-semibold text-slate-900">Warehouses</h1>
         <button

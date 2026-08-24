@@ -1,14 +1,17 @@
 import type { FieldDefinitionRow } from '../types/app'
+import { FormRow } from './FormRow'
 import { isNameField, type ResolvedItem } from '../lib/itemAutofill'
 import { ImageUploader } from './ImageUploader'
 import { BarcodeItemInput } from './BarcodeItemInput'
-import { CyrixMappingPanel } from './CyrixMappingPanel'
+import { CyrixMappingPanel, type CyrixSelection } from './CyrixMappingPanel'
 
 export function DynamicFieldRenderer({
   fields,
   values,
   suggestions,
   autofilled,
+  cyrixSelection,
+  onCyrixSelectionChange,
   onChange,
   onItemResolved,
 }: {
@@ -17,57 +20,82 @@ export function DynamicFieldRenderer({
   suggestions?: Record<string, string[]>
   /** Keys of fields filled from a scanned item, marked so the tagger can see what to check. */
   autofilled?: string[]
+  cyrixSelection: CyrixSelection | null
+  onCyrixSelectionChange: (selection: CyrixSelection | null) => void
   onChange: (key: string, value: unknown) => void
   onItemResolved?: (item: ResolvedItem) => void
 }) {
   if (fields.length === 0) return null
 
-  // The scanned barcode drives the item lookup, but its result is shown under
-  // the name field, so the panel needs the barcode field's current value.
+  // The mapping panel is rendered under the name field, since choosing a Cyrix
+  // item is really deciding what this spare is called. It needs both the name
+  // (which drives matching) and the Blue Star code field (an accelerator when
+  // one was scanned), wherever those sit in the admin-defined field order.
   const barcodeField = fields.find((f) => f.field_type === 'barcode')
-  const barcode = barcodeField ? ((values[barcodeField.field_key] as string) ?? '') : ''
+  const blueStarCode = barcodeField ? ((values[barcodeField.field_key] as string) ?? '') : ''
   const panelAfter = fields.find(isNameField)
+  const spareName = panelAfter ? ((values[panelAfter.field_key] as string) ?? '') : ''
 
+  const panel = (
+    <CyrixMappingPanel
+      blueStarCode={blueStarCode}
+      spareName={spareName}
+      selection={cyrixSelection}
+      onSelectionChange={onCyrixSelectionChange}
+      onResolve={onItemResolved}
+    />
+  )
+
+  // Rendered as a fragment, not a wrapper: these rows are cells in the form's
+  // grid, so two short fields can share a row on a wide screen. A wrapper here
+  // would make them one cell and force the single narrow column back.
   return (
-    <div className="space-y-4">
+    <>
       {fields.map((field) => (
-        <div key={field.id}>
-          <label className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
-            <span>
-              {field.label}
-              {field.required && <span className="text-red-500"> *</span>}
-            </span>
-            {autofilled?.includes(field.field_key) && (
+        <FormRow
+          key={field.id}
+          label={field.label}
+          htmlFor={field.field_type === 'image' ? undefined : `field-${field.id}`}
+          required={field.required}
+          // A photo dropzone, a paragraph, and whichever field carries the
+          // Cyrix suggestions all need the full measure; the rest pair up.
+          fullWidth={
+            panelAfter?.id === field.id || field.field_type === 'image' || field.field_type === 'textarea'
+          }
+          badge={
+            autofilled?.includes(field.field_key) ? (
               <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
                 From scan
               </span>
-            )}
-          </label>
+            ) : undefined
+          }
+        >
           <FieldInput
+            id={`field-${field.id}`}
             field={field}
             value={values[field.field_key]}
             suggestions={suggestions?.[field.field_key]}
             onChange={(v) => onChange(field.field_key, v)}
           />
-          {barcodeField && panelAfter?.id === field.id && (
-            <CyrixMappingPanel barcode={barcode} onResolve={onItemResolved} />
-          )}
-        </div>
+          {panelAfter?.id === field.id && panel}
+        </FormRow>
       ))}
 
       {/* No name-shaped field to sit under -- fall back to the end of the form
           rather than dropping the mapping UI entirely. */}
-      {barcodeField && !panelAfter && <CyrixMappingPanel barcode={barcode} onResolve={onItemResolved} />}
-    </div>
+      {!panelAfter && <div className="lg:col-span-2">{panel}</div>}
+    </>
   )
 }
 
 function FieldInput({
+  id,
   field,
   value,
   suggestions,
   onChange,
 }: {
+  id: string
   field: FieldDefinitionRow
   value: unknown
   suggestions?: string[]
@@ -78,7 +106,7 @@ function FieldInput({
 
   switch (field.field_type) {
     case 'barcode':
-      return <BarcodeItemInput value={value} onChange={onChange} required={field.required} baseClass={baseClass} />
+      return <BarcodeItemInput id={id} value={value} onChange={onChange} required={field.required} baseClass={baseClass} />
     case 'image':
       return (
         <ImageUploader
@@ -90,6 +118,7 @@ function FieldInput({
     case 'textarea':
       return (
         <textarea
+          id={id}
           className={baseClass}
           rows={3}
           value={(value as string) ?? ''}
@@ -100,6 +129,7 @@ function FieldInput({
     case 'number':
       return (
         <input
+          id={id}
           type="number"
           className={baseClass}
           value={(value as string) ?? ''}
@@ -110,6 +140,7 @@ function FieldInput({
     case 'date':
       return (
         <input
+          id={id}
           type="date"
           className={baseClass}
           value={(value as string) ?? ''}
@@ -121,6 +152,7 @@ function FieldInput({
       return (
         <label className="flex items-center gap-2 text-sm text-slate-700">
           <input
+            id={id}
             type="checkbox"
             checked={Boolean(value)}
             onChange={(e) => onChange(e.target.checked)}
@@ -132,6 +164,7 @@ function FieldInput({
     case 'dropdown':
       return (
         <select
+          id={id}
           className={baseClass}
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
@@ -157,6 +190,7 @@ function FieldInput({
       return (
         <>
           <input
+            id={id}
             type="text"
             list={listId}
             className={baseClass}

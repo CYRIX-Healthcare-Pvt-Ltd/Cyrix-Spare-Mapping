@@ -9,7 +9,15 @@ import { formatFieldValue } from '../lib/fieldFormat'
 import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
 import { getCurrentPosition } from '../lib/geolocate'
 import { haversineDistanceMeters, formatDistance, DISTANCE_WARNING_METERS } from '../lib/distance'
-import type { EquipmentRow, FacilityRow, FieldDefinitionRow, EquipmentFormValues } from '../types/app'
+import { blueStarIdentityFromForm, upsertTaggedBlueStarItem } from '../lib/blueStarItem'
+import { setCyrixMapping } from '../lib/mapping'
+import type {
+  BlueStarItemRow,
+  EquipmentRow,
+  FacilityRow,
+  FieldDefinitionRow,
+  EquipmentFormValues,
+} from '../types/app'
 
 
 interface Coords {
@@ -19,10 +27,14 @@ interface Coords {
 
 type PerformEdit = (values: EquipmentFormValues, position: Coords | null) => Promise<void>
 
-function toFormValues(eq: EquipmentRow): EquipmentFormValues {
+function toFormValues(eq: EquipmentRow, blueStar: BlueStarItemRow | null): EquipmentFormValues {
   return {
     facility_id: eq.facility_id,
     custom_fields: eq.custom_fields,
+    // The Cyrix link lives on the spare's Blue Star catalogue row rather than
+    // on the spare itself, so it is read back from there.
+    cyrix_item_code: blueStar?.cyrix_item_code ?? null,
+    cyrix_item_name: blueStar?.cyrix_item_name ?? null,
   }
 }
 
@@ -69,6 +81,7 @@ export default function EquipmentView() {
   const navigate = useNavigate()
 
   const [equipment, setEquipment] = useState<EquipmentRow | null>(null)
+  const [blueStarItem, setBlueStarItem] = useState<BlueStarItemRow | null>(null)
   const [facility, setFacility] = useState<FacilityRow | null>(null)
   const [taggedBy, setTaggedBy] = useState<{ full_name: string; ecode: string } | null>(null)
   const [updatedBy, setUpdatedBy] = useState<{ full_name: string; ecode: string } | null>(null)
@@ -99,7 +112,15 @@ export default function EquipmentView() {
     }
     setEquipment(eq)
 
-    const [{ data: fac }, { data: facilities }, { data: fields }, { data: pending }, { data: tagger }, { data: updater }] =
+    const [
+      { data: fac },
+      { data: facilities },
+      { data: fields },
+      { data: pending },
+      { data: tagger },
+      { data: updater },
+      { data: blueStar },
+    ] =
       await Promise.all([
         supabase.from('facilities').select('*').eq('id', eq.facility_id).maybeSingle(),
         supabase.from('facilities').select('*').eq('active', true).order('name'),
@@ -117,8 +138,12 @@ export default function EquipmentView() {
         eq.updated_by
           ? supabase.from('profiles').select('full_name, ecode').eq('id', eq.updated_by).maybeSingle()
           : Promise.resolve({ data: null }),
+        eq.bluestar_item_id
+          ? supabase.from('bluestar_item_master').select('*').eq('id', eq.bluestar_item_id).maybeSingle()
+          : Promise.resolve({ data: null }),
       ])
 
+    setBlueStarItem(blueStar ?? null)
     setFacility(fac ?? null)
     setTaggedBy(tagger ?? null)
     setUpdatedBy(updater ?? null)
@@ -138,7 +163,7 @@ export default function EquipmentView() {
   async function performDirectUpdate(values: EquipmentFormValues, position: Coords | null) {
     if (!equipment || !profile) return
 
-    const historyChanges = buildHistoryChanges(toFormValues(equipment), values)
+    const historyChanges = buildHistoryChanges(toFormValues(equipment, blueStarItem), values)
 
     const { error: updateError } = await supabase
       .from('equipment')
@@ -164,15 +189,42 @@ export default function EquipmentView() {
       setError(updateError.message)
       return
     }
+
+    // A manager's or admin's edit is final, so the spare's Blue Star catalogue
+    // row is brought in line with it in the same breath -- including the Cyrix
+    // link, which the RPC routes through the mapping history.
+    const identity = blueStarIdentityFromForm(fieldDefs, values.custom_fields, equipment.qr_value)
+    const { item: updatedItem } = await upsertTaggedBlueStarItem({
+      ...identity,
+      cyrixCode: values.cyrix_item_code,
+    })
+    if (updatedItem && updatedItem.id !== equipment.bluestar_item_id) {
+      await supabase.from('equipment').update({ bluestar_item_id: updatedItem.id }).eq('id', equipment.id)
+    }
+
     setEditing(false)
     await load()
   }
 
   async function performRequestEdit(values: EquipmentFormValues, position: Coords | null) {
     if (!equipment || !profile) return
-    const diff = buildDiff(toFormValues(equipment), values)
+
+    // The Cyrix link is deliberately outside the approval flow: re-mapping is
+    // always allowed, and it is audited in its own history rather than gated.
+    // Only the spare's own fields need a manager's approval, so the mapping is
+    // applied now and the rest is proposed below.
+    if (equipment.bluestar_item_id && values.cyrix_item_code !== (blueStarItem?.cyrix_item_code ?? null)) {
+      const { error: mapError } = await setCyrixMapping(equipment.bluestar_item_id, values.cyrix_item_code)
+      if (mapError) {
+        setError(mapError)
+        return
+      }
+    }
+
+    const diff = buildDiff(toFormValues(equipment, blueStarItem), values)
     if (Object.keys(diff).length === 0) {
       setEditing(false)
+      await load()
       return
     }
 
@@ -245,7 +297,7 @@ export default function EquipmentView() {
 
   // Seconds are shown only when two entries would otherwise look identical.
   return (
-    <div className="mx-auto max-w-md px-4 py-6">
+    <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-3xl sm:px-6 lg:max-w-4xl lg:py-8">
       <button
         type="button"
         onClick={() => navigate(-1)}
@@ -256,18 +308,26 @@ export default function EquipmentView() {
 
       {editing ? (
         <>
-          <h1 className="mb-4 text-lg font-semibold text-slate-900">
+          <h1 className="mb-4 text-lg font-semibold text-slate-900 lg:text-xl">
             {canEditDirectly ? 'Edit spare' : 'Request an edit'}
           </h1>
-          <EquipmentForm
-            facilities={allFacilities}
-            fieldDefs={fieldDefs}
-            initialValues={toFormValues(equipment)}
-            submitLabel={canEditDirectly ? 'Save changes' : 'Submit request'}
-            submitting={submitting}
-            disabled={!!distanceWarning}
-            onSubmit={(values) => submitWithGpsCheck(values, canEditDirectly ? performDirectUpdate : performRequestEdit)}
-          />
+          <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-6 sm:shadow-sm lg:p-8">
+            <EquipmentForm
+              facilities={allFacilities}
+              fieldDefs={fieldDefs}
+              initialValues={toFormValues(equipment, blueStarItem)}
+              submitLabel={canEditDirectly ? 'Save changes' : 'Submit request'}
+              submitting={submitting}
+              disabled={!!distanceWarning}
+              onSubmit={(values) => submitWithGpsCheck(values, canEditDirectly ? performDirectUpdate : performRequestEdit)}
+            />
+          </div>
+          {!canEditDirectly && (
+            <p className="mt-2 text-xs text-slate-500">
+              Changes to the spare's fields go to your manager for approval. The Cyrix item link is applied straight
+              away and recorded in the mapping history.
+            </p>
+          )}
 
           {distanceWarning && (
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
@@ -328,11 +388,40 @@ export default function EquipmentView() {
             </p>
           )}
 
-          {fieldDefs.length > 0 && (
-            <div className="mb-4 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <table className="w-full text-sm">
-                <tbody className="divide-y divide-slate-100">
-                  {fieldDefs.map((f) => {
+          <div className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-slate-100">
+                {/* The Cyrix QR stuck on the spare, and the Cyrix catalogue
+                    item it has been linked to. Both sit above the tagger's own
+                    fields because they are what identifies the item. */}
+                <tr>
+                  <th scope="row" className="w-1/3 whitespace-nowrap px-3 py-2 text-left font-normal text-slate-500">
+                    Cyrix code
+                  </th>
+                  <td className="px-3 py-2 font-mono text-sm text-slate-700">{equipment.qr_value}</td>
+                </tr>
+                <tr>
+                  <th scope="row" className="w-1/3 whitespace-nowrap px-3 py-2 text-left font-normal text-slate-500">
+                    Cyrix item
+                  </th>
+                  <td className="px-3 py-2">
+                    {blueStarItem?.cyrix_item_code ? (
+                      <span className="font-medium text-slate-800">
+                        <span className="font-mono text-sm text-slate-500">{blueStarItem.cyrix_item_code}</span>
+                        {blueStarItem.cyrix_item_name && ` · ${blueStarItem.cyrix_item_name}`}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setEditing(true)}
+                        className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 hover:bg-brand-50 hover:text-brand-700"
+                      >
+                        Not linked — link one
+                      </button>
+                    )}
+                  </td>
+                </tr>
+                {fieldDefs.map((f) => {
                     const rawValue = equipment.custom_fields[f.field_key]
                     if (f.field_type === 'image') {
                       const images = Array.isArray(rawValue) ? (rawValue as string[]) : []
@@ -370,10 +459,9 @@ export default function EquipmentView() {
                       </tr>
                     )
                   })}
-                </tbody>
-              </table>
-            </div>
-          )}
+              </tbody>
+            </table>
+          </div>
 
           <div className="flex items-start justify-between gap-2">
             <div className="space-y-0.5">

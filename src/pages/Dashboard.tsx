@@ -33,15 +33,15 @@ export default function Dashboard() {
   if (!profile) return null
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:max-w-5xl sm:px-6 lg:px-8 lg:py-8">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Hi {profile.full_name.split(' ')[0]},</h1>
+        <h1 className="text-xl font-semibold text-slate-900 lg:text-2xl">Hi {profile.full_name.split(' ')[0]},</h1>
         <p className="text-sm text-slate-500">Here's what's happening with spare tracking.</p>
       </div>
 
       <Link
         to="/scan"
-        className="flex items-center gap-4 rounded-2xl bg-brand-700 p-5 text-white shadow-lg shadow-brand-700/20 transition hover:bg-brand-650"
+        className="flex items-center gap-4 rounded-2xl bg-brand-700 p-5 text-white shadow-lg shadow-brand-700/20 transition hover:bg-brand-650 lg:p-6"
       >
         <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15">
           <ScanIcon className="h-6 w-6" />
@@ -52,13 +52,13 @@ export default function Dashboard() {
         </div>
       </Link>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Link to="/tagged" className="rounded-xl border border-slate-200 bg-white p-4 hover:border-brand-300">
-          <p className="text-2xl font-semibold text-slate-900">{equipmentCount ?? '—'}</p>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <Link to="/tagged" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50/40 lg:p-5">
+          <p className="text-2xl font-semibold text-slate-900 lg:text-3xl">{equipmentCount ?? '—'}</p>
           <p className="text-sm text-slate-500">Spares tracked</p>
         </Link>
-        <Link to="/requests" className="rounded-xl border border-slate-200 bg-white p-4 hover:border-brand-300">
-          <p className="text-2xl font-semibold text-slate-900">{requestCount ?? '—'}</p>
+        <Link to="/requests" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50/40 lg:p-5">
+          <p className="text-2xl font-semibold text-slate-900 lg:text-3xl">{requestCount ?? '—'}</p>
           <p className="text-sm text-slate-500">
             {profile.role === 'engineer' ? 'Your pending requests' : 'Pending approvals'}
           </p>

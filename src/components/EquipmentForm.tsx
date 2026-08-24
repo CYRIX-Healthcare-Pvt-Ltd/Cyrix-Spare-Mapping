@@ -57,36 +57,58 @@ export function EquipmentForm({
   return (
     <fieldset disabled={disabled} className="space-y-4">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <FacilityPicker
-          facilities={facilities}
-          value={values.facility_id}
-          onChange={(facility_id) => setValues((v) => ({ ...v, facility_id }))}
-          onCreateFacility={onCreateFacility}
-        />
-
-        {fieldDefs.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-400">
-            No custom fields set up yet — an admin can add some in Admin → Custom fields.
-          </p>
-        ) : (
-          <DynamicFieldRenderer
-            fields={fieldDefs}
-            values={values.custom_fields}
-            suggestions={suggestions}
-            autofilled={autofilled}
-            onChange={handleFieldChange}
-            onItemResolved={handleItemResolved}
+        {/* One grid for the warehouse picker and every custom field, so short
+            controls pair up two-across once there's room. Stays a single
+            column below `lg`, where two inputs side by side would be cramped. */}
+        <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
+          <FacilityPicker
+            facilities={facilities}
+            value={values.facility_id}
+            onChange={(facility_id) => setValues((v) => ({ ...v, facility_id }))}
+            onCreateFacility={onCreateFacility}
           />
-        )}
 
-        <button
-          type="submit"
-          disabled={submitting || disabled}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
-        >
-          {submitting && <SpinnerIcon className="h-4 w-4" />}
-          {submitLabel}
-        </button>
+          {fieldDefs.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-400 lg:col-span-2">
+              No custom fields set up yet — an admin can add some in Admin → Custom fields.
+            </p>
+          ) : (
+            <DynamicFieldRenderer
+              fields={fieldDefs}
+              values={values.custom_fields}
+              suggestions={suggestions}
+              autofilled={autofilled}
+              cyrixSelection={
+                values.cyrix_item_code
+                  ? { code: values.cyrix_item_code, name: values.cyrix_item_name ?? values.cyrix_item_code }
+                  : null
+              }
+              onCyrixSelectionChange={(selection) =>
+                setValues((v) => ({
+                  ...v,
+                  cyrix_item_code: selection?.code ?? null,
+                  cyrix_item_name: selection?.name ?? null,
+                }))
+              }
+              onChange={handleFieldChange}
+              onItemResolved={handleItemResolved}
+            />
+          )}
+        </div>
+
+        {/* Full-width thumb target on a phone; on a desktop a full-width
+            primary button across a wide form reads as a banner, so it sits
+            right-aligned at its natural size instead. */}
+        <div className="flex pt-1 sm:justify-end">
+          <button
+            type="submit"
+            disabled={submitting || disabled}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60 sm:w-auto sm:px-8"
+          >
+            {submitting && <SpinnerIcon className="h-4 w-4" />}
+            {submitLabel}
+          </button>
+        </div>
       </form>
     </fieldset>
   )

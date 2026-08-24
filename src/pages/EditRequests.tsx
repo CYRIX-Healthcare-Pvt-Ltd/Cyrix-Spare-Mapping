@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { CheckIcon, XIcon, SpinnerIcon, SearchIcon } from '../components/icons'
+import { CheckIcon, XIcon, SpinnerIcon, SearchIcon, ClipboardIcon, HistoryIcon } from '../components/icons'
 import { formatDate, pickTimeFormatter } from '../lib/formatDate'
 import { describeChanges } from '../lib/describeChanges'
 import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
@@ -125,43 +125,47 @@ export default function EditRequests() {
   if (loading) return null
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6">
-      <h1 className="mb-3 text-lg font-semibold text-slate-900">
+    <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-4xl sm:px-6 lg:px-8 lg:py-8">
+      <h1 className="mb-4 text-lg font-semibold text-slate-900 lg:text-xl">
         {canReview ? 'Edit requests' : 'Your edit requests'}
       </h1>
 
-      <div className="mb-3 flex gap-1 rounded-lg bg-slate-100 p-1">
-        {(
-          [
-            { key: 'requests' as const, label: 'Requests', count: pendingCount },
-            { key: 'changes' as const, label: 'Recent changes', count: null },
-          ]
-        ).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {t.label}
-            {t.count !== null && t.count > 0 && (
-              <span className="ml-1.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-700">
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Tabs and search stack on a phone but share a row once there's width
+          for them, so a wide screen doesn't push the list far down the page. */}
+      <div className="mb-4 sm:flex sm:items-center sm:gap-3">
+        <div className="flex gap-1 rounded-lg bg-slate-100 p-1 sm:shrink-0">
+          {(
+            [
+              { key: 'requests' as const, label: 'Requests', count: pendingCount },
+              { key: 'changes' as const, label: 'Recent changes', count: null },
+            ]
+          ).map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-4 ${
+                tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {t.label}
+              {t.count !== null && t.count > 0 && (
+                <span className="ml-1.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-700">
+                  {t.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
-      <div className="relative mb-3">
-        <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={tab === 'requests' ? 'Search spare, person, or status…' : 'Search spare, person, or field…'}
-          className="w-full rounded-lg border border-slate-300 py-2 pl-8 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-        />
+        <div className="relative mt-3 sm:mt-0 sm:flex-1">
+          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={tab === 'requests' ? 'Search spare, person, or status…' : 'Search spare, person, or field…'}
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-8 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+          />
+        </div>
       </div>
 
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
@@ -171,12 +175,15 @@ export default function EditRequests() {
       ) : (
         <>
           {visibleRows.length === 0 && (
-            <p className="text-sm text-slate-500">{search ? 'Nothing matches that search.' : 'Nothing here yet.'}</p>
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center">
+              <ClipboardIcon className="mx-auto mb-2 h-6 w-6 text-slate-300" />
+              <p className="text-sm text-slate-500">{search ? 'Nothing matches that search.' : 'Nothing here yet.'}</p>
+            </div>
           )}
 
           <ul className="space-y-3">
             {visibleRows.map((r) => (
-          <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-4">
+          <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-1 flex items-start justify-between gap-2">
               <Link to={`/equipment/${r.equipment_id}`} className="font-medium text-slate-900 hover:underline">
                 {r.equipment?.name ?? 'Deleted spare'}
@@ -226,11 +233,11 @@ export default function EditRequests() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 sm:justify-end">
                     <button
                       onClick={() => resolve(r.id, true, null)}
                       disabled={busyId === r.id}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60 sm:flex-none sm:px-5"
                     >
                       {busyId === r.id ? <SpinnerIcon className="h-3.5 w-3.5" /> : <CheckIcon className="h-3.5 w-3.5" />}
                       Approve
@@ -238,7 +245,7 @@ export default function EditRequests() {
                     <button
                       onClick={() => setRejectingId(r.id)}
                       disabled={busyId === r.id}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 sm:flex-none sm:px-5"
                     >
                       <XIcon className="h-3.5 w-3.5" /> Reject
                     </button>
@@ -397,7 +404,12 @@ function RecentChanges({
   }
 
   if (visible.length === 0) {
-    return <p className="text-sm text-slate-500">{search ? 'Nothing matches that search.' : 'No changes yet.'}</p>
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center">
+        <HistoryIcon className="mx-auto mb-2 h-6 w-6 text-slate-300" />
+        <p className="text-sm text-slate-500">{search ? 'Nothing matches that search.' : 'No changes yet.'}</p>
+      </div>
+    )
   }
 
   return (
@@ -410,7 +422,7 @@ function RecentChanges({
               <button
                 type="button"
                 onClick={() => setHistoryFor(r)}
-                className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left hover:border-brand-300 hover:bg-slate-50"
+                className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50/50"
               >
                 <span className="mb-1 flex items-start justify-between gap-2">
                   <span className="font-medium text-slate-900">{r.equipmentName}</span>

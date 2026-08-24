@@ -9,11 +9,13 @@ import { ScanIcon, XIcon } from './icons'
  * renders under the equipment-name field instead of here.
  */
 export function BarcodeItemInput({
+  id,
   value,
   onChange,
   required,
   baseClass,
 }: {
+  id?: string
   value: unknown
   onChange: (value: unknown) => void
   required?: boolean
@@ -25,11 +27,12 @@ export function BarcodeItemInput({
     <>
       <div className="flex gap-2">
         <input
+          id={id}
           type="text"
           className={`${baseClass} flex-1`}
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Scan or type the barcode"
+          placeholder="Scan the Blue Star barcode, or type the code"
           required={required}
         />
         <button

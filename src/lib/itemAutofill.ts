@@ -2,8 +2,8 @@ import type { FieldDefinitionRow } from '../types/app'
 
 /** What a resolved barcode can contribute to the rest of the form. */
 export interface ResolvedItem {
-  blueStarItemCode: string
-  blueStarItemName: string
+  blueStarItemCode: string | null
+  blueStarItemName: string | null
   cyrixItemCode: string | null
   cyrixItemName: string | null
   make: string | null

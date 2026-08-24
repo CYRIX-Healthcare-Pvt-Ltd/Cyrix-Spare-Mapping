@@ -17,4 +17,9 @@ export type MappingHistoryRow = Database['public']['Tables']['bluestar_item_mapp
 export interface EquipmentFormValues {
   facility_id: string
   custom_fields: Record<string, unknown>
+  // The Cyrix item this spare is linked to. Not a column on equipment: it is
+  // applied to the spare's Blue Star catalogue row when the tag is saved, so
+  // the mapping lives in one place and lands in the mapping history.
+  cyrix_item_code: string | null
+  cyrix_item_name: string | null
 }
