@@ -3,18 +3,14 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
-import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon, XIcon, TagIcon, MapPinIcon, AlertIcon } from '../components/icons'
-import { formatDate, pickTimeFormatter } from '../lib/formatDate'
+import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon, AlertIcon } from '../components/icons'
+import { formatDate } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
-import { describeChanges } from '../lib/describeChanges'
+import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
 import { getCurrentPosition } from '../lib/geolocate'
 import { haversineDistanceMeters, formatDistance, DISTANCE_WARNING_METERS } from '../lib/distance'
-import type { EquipmentRow, FacilityRow, FieldDefinitionRow, EquipmentFormValues, EquipmentHistoryRow } from '../types/app'
+import type { EquipmentRow, FacilityRow, FieldDefinitionRow, EquipmentFormValues } from '../types/app'
 
-interface HistoryEntry extends EquipmentHistoryRow {
-  performerName: string | null
-  performerEcode: string | null
-}
 
 interface Coords {
   lat: number
@@ -85,7 +81,6 @@ export default function EquipmentView() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<string | null>(null)
-  const [history, setHistory] = useState<HistoryEntry[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
   const [distanceWarning, setDistanceWarning] = useState<string | null>(null)
   const [pendingEdit, setPendingEdit] = useState<{ values: EquipmentFormValues; position: Coords | null; perform: PerformEdit } | null>(
@@ -104,7 +99,7 @@ export default function EquipmentView() {
     }
     setEquipment(eq)
 
-    const [{ data: fac }, { data: facilities }, { data: fields }, { data: pending }, { data: tagger }, { data: updater }, { data: historyRows }] =
+    const [{ data: fac }, { data: facilities }, { data: fields }, { data: pending }, { data: tagger }, { data: updater }] =
       await Promise.all([
         supabase.from('facilities').select('*').eq('id', eq.facility_id).maybeSingle(),
         supabase.from('facilities').select('*').eq('active', true).order('name'),
@@ -122,7 +117,6 @@ export default function EquipmentView() {
         eq.updated_by
           ? supabase.from('profiles').select('full_name, ecode').eq('id', eq.updated_by).maybeSingle()
           : Promise.resolve({ data: null }),
-        supabase.from('equipment_history').select('*').eq('equipment_id', id).order('performed_at', { ascending: true }),
       ])
 
     setFacility(fac ?? null)
@@ -133,19 +127,6 @@ export default function EquipmentView() {
     )
     setFieldDefs(fields ?? [])
     setHasPendingRequest((pending ?? []).length > 0)
-
-    const performerIds = [...new Set((historyRows ?? []).map((h) => h.performed_by).filter((v): v is string => !!v))]
-    const { data: performers } = performerIds.length
-      ? await supabase.from('profiles').select('id, full_name, ecode').in('id', performerIds)
-      : { data: [] }
-    const performerMap = new Map((performers ?? []).map((p) => [p.id, p]))
-    setHistory(
-      (historyRows ?? []).map((h) => ({
-        ...h,
-        performerName: h.performed_by ? (performerMap.get(h.performed_by)?.full_name ?? null) : null,
-        performerEcode: h.performed_by ? (performerMap.get(h.performed_by)?.ecode ?? null) : null,
-      }))
-    )
 
     setLoading(false)
   }, [id, profile])
@@ -263,8 +244,6 @@ export default function EquipmentView() {
   const canEditDirectly = profile.role === 'project_manager' || profile.role === 'admin'
 
   // Seconds are shown only when two entries would otherwise look identical.
-  const formatHistoryTime = pickTimeFormatter(history.map((h) => h.performed_at))
-
   return (
     <div className="mx-auto max-w-md px-4 py-6">
       <button
@@ -428,75 +407,12 @@ export default function EquipmentView() {
         </div>
       )}
 
-      {historyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setHistoryOpen(false)}>
-          <div
-            className="flex max-h-[85vh] w-full max-w-sm flex-col animate-pop-in rounded-2xl bg-white shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4">
-              <h2 className="text-sm font-semibold text-slate-900">History</h2>
-              <button
-                onClick={() => setHistoryOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Close"
-              >
-                <XIcon className="h-4 w-4" />
-              </button>
-            </div>
-            <ul className="flex-1 overflow-y-auto p-4">
-              {history.length === 0 && <li className="py-6 text-center text-sm text-slate-400">No history yet.</li>}
-              {history.map((h, i) => {
-                const details = describeChanges(h.changes, fieldDefs, allFacilities)
-                const entryDistance =
-                  h.latitude != null && h.longitude != null && facility?.latitude != null && facility?.longitude != null
-                    ? haversineDistanceMeters(h.latitude, h.longitude, facility.latitude, facility.longitude)
-                    : null
-                return (
-                  <li key={h.id} className="flex gap-3">
-                    <div className="relative flex w-7 shrink-0 flex-col items-center">
-                      <span
-                        className={`z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full ${
-                          h.action === 'created' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
-                        }`}
-                      >
-                        {h.action === 'created' ? <TagIcon className="h-3.5 w-3.5" /> : <PencilIcon className="h-3.5 w-3.5" />}
-                      </span>
-                      {i < history.length - 1 && <span className="w-px flex-1 bg-slate-200" />}
-                    </div>
-                    <div className="min-w-0 flex-1 pb-5">
-                      <p className="text-sm font-semibold text-slate-900">{h.action === 'created' ? 'Tagged' : 'Edited'}</p>
-                      <p className="text-xs text-slate-500">
-                        {h.performerName ? `${h.performerName}${h.performerEcode ? ` (${h.performerEcode})` : ''}` : 'Unknown user'}
-                        {' · '}
-                        {formatHistoryTime(h.performed_at)}
-                      </p>
-                      {entryDistance !== null && (
-                        <span
-                          className={`mt-1.5 inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                            entryDistance > DISTANCE_WARNING_METERS ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
-                          }`}
-                        >
-                          <MapPinIcon className="h-3 w-3" />
-                          {formatDistance(entryDistance)} from warehouse
-                        </span>
-                      )}
-                      {details.length > 0 && (
-                        <ul className="mt-1.5 space-y-1 rounded-lg bg-slate-50 px-2.5 py-2 text-xs text-slate-600">
-                          {details.map((d, i2) => (
-                            <li key={i2}>
-                              <span className="font-medium text-slate-700">{d.label}:</span> {d.value}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        </div>
+      {historyOpen && equipment && (
+        <EquipmentHistoryDialog
+          equipmentId={equipment.id}
+          title={equipment.name}
+          onClose={() => setHistoryOpen(false)}
+        />
       )}
     </div>
   )

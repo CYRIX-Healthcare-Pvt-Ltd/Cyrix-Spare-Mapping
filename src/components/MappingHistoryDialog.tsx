@@ -79,14 +79,18 @@ export function MappingHistoryDialog({ item, onClose }: { item: BlueStarItemRow;
                   {i < entries.length - 1 && <span className="w-px flex-1 bg-slate-200" />}
                 </div>
                 <div className="min-w-0 flex-1 pb-5">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {isCleared ? 'Mapping cleared' : isFirst ? 'Mapped' : 'Re-mapped'}
+                  {/* Written as a sentence so the entry reads at a glance
+                      rather than needing the labels decoded. */}
+                  <p className="text-sm text-slate-900">
+                    <span className="font-semibold">{isCleared ? 'Mapping cleared' : isFirst ? 'Mapped' : 'Re-mapped'}</span>
+                    <span className="text-slate-500"> by </span>
+                    <span className="font-medium">
+                      {e.performerName
+                        ? `${e.performerName}${e.performerEcode ? ` (${e.performerEcode})` : ''}`
+                        : 'Unknown user'}
+                    </span>
                   </p>
-                  <p className="text-xs text-slate-500">
-                    {e.performerName ? `${e.performerName}${e.performerEcode ? ` (${e.performerEcode})` : ''}` : 'Unknown user'}
-                    {' · '}
-                    {formatTime(e.performed_at)}
-                  </p>
+                  <p className="text-xs text-slate-500">{formatTime(e.performed_at)}</p>
                   <p className="mt-1.5 rounded-lg bg-slate-50 px-2.5 py-2 text-xs text-slate-600">
                     {e.from_cyrix_item_code && (
                       <>

@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { CheckIcon, XIcon, SpinnerIcon } from '../components/icons'
-import { formatDate } from '../lib/formatDate'
+import { CheckIcon, XIcon, SpinnerIcon, SearchIcon } from '../components/icons'
+import { formatDate, pickTimeFormatter } from '../lib/formatDate'
 import { describeChanges } from '../lib/describeChanges'
-import type { EditRequestRow, EquipmentRow, FacilityRow, FieldDefinitionRow } from '../types/app'
+import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
+import type { EditRequestRow, EquipmentRow, EquipmentHistoryRow, FacilityRow, FieldDefinitionRow } from '../types/app'
 
 interface DisplayRow extends EditRequestRow {
   equipment: EquipmentRow | null
@@ -30,8 +31,23 @@ export default function EditRequests() {
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectNote, setRejectNote] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<'requests' | 'changes'>('requests')
+  const [search, setSearch] = useState('')
 
   const canReview = profile?.role === 'project_manager' || profile?.role === 'admin'
+
+  const pendingCount = rows.filter((r) => r.status === 'pending').length
+
+  // Filtered in the browser: this list is already capped at 100 rows, so a
+  // round trip per keystroke would cost more than it saves.
+  const visibleRows = (() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((r) =>
+      [r.equipment?.name, r.facilityName, r.requesterName, r.requesterEcode, r.status, JSON.stringify(r.proposed_changes)]
+        .some((v) => v?.toLowerCase().includes(q))
+    )
+  })()
 
   const load = useCallback(async () => {
     if (!profile) return
@@ -110,16 +126,56 @@ export default function EditRequests() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-6">
-      <h1 className="mb-4 text-lg font-semibold text-slate-900">
+      <h1 className="mb-3 text-lg font-semibold text-slate-900">
         {canReview ? 'Edit requests' : 'Your edit requests'}
       </h1>
 
+      <div className="mb-3 flex gap-1 rounded-lg bg-slate-100 p-1">
+        {(
+          [
+            { key: 'requests' as const, label: 'Requests', count: pendingCount },
+            { key: 'changes' as const, label: 'Recent changes', count: null },
+          ]
+        ).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {t.label}
+            {t.count !== null && t.count > 0 && (
+              <span className="ml-1.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-700">
+                {t.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="relative mb-3">
+        <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={tab === 'requests' ? 'Search spare, person, or status…' : 'Search spare, person, or field…'}
+          className="w-full rounded-lg border border-slate-300 py-2 pl-8 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+        />
+      </div>
+
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
-      {rows.length === 0 && <p className="text-sm text-slate-500">Nothing here yet.</p>}
+      {tab === 'changes' ? (
+        <RecentChanges search={search} fieldDefs={fieldDefs} facilities={facilities} />
+      ) : (
+        <>
+          {visibleRows.length === 0 && (
+            <p className="text-sm text-slate-500">{search ? 'Nothing matches that search.' : 'Nothing here yet.'}</p>
+          )}
 
-      <ul className="space-y-3">
-        {rows.map((r) => (
+          <ul className="space-y-3">
+            {visibleRows.map((r) => (
           <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-1 flex items-start justify-between gap-2">
               <Link to={`/equipment/${r.equipment_id}`} className="font-medium text-slate-900 hover:underline">
@@ -190,9 +246,11 @@ export default function EditRequests() {
                 )}
               </div>
             )}
-          </li>
-        ))}
-      </ul>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   )
 }
@@ -218,5 +276,180 @@ function ProposedChanges({
         </li>
       ))}
     </ul>
+  )
+}
+
+interface ChangeRow extends EquipmentHistoryRow {
+  equipmentName: string
+  facilityName: string
+  performerName: string | null
+  performerEcode: string | null
+}
+
+/**
+ * What has actually been changed, as opposed to what's been requested --
+ * every tag and edit across the spares this user can see, newest first.
+ * Scoped by role the same way the tagged list is: an engineer sees their
+ * own work, a manager sees their reports' too, an admin sees everything.
+ */
+function RecentChanges({
+  search,
+  fieldDefs,
+  facilities,
+}: {
+  search: string
+  fieldDefs: FieldDefinitionRow[]
+  facilities: FacilityRow[]
+}) {
+  const { profile } = useAuth()
+  const [rows, setRows] = useState<ChangeRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [historyFor, setHistoryFor] = useState<ChangeRow | null>(null)
+
+  useEffect(() => {
+    if (!profile) return
+    let cancelled = false
+
+    async function load() {
+      let creatorIds: string[] | null = [profile!.id]
+      if (profile!.role === 'project_manager') {
+        const { data: reports } = await supabase.from('profiles').select('id').eq('reports_to', profile!.id)
+        creatorIds = [profile!.id, ...(reports ?? []).map((r) => r.id)]
+      } else if (profile!.role === 'admin') {
+        creatorIds = null
+      }
+
+      // History is keyed by equipment, so the visible spares are resolved
+      // first and the log is then fetched for those.
+      let eqQuery = supabase.from('equipment').select('id, name, facility_id')
+      if (creatorIds) eqQuery = eqQuery.in('created_by', creatorIds)
+      const { data: equipmentRows } = await eqQuery
+      const equipment = equipmentRows ?? []
+      if (cancelled) return
+
+      if (equipment.length === 0) {
+        setRows([])
+        setLoading(false)
+        return
+      }
+
+      const { data: historyRows } = await supabase
+        .from('equipment_history')
+        .select('*')
+        .in(
+          'equipment_id',
+          equipment.map((e) => e.id)
+        )
+        .order('performed_at', { ascending: false })
+        .limit(100)
+      if (cancelled) return
+
+      const list = historyRows ?? []
+      const performerIds = [...new Set(list.map((h) => h.performed_by).filter((v): v is string => !!v))]
+      const { data: performers } = performerIds.length
+        ? await supabase.from('profiles').select('id, full_name, ecode').in('id', performerIds)
+        : { data: [] }
+      if (cancelled) return
+
+      const eqById = new Map(equipment.map((e) => [e.id, e]))
+      const facilityById = new Map(facilities.map((f) => [f.id, f.name]))
+      const performerById = new Map((performers ?? []).map((p) => [p.id, p]))
+
+      setRows(
+        list.map((h) => {
+          const eq = eqById.get(h.equipment_id)
+          return {
+            ...h,
+            equipmentName: eq?.name ?? 'Deleted spare',
+            facilityName: eq ? (facilityById.get(eq.facility_id) ?? '') : '',
+            performerName: h.performed_by ? (performerById.get(h.performed_by)?.full_name ?? null) : null,
+            performerEcode: h.performed_by ? (performerById.get(h.performed_by)?.ecode ?? null) : null,
+          }
+        })
+      )
+      setLoading(false)
+    }
+
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [profile, facilities])
+
+  const visible = (() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter((r) =>
+      [r.equipmentName, r.facilityName, r.performerName, r.performerEcode, JSON.stringify(r.changes)].some((v) =>
+        v?.toLowerCase().includes(q)
+      )
+    )
+  })()
+
+  const formatTime = pickTimeFormatter(visible.map((r) => r.performed_at))
+
+  if (loading) {
+    return (
+      <p className="flex items-center justify-center gap-1.5 py-6 text-sm text-slate-400">
+        <SpinnerIcon className="h-4 w-4" /> Loading…
+      </p>
+    )
+  }
+
+  if (visible.length === 0) {
+    return <p className="text-sm text-slate-500">{search ? 'Nothing matches that search.' : 'No changes yet.'}</p>
+  }
+
+  return (
+    <>
+      <ul className="space-y-3">
+        {visible.map((r) => {
+          const details = describeChanges(r.changes, fieldDefs, facilities)
+          return (
+            <li key={r.id}>
+              <button
+                type="button"
+                onClick={() => setHistoryFor(r)}
+                className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left hover:border-brand-300 hover:bg-slate-50"
+              >
+                <span className="mb-1 flex items-start justify-between gap-2">
+                  <span className="font-medium text-slate-900">{r.equipmentName}</span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      r.action === 'created' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
+                    }`}
+                  >
+                    {r.action === 'created' ? 'tagged' : 'edited'}
+                  </span>
+                </span>
+                <span className="mb-2 block text-xs text-slate-500">
+                  {r.facilityName && `${r.facilityName} · `}
+                  {r.performerName ? `${r.performerName}${r.performerEcode ? ` (${r.performerEcode})` : ''}` : 'Unknown user'}
+                  {' · '}
+                  {formatTime(r.performed_at)}
+                </span>
+                {details.length > 0 && (
+                  <span className="block space-y-0.5 text-xs text-slate-600">
+                    {details.map((d, i) => (
+                      <span key={i} className="block">
+                        <span className="font-medium">{d.label}:</span> {d.value}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+
+      {historyFor && (
+        <EquipmentHistoryDialog
+          equipmentId={historyFor.equipment_id}
+          title={historyFor.equipmentName}
+          onClose={() => setHistoryFor(null)}
+        />
+      )}
+    </>
   )
 }

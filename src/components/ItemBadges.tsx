@@ -28,7 +28,22 @@ export function MatchBadge({ score }: { score?: number }) {
     )
   }
 
+  // A graded scale rather than a couple of buckets, so the difference
+  // between a 45% and an 85% suggestion is visible at a glance. Suggestions
+  // start at 40%, so that's the bottom of the range. Exact matches are
+  // handled above -- they're already green and their row is highlighted.
   const pct = Math.round(score * 100)
-  const tone = pct >= 70 ? 'bg-emerald-50 text-emerald-700' : pct >= 55 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'
+  const tone =
+    pct >= 90
+      ? 'bg-emerald-100 text-emerald-800'
+      : pct >= 80
+        ? 'bg-emerald-50 text-emerald-700'
+        : pct >= 70
+          ? 'bg-lime-50 text-lime-700'
+          : pct >= 60
+            ? 'bg-yellow-50 text-yellow-700'
+            : pct >= 50
+              ? 'bg-amber-50 text-amber-700'
+              : 'bg-orange-50 text-orange-700'
   return <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${tone}`}>{pct}% match</span>
 }

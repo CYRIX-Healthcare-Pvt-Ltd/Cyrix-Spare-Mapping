@@ -196,6 +196,7 @@ export interface Database {
           changes: Record<string, unknown>
           performed_by: string | null
           performed_at: string
+          approved_by: string | null
           latitude: number | null
           longitude: number | null
         }
