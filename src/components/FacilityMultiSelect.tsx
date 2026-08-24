@@ -65,7 +65,7 @@ export function FacilityMultiSelect({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(false)}>
           <div
             className="flex max-h-[85vh] w-full max-w-sm flex-col animate-pop-in rounded-2xl bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}

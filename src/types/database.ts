@@ -286,12 +286,36 @@ export interface Database {
         }>
         Relationships: []
       }
+      bluestar_item_mapping_history: {
+        Row: {
+          id: string
+          bluestar_item_id: string
+          barcode: string | null
+          bluestar_item_code: string | null
+          from_cyrix_item_code: string | null
+          from_cyrix_item_name: string | null
+          to_cyrix_item_code: string | null
+          to_cyrix_item_name: string | null
+          performed_by: string | null
+          performed_at: string
+        }
+        // Written only by set_cyrix_mapping(); never inserted from the client.
+        Insert: never
+        Update: never
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
       resolve_edit_request: {
         Args: { request_id: string; approve: boolean; note?: string | null }
         Returns: Database['public']['Tables']['edit_requests']['Row']
+      }
+      // The only way to change a Blue Star -> Cyrix mapping: it writes the
+      // history row and applies the change in one transaction (migration 0015).
+      set_cyrix_mapping: {
+        Args: { item_id: string; new_cyrix_code: string | null }
+        Returns: Database['public']['Tables']['bluestar_item_master']['Row']
       }
       is_admin: { Args: Record<string, never>; Returns: boolean }
     }

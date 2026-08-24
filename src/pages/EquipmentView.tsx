@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon, XIcon, TagIcon, MapPinIcon, AlertIcon } from '../components/icons'
-import { formatDate } from '../lib/formatDate'
+import { formatDate, pickTimeFormatter } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
 import { describeChanges } from '../lib/describeChanges'
 import { getCurrentPosition } from '../lib/geolocate'
@@ -262,6 +262,9 @@ export default function EquipmentView() {
 
   const canEditDirectly = profile.role === 'project_manager' || profile.role === 'admin'
 
+  // Seconds are shown only when two entries would otherwise look identical.
+  const formatHistoryTime = pickTimeFormatter(history.map((h) => h.performed_at))
+
   return (
     <div className="mx-auto max-w-md px-4 py-6">
       <button
@@ -418,7 +421,7 @@ export default function EquipmentView() {
 
       {lightbox && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-black/90 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
           onClick={() => setLightbox(null)}
         >
           <img src={lightbox} alt="Spare full size" className="max-h-full max-w-full rounded-lg object-contain" />
@@ -426,7 +429,7 @@ export default function EquipmentView() {
       )}
 
       {historyOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setHistoryOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setHistoryOpen(false)}>
           <div
             className="flex max-h-[85vh] w-full max-w-sm flex-col animate-pop-in rounded-2xl bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
@@ -466,7 +469,7 @@ export default function EquipmentView() {
                       <p className="text-xs text-slate-500">
                         {h.performerName ? `${h.performerName}${h.performerEcode ? ` (${h.performerEcode})` : ''}` : 'Unknown user'}
                         {' · '}
-                        {formatDate(h.performed_at)}
+                        {formatHistoryTime(h.performed_at)}
                       </p>
                       {entryDistance !== null && (
                         <span

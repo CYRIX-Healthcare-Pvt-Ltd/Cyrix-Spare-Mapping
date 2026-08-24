@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { findCyrixMatches, searchCyrixItems, type ScoredItem } from '../lib/itemMatch'
-import { SpinnerIcon, CheckIcon, AlertIcon, SearchIcon, PencilIcon } from './icons'
+import { SpinnerIcon, CheckIcon, AlertIcon, SearchIcon, PencilIcon, HistoryIcon } from './icons'
+import { MatchBadge, StockBadge } from './ItemBadges'
+import { setCyrixMapping } from '../lib/mapping'
+import { MappingHistoryDialog } from './MappingHistoryDialog'
 import type { ResolvedItem } from '../lib/itemAutofill'
 import type { BlueStarItemRow, CyrixItemRow } from '../types/app'
 
@@ -10,20 +13,6 @@ type Lookup =
   | { state: 'looking' }
   | { state: 'found'; item: BlueStarItemRow }
   | { state: 'missing' }
-
-/** Quantity on hand, so the tagger can tell a real shelf item from a catalogue entry. */
-function StockBadge({ qty }: { qty: number | null }) {
-  const n = typeof qty === 'number' ? qty : 0
-  return (
-    <span
-      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-        n > 0 ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-400'
-      }`}
-    >
-      {n > 0 ? `${n} in stock` : 'No stock'}
-    </span>
-  )
-}
 
 /**
  * Resolves a scanned barcode to a Blue Star item and, when that item has no Cyrix
@@ -47,6 +36,7 @@ export function CyrixMappingPanel({
   const [loadingSuggestions, setLoadingSuggestions] = useState(false)
   const [saving, setSaving] = useState(false)
   const [remapping, setRemapping] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [manualTerm, setManualTerm] = useState('')
   const [manualResults, setManualResults] = useState<CyrixItemRow[]>([])
 
@@ -141,14 +131,11 @@ export function CyrixMappingPanel({
   async function confirmMapping(cyrixItem: CyrixItemRow) {
     if (lookup.state !== 'found') return
     setSaving(true)
-    const { error } = await supabase
-      .from('bluestar_item_master')
-      .update({ cyrix_item_code: cyrixItem.item_code, cyrix_item_name: cyrixItem.item_name })
-      .eq('id', lookup.item.id)
+    // Goes through the RPC so the change is recorded in the mapping history.
+    const { item: mapped, error } = await setCyrixMapping(lookup.item.id, cyrixItem.item_code)
     setSaving(false)
-    if (error) return
+    if (error || !mapped) return
 
-    const mapped = { ...lookup.item, cyrix_item_code: cyrixItem.item_code, cyrix_item_name: cyrixItem.item_name }
     setLookup({ state: 'found', item: mapped })
     // Confirming a mapping is the point the Cyrix detail becomes known, so
     // re-report to let make/model/group flow into the form.
@@ -206,14 +193,27 @@ export function CyrixMappingPanel({
                   </span>
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={startRemap}
-                className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
-              >
-                <PencilIcon className="h-3 w-3" /> Change
-              </button>
+              <span className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen(true)}
+                  className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  <HistoryIcon className="h-3 w-3" /> History
+                </button>
+                <button
+                  type="button"
+                  onClick={startRemap}
+                  className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  <PencilIcon className="h-3 w-3" /> Change
+                </button>
+              </span>
             </div>
+          )}
+
+          {historyOpen && lookup.state === 'found' && (
+            <MappingHistoryDialog item={lookup.item} onClose={() => setHistoryOpen(false)} />
           )}
 
           {needsMapping && (
@@ -240,11 +240,7 @@ export function CyrixMappingPanel({
                           <span className="font-mono text-xs text-slate-500">{item.item_code}</span> · {item.item_name}
                         </span>
                         <span className="flex shrink-0 items-center gap-1">
-                          {score === 1 && (
-                            <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                              Exact
-                            </span>
-                          )}
+                          <MatchBadge score={score} />
                           <StockBadge qty={item.in_stock} />
                         </span>
                       </button>

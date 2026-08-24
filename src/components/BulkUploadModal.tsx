@@ -113,7 +113,7 @@ export function BulkUploadModal<T>({
   const errorCount = parsed?.filter((r) => r.error).length ?? 0
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={handleClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleClose}>
       <div
         className="flex max-h-[85vh] w-full max-w-lg flex-col animate-pop-in rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}

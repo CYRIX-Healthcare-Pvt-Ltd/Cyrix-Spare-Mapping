@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { UploadIcon, SearchIcon, SpinnerIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from '../../components/icons'
+import { UploadIcon, DownloadIcon, SearchIcon, SpinnerIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, HistoryIcon } from '../../components/icons'
 import { BulkUploadModal, type RowOutcome } from '../../components/BulkUploadModal'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { CyrixPickerDialog } from '../../components/CyrixPickerDialog'
+import { MappingHistoryDialog } from '../../components/MappingHistoryDialog'
+import { downloadXlsx, type CellValue } from '../../lib/xlsx'
 import type { BlueStarItemRow, CyrixItemRow } from '../../types/app'
 
 type Tab = 'bluestar' | 'cyrix'
@@ -103,6 +106,10 @@ export default function ItemMasters() {
   const [confirmDelete, setConfirmDelete] = useState<PendingDelete | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [page, setPage] = useState(0)
+  const [mappingFor, setMappingFor] = useState<BlueStarItemRow | null>(null)
+  const [historyFor, setHistoryFor] = useState<BlueStarItemRow | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportDone, setExportDone] = useState(0)
 
   // A new search or tab has its own result set, so any page offset from the
   // previous one is meaningless -- and page 3 of a 2-page result renders empty.
@@ -175,6 +182,83 @@ export default function ItemMasters() {
     return outcomes
   }
 
+  /**
+   * Exports the whole catalogue, not just the page on screen -- and the whole
+   * catalogue is far past what one request returns, so it's fetched in pages
+   * and stitched together. The current search is applied, so a filtered view
+   * exports what it shows.
+   */
+  async function handleExport() {
+    setExporting(true)
+    setExportDone(0)
+    const term = search.trim()
+    const pattern = `%${term}%`
+    const EXPORT_PAGE = 1000
+
+    const rows: CellValue[][] = []
+    for (let from = 0; ; from += EXPORT_PAGE) {
+      if (tab === 'bluestar') {
+        let q = supabase.from('bluestar_item_master').select('*').order('item_code').range(from, from + EXPORT_PAGE - 1)
+        if (term) q = q.or(`item_code.ilike.${pattern},item_name.ilike.${pattern},barcode.ilike.${pattern}`)
+        const { data } = await q
+        const batch = data ?? []
+        for (const r of batch) {
+          rows.push([r.item_code, r.item_name, r.barcode, r.cyrix_item_code, r.cyrix_item_name])
+        }
+        setExportDone(rows.length)
+        if (batch.length < EXPORT_PAGE) break
+      } else {
+        let q = supabase.from('cyrix_item_master').select('*').order('item_code').range(from, from + EXPORT_PAGE - 1)
+        if (term) {
+          q = q.or(
+            `item_code.ilike.${pattern},item_name.ilike.${pattern},additional_identifier.ilike.${pattern},make.ilike.${pattern},model.ilike.${pattern}`
+          )
+        }
+        const { data } = await q
+        const batch = data ?? []
+        for (const r of batch) {
+          rows.push([
+            r.item_code,
+            r.item_name,
+            r.in_stock,
+            r.item_cost,
+            r.additional_identifier,
+            r.item_group,
+            r.parent_equipment,
+            r.make,
+            r.model,
+          ])
+        }
+        setExportDone(rows.length)
+        if (batch.length < EXPORT_PAGE) break
+      }
+    }
+
+    const headers =
+      tab === 'bluestar'
+        ? ['item_code', 'item_name', 'barcode', 'cyrix_item_code', 'cyrix_item_name']
+        : [
+            'item_code',
+            'item_name',
+            'in_stock',
+            'item_cost',
+            'additional_identifier',
+            'item_group',
+            'parent_equipment',
+            'make',
+            'model',
+          ]
+
+    const stamp = new Date().toISOString().slice(0, 10)
+    downloadXlsx(
+      tab === 'bluestar' ? `bluestar_item_master_${stamp}.xlsx` : `cyrix_item_master_${stamp}.xlsx`,
+      headers,
+      rows,
+      tab === 'bluestar' ? 'Blue Star items' : 'Cyrix items'
+    )
+    setExporting(false)
+  }
+
   async function performDelete() {
     if (!confirmDelete) return
     setDeleting(true)
@@ -224,6 +308,15 @@ export default function ItemMasters() {
             className="w-full rounded-lg border border-slate-300 py-2 pl-8 pr-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
           />
         </div>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exporting || activeCount === 0}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#107c41] px-3 py-2 text-sm font-medium text-white hover:bg-[#0e6b38] disabled:opacity-50"
+        >
+          {exporting ? <SpinnerIcon className="h-4 w-4" /> : <DownloadIcon className="h-4 w-4" />}
+          {exporting ? `${exportDone.toLocaleString('en-IN')}…` : 'Excel'}
+        </button>
         <button
           type="button"
           onClick={() => setBulkOpen(tab)}
@@ -276,25 +369,40 @@ export default function ItemMasters() {
                         <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
                         <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-slate-500">{r.barcode ?? '—'}</td>
                         <td className="px-3 py-2 text-slate-600">
-                          {r.cyrix_item_code ? (
-                            <span>
-                              <span className="font-mono text-xs text-slate-500">{r.cyrix_item_code}</span>
-                              {r.cyrix_item_name && ` · ${r.cyrix_item_name}`}
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                              Not mapped
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
                           <button
-                            onClick={() => setConfirmDelete({ table: 'bluestar_item_master', id: r.id, label: `${r.item_code} · ${r.item_name}` })}
-                            className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
-                            aria-label={`Delete ${r.item_code}`}
+                            onClick={() => setMappingFor(r)}
+                            className="rounded-lg px-1.5 py-0.5 text-left hover:bg-slate-100"
+                            aria-label={`Change Cyrix mapping for ${r.item_code}`}
                           >
-                            <TrashIcon className="h-4 w-4" />
+                            {r.cyrix_item_code ? (
+                              <span>
+                                <span className="font-mono text-xs text-slate-500">{r.cyrix_item_code}</span>
+                                {r.cyrix_item_name && ` · ${r.cyrix_item_name}`}
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-100">
+                                Not mapped
+                              </span>
+                            )}
                           </button>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <span className="flex items-center gap-1">
+                            <button
+                              onClick={() => setHistoryFor(r)}
+                              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                              aria-label={`Mapping history for ${r.item_code}`}
+                            >
+                              <HistoryIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete({ table: 'bluestar_item_master', id: r.id, label: `${r.item_code} · ${r.item_name}` })}
+                              className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+                              aria-label={`Delete ${r.item_code}`}
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </span>
                         </td>
                       </tr>
                     ))
@@ -400,6 +508,18 @@ export default function ItemMasters() {
         submitRows={submitBlueStarRows}
         onImported={load}
       />
+
+      {mappingFor && (
+        <CyrixPickerDialog
+          item={mappingFor}
+          onClose={() => setMappingFor(null)}
+          onMapped={(updated) =>
+            setBlueStarRows((rows) => rows.map((row) => (row.id === updated.id ? updated : row)))
+          }
+        />
+      )}
+
+      {historyFor && <MappingHistoryDialog item={historyFor} onClose={() => setHistoryFor(null)} />}
 
       <ConfirmDialog
         open={!!confirmDelete}

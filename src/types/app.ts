@@ -9,6 +9,7 @@ export type AppSettingRow = Database['public']['Tables']['app_settings']['Row']
 export type EquipmentHistoryRow = Database['public']['Tables']['equipment_history']['Row']
 export type CyrixItemRow = Database['public']['Tables']['cyrix_item_master']['Row']
 export type BlueStarItemRow = Database['public']['Tables']['bluestar_item_master']['Row']
+export type MappingHistoryRow = Database['public']['Tables']['bluestar_item_mapping_history']['Row']
 
 // Facility is the only field the app itself requires (it drives access
 // control). Everything else an engineer fills in is admin-defined custom
