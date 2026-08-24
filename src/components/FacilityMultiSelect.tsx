@@ -47,7 +47,7 @@ export function FacilityMultiSelect({
         className="w-full rounded-lg border border-slate-300 px-3 py-2 text-left text-sm hover:border-brand-300"
       >
         {selectedFacilities.length === 0 ? (
-          <span className="text-slate-400">No facilities assigned — tap to assign</span>
+          <span className="text-slate-400">No warehouses assigned — tap to assign</span>
         ) : (
           <span className="flex flex-wrap gap-1.5">
             {selectedFacilities.slice(0, 4).map((f) => (
@@ -71,7 +71,7 @@ export function FacilityMultiSelect({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4">
-              <h2 className="text-sm font-semibold text-slate-900">Assign facilities</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Assign warehouses</h2>
               <button
                 onClick={() => setOpen(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
@@ -109,7 +109,7 @@ export function FacilityMultiSelect({
 
             <ul className="flex-1 divide-y divide-slate-100 overflow-y-auto">
               {filtered.length === 0 && (
-                <li className="px-4 py-6 text-center text-sm text-slate-400">No facilities match.</li>
+                <li className="px-4 py-6 text-center text-sm text-slate-400">No warehouses match.</li>
               )}
               {filtered.slice(0, 300).map((f) => (
                 <li key={f.id}>

@@ -291,7 +291,7 @@ export default function EquipmentView() {
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
               <p className="flex items-start gap-1.5 text-sm text-amber-800">
                 <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                You're {distanceWarning} from this facility's recorded location. Continue anyway?
+                You're {distanceWarning} from this warehouse's recorded location. Continue anyway?
               </p>
               <div className="mt-2 flex gap-2">
                 <button
@@ -337,7 +337,7 @@ export default function EquipmentView() {
               </button>
             )}
           </div>
-          <p className="mb-4 text-sm text-slate-500">{facility?.name ?? 'Unknown facility'}</p>
+          <p className="mb-4 text-sm text-slate-500">{facility?.name ?? 'Unknown warehouse'}</p>
 
           {hasPendingRequest && !canEditDirectly && (
             <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
@@ -475,7 +475,7 @@ export default function EquipmentView() {
                           }`}
                         >
                           <MapPinIcon className="h-3 w-3" />
-                          {formatDistance(entryDistance)} from facility
+                          {formatDistance(entryDistance)} from warehouse
                         </span>
                       )}
                       {details.length > 0 && (

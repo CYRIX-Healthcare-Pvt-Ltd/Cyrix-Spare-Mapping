@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
     return (
       <div className="flex h-screen items-center justify-center px-6 text-center">
         <p className="text-slate-600">
-          Your account is deactivated. Contact an admin at your facility for help.
+          Your account is deactivated. Contact an admin at your warehouse for help.
         </p>
       </div>
     )

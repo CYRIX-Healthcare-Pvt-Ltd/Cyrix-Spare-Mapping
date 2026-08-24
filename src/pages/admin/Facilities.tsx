@@ -240,7 +240,7 @@ export default function Facilities() {
       .eq('facility_id', f.id)
 
     if ((count ?? 0) > 0) {
-      setError(`Can't delete "${f.name}" — ${count} equipment record(s) still reference it. Deactivate it instead.`)
+      setError(`Can't delete "${f.name}" — ${count} record(s) still reference it. Deactivate it instead.`)
       return
     }
     setConfirmDelete(f)
@@ -282,7 +282,7 @@ export default function Facilities() {
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
       <div className="mb-4 flex items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold text-slate-900">Facilities</h1>
+        <h1 className="text-lg font-semibold text-slate-900">Warehouses</h1>
         <button
           type="button"
           onClick={() => setBulkOpen(true)}
@@ -293,10 +293,10 @@ export default function Facilities() {
       </div>
 
       <div className="mb-6">
-        <p className="mb-2 text-sm font-medium text-slate-700">Add a facility</p>
+        <p className="mb-2 text-sm font-medium text-slate-700">Add a warehouse</p>
         <FacilityEditor
           initial={{ name: '', district: null, city: '', address: null, latitude: null, longitude: null }}
-          submitLabel="Add facility"
+          submitLabel="Add warehouse"
           onSubmit={handleAddSubmit}
         />
       </div>
@@ -363,7 +363,7 @@ export default function Facilities() {
 
       <ConfirmDialog
         open={!!confirmDelete}
-        title={`Delete facility "${confirmDelete?.name}"?`}
+        title={`Delete warehouse "${confirmDelete?.name}"?`}
         message="This can't be undone."
         onConfirm={performDelete}
         onCancel={() => setConfirmDelete(null)}
@@ -372,9 +372,9 @@ export default function Facilities() {
       <BulkUploadModal<FacilityImportRow>
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
-        title="Bulk upload facilities"
-        description="Import many facilities at once from a CSV file."
-        templateFilename="facilities_template.csv"
+        title="Bulk upload warehouses"
+        description="Import many warehouses at once from a CSV file."
+        templateFilename="warehouses_template.csv"
         templateHeaders={['name', 'district', 'city', 'address', 'latitude', 'longitude']}
         templateSampleRows={[['General Hospital', 'Ernakulam', 'Kochi', 'MG Road', '9.9816', '76.2999']]}
         parseRow={(raw) => parseFacilityRow(raw)}

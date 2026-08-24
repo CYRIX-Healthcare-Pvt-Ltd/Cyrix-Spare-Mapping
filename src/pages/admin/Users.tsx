@@ -239,7 +239,7 @@ export default function Users() {
       for (const name of row.facility_names) {
         const id = facilityByName.get(name.toLowerCase())
         if (id) facility_ids.push(id)
-        else warnings.push(`facility "${name}" not found`)
+        else warnings.push(`warehouse "${name}" not found`)
       }
 
       const { data, error: fnError } = await supabase.functions.invoke('admin-create-user', {
@@ -319,7 +319,7 @@ export default function Users() {
         </p>
 
         <div>
-          <p className="mb-1 text-xs font-medium text-slate-500">Facilities</p>
+          <p className="mb-1 text-xs font-medium text-slate-500">Warehouses</p>
           <FacilityMultiSelect facilities={facilities} selected={selectedFacilities} onChange={setSelectedFacilities} />
         </div>
 
@@ -431,7 +431,7 @@ export default function Users() {
             ) : (
               <button onClick={() => startEditFacilities(u)} className="mt-1.5 text-left text-xs text-slate-500 hover:text-brand-700">
                 {u.facilityIds.length === 0 ? (
-                  'No facilities assigned — tap to assign'
+                  'No warehouses assigned — tap to assign'
                 ) : (
                   <>
                     {facilities

@@ -107,7 +107,7 @@ export default function Login() {
         )}
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          Don't have an employee code? Ask your facility admin to add you.
+          Don't have an employee code? Ask your warehouse admin to add you.
         </p>
       </div>
     </div>

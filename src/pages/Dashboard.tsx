@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { ScanIcon, ClipboardIcon, BuildingIcon, UsersIcon, SettingsIcon } from '../components/icons'
+import { ScanIcon, ClipboardIcon, BuildingIcon, UsersIcon, SettingsIcon, PackageIcon } from '../components/icons'
 
 export default function Dashboard() {
   const { profile } = useAuth()
@@ -68,13 +68,20 @@ export default function Dashboard() {
       {profile.role === 'admin' && (
         <div>
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Admin</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <AdminLink
               to="/admin/facilities"
               icon={BuildingIcon}
-              label="Facilities"
+              label="Warehouses"
               iconClass="text-blue-600"
               hoverClass="hover:border-blue-300 hover:bg-blue-50"
+            />
+            <AdminLink
+              to="/admin/items"
+              icon={PackageIcon}
+              label="Item masters"
+              iconClass="text-teal-600"
+              hoverClass="hover:border-teal-300 hover:bg-teal-50"
             />
             <AdminLink
               to="/admin/fields"

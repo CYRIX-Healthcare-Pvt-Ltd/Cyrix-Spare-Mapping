@@ -116,7 +116,7 @@ export default function EquipmentNew() {
         .eq('id', facility.id)
     }
 
-    navigate('/scan', { replace: true, state: { toast: `Equipment added at ${facility?.name ?? 'facility'}` } })
+    navigate('/scan', { replace: true, state: { toast: `Spare added at ${facility?.name ?? 'warehouse'}` } })
   }
 
   async function handleSubmit(values: EquipmentFormValues) {
@@ -179,7 +179,7 @@ export default function EquipmentNew() {
       .select('*')
       .single()
 
-    if (insertError || !data) throw new Error(insertError?.message ?? 'Could not add this facility.')
+    if (insertError || !data) throw new Error(insertError?.message ?? 'Could not add this warehouse.')
 
     await supabase.from('user_facilities').insert({ user_id: profile.id, facility_id: data.id })
     await refreshProfile()
@@ -214,7 +214,7 @@ export default function EquipmentNew() {
 
       {facilities.length === 0 && (
         <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          You aren't assigned to any facility yet — search below to add the one you're at now.
+          You aren't assigned to any warehouse yet — search below to add the one you're at now.
         </p>
       )}
 
@@ -237,7 +237,7 @@ export default function EquipmentNew() {
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
           <p className="flex items-start gap-1.5 text-sm text-amber-800">
             <AlertIcon className="mt-0.5 h-4 w-4 shrink-0" />
-            You're {distanceWarning} from this facility's recorded location. Tag anyway?
+            You're {distanceWarning} from this warehouse's recorded location. Tag anyway?
           </p>
           <div className="mt-2 flex gap-2">
             <button

@@ -65,7 +65,7 @@ export default function TaggedEquipment() {
       setRows(
         list.map((e) => ({
           ...e,
-          facilityName: facilityMap.get(e.facility_id)?.name ?? 'Unknown facility',
+          facilityName: facilityMap.get(e.facility_id)?.name ?? 'Unknown warehouse',
           facilityDistrict: facilityMap.get(e.facility_id)?.district ?? null,
           facilityCity: facilityMap.get(e.facility_id)?.city ?? null,
           taggerName: e.created_by ? (profileMap.get(e.created_by)?.full_name ?? null) : null,
@@ -97,7 +97,7 @@ export default function TaggedEquipment() {
               <tr className="border-b border-slate-100 text-xs text-slate-500">
                 <th className="whitespace-nowrap px-3 py-2 font-medium">District</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">City</th>
-                <th className="whitespace-nowrap px-3 py-2 font-medium">Facility</th>
+                <th className="whitespace-nowrap px-3 py-2 font-medium">Warehouse</th>
                 <th className="whitespace-nowrap px-3 py-2 font-medium">Scanned code</th>
                 {fieldDefs.map((f) => (
                   <th key={f.id} className="whitespace-nowrap px-3 py-2 font-medium">

@@ -14,6 +14,7 @@ import Facilities from './pages/admin/Facilities'
 import Fields from './pages/admin/Fields'
 import Users from './pages/admin/Users'
 import Settings from './pages/admin/Settings'
+import ItemMasters from './pages/admin/ItemMasters'
 
 export default function App() {
   return (
@@ -50,6 +51,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['admin']}>
                   <Fields />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/items"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <ItemMasters />
                 </ProtectedRoute>
               }
             />

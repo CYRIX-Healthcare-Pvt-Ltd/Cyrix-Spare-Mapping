@@ -21,7 +21,7 @@ function formatCustomValue(field: FieldDefinitionRow | undefined, value: unknown
 
 function facilityName(id: unknown, facilities: FacilityRow[]): string {
   if (typeof id !== 'string' || !id) return '—'
-  return facilities.find((f) => f.id === id)?.name ?? 'Unknown facility'
+  return facilities.find((f) => f.id === id)?.name ?? 'Unknown warehouse'
 }
 
 /**
@@ -48,7 +48,7 @@ export function describeChanges(
     const fromId = isPair(raw) ? raw.from : current?.facility_id
     const to = facilityName(toId, facilities)
     const from = fromId ? facilityName(fromId, facilities) : null
-    out.push({ label: 'Facility', value: from && from !== to ? `${from} → ${to}` : to })
+    out.push({ label: 'Warehouse', value: from && from !== to ? `${from} → ${to}` : to })
   }
 
   const customFields = changes.custom_fields

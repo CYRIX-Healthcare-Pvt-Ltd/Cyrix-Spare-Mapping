@@ -215,6 +215,16 @@ export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function PackageIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M21 8.5v7a1 1 0 0 1-.5.87l-8 4.5a1 1 0 0 1-1 0l-8-4.5A1 1 0 0 1 3 15.5v-7a1 1 0 0 1 .5-.87l8-4.5a1 1 0 0 1 1 0l8 4.5A1 1 0 0 1 21 8.5Z" />
+      <path d="m3.3 8 8.7 4.9L20.7 8" />
+      <path d="M12 21v-8.1" />
+    </svg>
+  )
+}
+
 export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>

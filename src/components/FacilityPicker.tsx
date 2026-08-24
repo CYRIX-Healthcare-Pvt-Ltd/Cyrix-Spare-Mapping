@@ -104,7 +104,7 @@ export function FacilityPicker({
       setCity(created.city ?? city)
       setFacilityText(created.name)
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Could not add this facility.')
+      setCreateError(err instanceof Error ? err.message : 'Could not add this warehouse.')
     } finally {
       setCreating(false)
     }
@@ -146,13 +146,13 @@ export function FacilityPicker({
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-700">Facility *</label>
+        <label className="mb-1 block text-sm font-medium text-slate-700">Warehouse *</label>
         <input
           required
           list="facility-picker-facilities"
           value={facilityText}
           onChange={(e) => handleFacilityTextChange(e.target.value)}
-          placeholder="Search or select a facility…"
+          placeholder="Search or select a warehouse…"
           className={inputClass}
         />
         <datalist id="facility-picker-facilities">
@@ -162,7 +162,7 @@ export function FacilityPicker({
         </datalist>
         {facilityText && !value && (
           <div className="mt-1.5">
-            <p className="text-xs text-amber-600">No facility matches that name exactly.</p>
+            <p className="text-xs text-amber-600">No warehouse matches that name exactly.</p>
             {onCreateFacility && (
               <button
                 type="button"
@@ -171,7 +171,7 @@ export function FacilityPicker({
                 className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-brand-200 px-2.5 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-60"
               >
                 {creating ? <SpinnerIcon className="h-3.5 w-3.5" /> : <PlusIcon className="h-3.5 w-3.5" />}
-                {creating ? 'Capturing location…' : `Add "${facilityText}" as a new facility`}
+                {creating ? 'Capturing location…' : `Add "${facilityText}" as a new warehouse`}
               </button>
             )}
             {createError && <p className="mt-1 text-xs text-red-600">{createError}</p>}

@@ -210,6 +210,57 @@ export interface Database {
         Update: never
         Relationships: []
       }
+      cyrix_item_master: {
+        Row: {
+          id: string
+          item_code: string
+          item_name: string
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          item_code: string
+          item_name: string
+          active?: boolean
+        }
+        Update: Partial<{
+          item_code: string
+          item_name: string
+          active: boolean
+        }>
+        Relationships: []
+      }
+      bpl_item_master: {
+        Row: {
+          id: string
+          item_code: string
+          item_name: string
+          barcode: string | null
+          cyrix_item_code: string | null
+          cyrix_item_name: string | null
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          item_code: string
+          item_name: string
+          barcode?: string | null
+          cyrix_item_code?: string | null
+          cyrix_item_name?: string | null
+          active?: boolean
+        }
+        Update: Partial<{
+          item_code: string
+          item_name: string
+          barcode: string | null
+          cyrix_item_code: string | null
+          cyrix_item_name: string | null
+          active: boolean
+        }>
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
