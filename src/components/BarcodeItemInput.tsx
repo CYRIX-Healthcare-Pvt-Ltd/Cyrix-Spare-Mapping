@@ -52,7 +52,7 @@ export function BarcodeItemInput({
             <button
               type="button"
               onClick={() => setScanning(false)}
-              className="rounded-lg p-1.5 text-white hover:bg-white/10"
+              className="rounded-lg p-1.5 text-white hover:bg-surface/10"
               aria-label="Close scanner"
             >
               <XIcon className="h-5 w-5" />

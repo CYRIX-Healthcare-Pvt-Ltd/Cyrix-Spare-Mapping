@@ -3,8 +3,8 @@
 // font-size on the wrapper scales the whole thing proportionally.
 export function CyrixLogo({ className = '', subtitle = true }: { className?: string; subtitle?: boolean }) {
   return (
-    <div className={`select-none text-center leading-none ${className}`}>
-      <div className="flex items-start justify-center text-[2em] font-bold tracking-tight">
+    <div className={`select-none leading-none ${className}`}>
+      <div className="flex items-start text-[2em] font-bold tracking-tight">
         <span className="text-slate-950">CYRI</span>
         <span className="relative text-red-600">
           X

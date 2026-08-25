@@ -50,7 +50,7 @@ export default function Settings() {
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-6 sm:max-w-3xl sm:px-6 lg:py-8">
       <h1 className="mb-4 text-lg font-semibold text-slate-900">Settings</h1>
-      <form onSubmit={handleSave} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+      <form onSubmit={handleSave} className="space-y-4 rounded-xl border border-slate-200 bg-surface p-4">
         {SETTINGS.map(({ key, label, placeholder }) => (
           <div key={key}>
             <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
@@ -65,7 +65,7 @@ export default function Settings() {
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand hover:bg-brand-650 disabled:opacity-60"
         >
           {saving && <SpinnerIcon className="h-4 w-4" />}
           Save settings

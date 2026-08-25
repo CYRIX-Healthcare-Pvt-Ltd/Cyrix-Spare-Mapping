@@ -25,8 +25,9 @@ function toFormValues(eq: EquipmentRow, blueStar: BlueStarItemRow | null): Equip
     facility_id: eq.facility_id,
     custom_fields: eq.custom_fields,
     // The Cyrix link lives on the spare's Blue Star catalogue row rather than
-    // on the spare itself, so it is read back from there.
-    cyrix_item_code: blueStar?.cyrix_item_code ?? null,
+    // on the spare itself, so it is read back from there. Undefined rather
+    // than null when there is none: nothing to unlink, nothing to change.
+    cyrix_item_code: blueStar?.cyrix_item_code ?? undefined,
     cyrix_item_name: blueStar?.cyrix_item_name ?? null,
   }
 }
@@ -205,8 +206,13 @@ export default function EquipmentView() {
     // always allowed, and it is audited in its own history rather than gated.
     // Only the spare's own fields need a manager's approval, so the mapping is
     // applied now and the rest is proposed below.
-    if (equipment.bluestar_item_id && values.cyrix_item_code !== (blueStarItem?.cyrix_item_code ?? null)) {
-      const { error: mapError } = await setCyrixMapping(equipment.bluestar_item_id, values.cyrix_item_code)
+    const desiredCyrix = values.cyrix_item_code
+    if (
+      equipment.bluestar_item_id &&
+      desiredCyrix !== undefined &&
+      desiredCyrix !== (blueStarItem?.cyrix_item_code ?? null)
+    ) {
+      const { error: mapError } = await setCyrixMapping(equipment.bluestar_item_id, desiredCyrix)
       if (mapError) {
         setError(mapError)
         return
@@ -272,7 +278,7 @@ export default function EquipmentView() {
           <h1 className="mb-4 text-lg font-semibold text-slate-900 lg:text-xl">
             {canEditDirectly ? 'Edit spare' : 'Request an edit'}
           </h1>
-          <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-6 sm:shadow-sm lg:p-8">
+          <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-surface sm:p-6 sm:shadow-sm lg:p-8">
             <EquipmentForm
               facilities={allFacilities}
               fieldDefs={fieldDefs}
@@ -321,7 +327,7 @@ export default function EquipmentView() {
             </p>
           )}
 
-          <div className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-surface shadow-sm">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-slate-100">
                 {/* The Cyrix QR stuck on the spare, and the Cyrix catalogue

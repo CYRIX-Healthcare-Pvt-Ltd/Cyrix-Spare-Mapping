@@ -277,7 +277,7 @@ export default function Users() {
         </button>
       </div>
 
-      <form onSubmit={handleAdd} className="mb-6 space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      <form onSubmit={handleAdd} className="mb-6 space-y-3 rounded-xl border border-slate-200 bg-surface p-4">
         <p className="text-sm font-medium text-slate-700">Add a user</p>
         <div className="grid grid-cols-2 gap-2">
           <input
@@ -327,7 +327,7 @@ export default function Users() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand hover:bg-brand-650 disabled:opacity-60"
         >
           {submitting ? <SpinnerIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
           Add user
@@ -342,7 +342,7 @@ export default function Users() {
 
       <ul className="space-y-2">
         {users.map((u) => (
-          <li key={u.id} className="rounded-xl border border-slate-200 bg-white p-3">
+          <li key={u.id} className="rounded-xl border border-slate-200 bg-surface p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium text-slate-900">
@@ -402,7 +402,7 @@ export default function Users() {
                   <button
                     onClick={() => submitReset(u.id)}
                     disabled={busyId === u.id}
-                    className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-white disabled:opacity-60"
+                    className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-on-brand disabled:opacity-60"
                   >
                     Set password
                   </button>
@@ -420,7 +420,7 @@ export default function Users() {
               <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
                 <FacilityMultiSelect facilities={facilities} selected={editSelection} onChange={setEditSelection} />
                 <div className="flex gap-2">
-                  <button onClick={() => saveFacilities(u.id)} className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-white">
+                  <button onClick={() => saveFacilities(u.id)} className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-on-brand">
                     Save
                   </button>
                   <button onClick={() => setEditingFacilitiesFor(null)} className="rounded-lg border border-slate-300 px-3 py-1 text-xs text-slate-600">
@@ -457,7 +457,7 @@ export default function Users() {
                     ))}
                   </select>
                   <div className="flex gap-2">
-                    <button onClick={() => saveManager(u.id)} className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-white">
+                    <button onClick={() => saveManager(u.id)} className="rounded-lg bg-brand-700 px-3 py-1 text-xs font-medium text-on-brand">
                       Save
                     </button>
                     <button onClick={() => setEditingManagerFor(null)} className="rounded-lg border border-slate-300 px-3 py-1 text-xs text-slate-600">

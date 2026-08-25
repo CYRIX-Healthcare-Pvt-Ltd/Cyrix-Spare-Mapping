@@ -115,7 +115,7 @@ export function BulkUploadModal<T>({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleClose}>
       <div
-        className="flex max-h-[85vh] w-full max-w-lg flex-col animate-pop-in rounded-2xl bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-lg flex-col animate-pop-in rounded-2xl bg-surface shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-5">
@@ -217,7 +217,7 @@ export function BulkUploadModal<T>({
               type="button"
               onClick={handleImport}
               disabled={!parsed || validCount === 0 || submitting}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
             >
               {submitting && <SpinnerIcon className="h-4 w-4" />}
               {submitting && progress ? `Importing ${progress.done}/${progress.total}…` : `Import ${validCount || ''} row${validCount === 1 ? '' : 's'}`}

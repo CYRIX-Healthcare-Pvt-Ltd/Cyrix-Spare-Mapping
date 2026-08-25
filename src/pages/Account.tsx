@@ -56,7 +56,7 @@ export default function Account() {
         {profile.full_name} · {profile.ecode}
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-slate-200 bg-surface p-4">
         <p className="text-sm font-medium text-slate-700">Change password</p>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">New password</label>
@@ -87,7 +87,7 @@ export default function Account() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-on-brand hover:bg-brand-650 disabled:opacity-60"
         >
           {submitting && <SpinnerIcon className="h-4 w-4" />}
           Update password

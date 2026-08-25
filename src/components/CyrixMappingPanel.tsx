@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { lookupBlueStarItem } from '../lib/blueStarItem'
 import { findCyrixMatches, searchCyrixItems, type ScoredItem } from '../lib/itemMatch'
-import { SpinnerIcon, CheckIcon, AlertIcon, SearchIcon, PencilIcon, HistoryIcon, LinkIcon, XIcon } from './icons'
+import { SpinnerIcon, CheckIcon, AlertIcon, SearchIcon, PencilIcon, HistoryIcon, LinkIcon, XIcon, TrashIcon } from './icons'
 import { MatchBadge, StockBadge } from './ItemBadges'
 import { MappingHistoryDialog } from './MappingHistoryDialog'
 import { SearchInput } from './SearchInput'
@@ -182,6 +182,17 @@ export function CyrixMappingPanel({
     }
   }, [manualTerm])
 
+  // Unlinking is a deliberate act, distinct from never having chosen: it is
+  // applied to the catalogue row on save and recorded in the mapping history
+  // like any other change of mapping.
+  function remove() {
+    onSelectionChange(null)
+    setChanging(false)
+    setSearchOpen(false)
+    setManualTerm('')
+    setManualResults([])
+  }
+
   function choose(item: CyrixItemRow) {
     onSelectionChange({ code: item.item_code, name: item.item_name })
     report(blueStarItem, item.item_code, item)
@@ -199,11 +210,13 @@ export function CyrixMappingPanel({
         </p>
         {selection && !changing ? (
           <span className="flex shrink-0 items-center gap-1">
+            {/* Neutral for looking, brand for editing, red for undoing --
+                so the row can be read by colour before it's read by word. */}
             {blueStarItem && (
               <button
                 type="button"
                 onClick={() => setHistoryOpen(true)}
-                className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                className="flex items-center gap-1 rounded-lg border border-slate-300 bg-surface px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
               >
                 <HistoryIcon className="h-3 w-3" /> History
               </button>
@@ -211,9 +224,16 @@ export function CyrixMappingPanel({
             <button
               type="button"
               onClick={() => setChanging(true)}
-              className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              className="flex items-center gap-1 rounded-lg border border-brand-200 bg-surface px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-50"
             >
               <PencilIcon className="h-3 w-3" /> Change
+            </button>
+            <button
+              type="button"
+              onClick={remove}
+              className="flex items-center gap-1 rounded-lg border border-red-200 bg-surface px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+            >
+              <TrashIcon className="h-3 w-3" /> Remove
             </button>
           </span>
         ) : (
@@ -348,7 +368,7 @@ function CyrixOption({
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left text-sm hover:border-brand-300 hover:bg-brand-50"
+      className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-surface px-2.5 py-1.5 text-left text-sm hover:border-brand-300 hover:bg-brand-50"
     >
       <span className="min-w-0 truncate">
         <span className="font-mono text-xs text-slate-500">{item.item_code}</span> · {item.item_name}

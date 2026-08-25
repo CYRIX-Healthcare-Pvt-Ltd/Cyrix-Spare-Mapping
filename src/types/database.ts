@@ -305,7 +305,13 @@ export interface Database {
       // Tagging a spare records it in Blue Star's catalogue. Definer-only:
       // engineers can't insert into the catalogue directly (migration 0018).
       upsert_tagged_bluestar_item: {
-        Args: { p_item_code: string; p_item_name: string; p_barcode: string | null; p_cyrix_code: string | null }
+        Args: {
+          p_item_code: string
+          p_item_name: string
+          p_barcode: string | null
+          p_cyrix_code: string | null
+          p_clear_cyrix: boolean
+        }
         Returns: Database['public']['Tables']['bluestar_item_master']['Row']
       }
       is_admin: { Args: Record<string, never>; Returns: boolean }

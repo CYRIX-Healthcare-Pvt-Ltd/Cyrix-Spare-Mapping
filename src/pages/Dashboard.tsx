@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { ScanIcon, ClipboardIcon, BuildingIcon, UsersIcon, SettingsIcon, PackageIcon } from '../components/icons'
+import { ScanIcon, ClipboardIcon, BuildingIcon, UsersIcon, SettingsIcon, PackageIcon, TagIcon } from '../components/icons'
 
 export default function Dashboard() {
   const { profile } = useAuth()
@@ -39,30 +39,39 @@ export default function Dashboard() {
         <p className="text-sm text-slate-500">Here's what's happening with spare tracking.</p>
       </div>
 
-      <Link
-        to="/scan"
-        className="flex items-center gap-4 rounded-2xl bg-brand-700 p-5 text-white shadow-lg shadow-brand-700/20 transition hover:bg-brand-650 lg:p-6"
-      >
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15">
-          <ScanIcon className="h-6 w-6" />
-        </span>
-        <div>
-          <p className="font-semibold">Scan a spare QR</p>
-          <p className="text-sm text-brand-100">View existing details, or tag a new item</p>
-        </div>
-      </Link>
+      {/* On a phone these stack, because they have to. On a desktop the scan
+          panel and the two counts share a row -- otherwise three short cards
+          strung down a wide page is exactly the "unfinished" look. */}
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-3">
+        <Link
+          to="/scan"
+          className="group flex items-center gap-4 rounded-2xl bg-brand-700 p-5 text-on-brand shadow-lg shadow-brand-700/20 transition hover:bg-brand-650 lg:col-span-1 lg:flex-col lg:items-start lg:justify-between lg:gap-6 lg:p-6"
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface/15 transition-transform group-hover:scale-105">
+            <ScanIcon className="h-6 w-6" />
+          </span>
+          <span>
+            <span className="block font-semibold">Scan a spare QR</span>
+            <span className="block text-sm text-brand-100">View existing details, or tag a new item</span>
+          </span>
+        </Link>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        <Link to="/tagged" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50/40 lg:p-5">
-          <p className="text-2xl font-semibold text-slate-900 lg:text-3xl">{equipmentCount ?? '—'}</p>
-          <p className="text-sm text-slate-500">Spares tracked</p>
-        </Link>
-        <Link to="/requests" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50/40 lg:p-5">
-          <p className="text-2xl font-semibold text-slate-900 lg:text-3xl">{requestCount ?? '—'}</p>
-          <p className="text-sm text-slate-500">
-            {profile.role === 'engineer' ? 'Your pending requests' : 'Pending approvals'}
-          </p>
-        </Link>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:col-span-2">
+          <StatCard
+            to="/tagged"
+            value={equipmentCount}
+            label="Spares tracked"
+            icon={<TagIcon className="h-4 w-4" />}
+            accent="text-emerald-600 bg-emerald-50"
+          />
+          <StatCard
+            to="/requests"
+            value={requestCount}
+            label={profile.role === 'engineer' ? 'Your pending requests' : 'Pending approvals'}
+            icon={<ClipboardIcon className="h-4 w-4" />}
+            accent="text-yellow-600 bg-yellow-50"
+          />
+        </div>
       </div>
 
       {profile.role === 'admin' && (
@@ -111,6 +120,33 @@ export default function Dashboard() {
   )
 }
 
+function StatCard({
+  to,
+  value,
+  label,
+  icon,
+  accent,
+}: {
+  to: string
+  value: number | null
+  label: string
+  icon: ReactElement
+  accent: string
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-surface p-4 shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50/40 lg:p-5"
+    >
+      <span className={`grid h-8 w-8 place-items-center rounded-lg ${accent}`}>{icon}</span>
+      <span>
+        <span className="block text-2xl font-semibold text-slate-900 lg:text-3xl">{value ?? '—'}</span>
+        <span className="block text-sm text-slate-500">{label}</span>
+      </span>
+    </Link>
+  )
+}
+
 function AdminLink({
   to,
   icon: Icon,
@@ -127,7 +163,7 @@ function AdminLink({
   return (
     <Link
       to={to}
-      className={`flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-center transition-colors ${hoverClass}`}
+      className={`flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-surface p-4 text-center transition-colors ${hoverClass}`}
     >
       <Icon className={`h-5 w-5 ${iconClass}`} />
       <span className="text-xs font-medium text-slate-700">{label}</span>

@@ -5,7 +5,7 @@ import { FormRow } from './FormRow'
 import type { FacilityRow } from '../types/app'
 
 const inputClass =
-  'w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
+  'w-full rounded-lg border border-slate-300 bg-surface py-2 pl-9 pr-9 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500'
 
 /**
  * Warehouse picker: a dropdown you can also type into.
@@ -161,7 +161,7 @@ export function FacilityPicker({
           <ul
             id="warehouse-combo-list"
             role="listbox"
-            className="absolute z-30 mt-1 max-h-64 w-full animate-pop-in overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+            className="absolute z-30 mt-1 max-h-64 w-full animate-pop-in overflow-y-auto rounded-xl border border-slate-200 bg-surface py-1 shadow-lg"
           >
             {matches.length === 0 && (
               <li className="px-3 py-2 text-sm text-slate-400">

@@ -20,6 +20,11 @@ export interface EquipmentFormValues {
   // The Cyrix item this spare is linked to. Not a column on equipment: it is
   // applied to the spare's Blue Star catalogue row when the tag is saved, so
   // the mapping lives in one place and lands in the mapping history.
-  cyrix_item_code: string | null
+  //
+  // Three states, and the difference matters: a code links it, `undefined`
+  // leaves whatever the catalogue already has alone, and `null` means the
+  // tagger pressed Remove and wants it unlinked. Collapsing the last two
+  // would let a slow barcode lookup silently unlink a shared catalogue row.
+  cyrix_item_code: string | null | undefined
   cyrix_item_name: string | null
 }

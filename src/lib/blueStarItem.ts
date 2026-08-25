@@ -44,13 +44,15 @@ export async function upsertTaggedBlueStarItem(input: {
   itemCode: string
   itemName: string | null
   barcode: string | null
-  cyrixCode: string | null
+  /** A code links it, `undefined` leaves it alone, `null` unlinks it. */
+  cyrixCode: string | null | undefined
 }): Promise<{ item: BlueStarItemRow | null; error: string | null }> {
   const { data, error } = await supabase.rpc('upsert_tagged_bluestar_item', {
     p_item_code: input.itemCode,
     p_item_name: input.itemName ?? '',
     p_barcode: input.barcode,
-    p_cyrix_code: input.cyrixCode,
+    p_cyrix_code: input.cyrixCode ?? null,
+    p_clear_cyrix: input.cyrixCode === null,
   })
   if (error) return { item: null, error: error.message }
   return { item: data as BlueStarItemRow, error: null }

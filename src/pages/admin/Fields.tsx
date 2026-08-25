@@ -158,7 +158,7 @@ export default function Fields() {
         These fields show up on every equipment record, for every user.
       </p>
 
-      <form onSubmit={handleAdd} className="mb-6 space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+      <form onSubmit={handleAdd} className="mb-6 space-y-3 rounded-xl border border-slate-200 bg-surface p-4">
         <p className="text-sm font-medium text-slate-700">Add a field</p>
         <input required placeholder="Label, e.g. Serial number" value={label} onChange={(e) => setLabel(e.target.value)} className={inputClass} />
         <select value={fieldType} onChange={(e) => setFieldType(e.target.value as FieldType)} className={inputClass}>
@@ -197,7 +197,7 @@ export default function Fields() {
         <button
           type="submit"
           disabled={submitting}
-          className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand hover:bg-brand-650 disabled:opacity-60"
         >
           {submitting ? <SpinnerIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
           Add field
@@ -206,7 +206,7 @@ export default function Fields() {
 
       <ul className="space-y-2">
         {fields.map((f, i) => (
-          <li key={f.id} className="rounded-xl border border-slate-200 bg-white p-3">
+          <li key={f.id} className="rounded-xl border border-slate-200 bg-surface p-3">
             {editingId === f.id ? (
               <div className="space-y-3">
                 <input
@@ -263,7 +263,7 @@ export default function Fields() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => saveEdit(f.id)}
-                    className="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-650"
+                    className="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-medium text-on-brand hover:bg-brand-650"
                   >
                     Save
                   </button>

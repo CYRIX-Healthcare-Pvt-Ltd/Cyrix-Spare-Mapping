@@ -37,9 +37,9 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-ink-950 px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
+      <div className="w-full max-w-sm rounded-2xl bg-surface p-8 shadow-xl">
         <div className="mb-6 flex flex-col items-center gap-3">
-          <CyrixLogo className="text-lg" />
+          <CyrixLogo className="text-lg text-center [&>div]:justify-center" />
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400">for</p>
           <BlueStarLogo className="text-sm" />
         </div>
@@ -90,7 +90,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-on-brand hover:bg-brand-650 disabled:opacity-60"
           >
             {submitting && <SpinnerIcon className="h-4 w-4" />}
             Sign in
@@ -183,7 +183,7 @@ function ForgotPasswordPanel({ onDone }: { onDone: (ecode: string) => void }) {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand hover:bg-brand-650 disabled:opacity-60"
           >
             {submitting && <SpinnerIcon className="h-4 w-4" />}
             Reset password

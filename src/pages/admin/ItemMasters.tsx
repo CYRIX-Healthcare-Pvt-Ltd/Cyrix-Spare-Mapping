@@ -290,7 +290,7 @@ export default function ItemMasters() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              tab === t.key ? 'bg-surface text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             {t.label}
@@ -318,7 +318,7 @@ export default function ItemMasters() {
         <button
           type="button"
           onClick={() => setBulkOpen(tab)}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-650"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand hover:bg-brand-650"
         >
           <UploadIcon className="h-4 w-4" /> Upload
         </button>
@@ -334,7 +334,7 @@ export default function ItemMasters() {
         </p>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-surface shadow-sm">
             <table className="w-full min-w-max text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50">
                 <tr className="text-xs uppercase tracking-wide text-slate-500">

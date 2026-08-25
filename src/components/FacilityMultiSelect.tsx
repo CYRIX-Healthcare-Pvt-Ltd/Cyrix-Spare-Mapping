@@ -67,7 +67,7 @@ export function FacilityMultiSelect({
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(false)}>
           <div
-            className="flex max-h-[85vh] w-full max-w-sm flex-col animate-pop-in rounded-2xl bg-white shadow-xl"
+            className="flex max-h-[85vh] w-full max-w-sm flex-col animate-pop-in rounded-2xl bg-surface shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-4">
@@ -142,7 +142,7 @@ export function FacilityMultiSelect({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="w-full rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-650"
+                className="w-full rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-on-brand hover:bg-brand-650"
               >
                 Done
               </button>

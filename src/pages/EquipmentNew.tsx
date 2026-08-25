@@ -178,14 +178,14 @@ export default function EquipmentNew() {
 
       {/* Card framing only from `sm` up: on a phone the form already fills the
           screen, and a border round it would just be a line inside a line. */}
-      <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-6 sm:shadow-sm lg:p-8">
+      <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-surface sm:p-6 sm:shadow-sm lg:p-8">
         <EquipmentForm
           facilities={facilities}
           fieldDefs={fieldDefs}
           initialValues={{
             facility_id: facilities.length === 1 ? facilities[0].id : '',
             custom_fields: {},
-            cyrix_item_code: null,
+            cyrix_item_code: undefined,
             cyrix_item_name: null,
           }}
           submitLabel="Save spare"

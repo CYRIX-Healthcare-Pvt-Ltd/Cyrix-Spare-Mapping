@@ -187,7 +187,7 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
             <button
               type="button"
               onClick={handleContinue}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-white hover:bg-brand-650"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-700 px-4 py-2 text-sm font-medium text-on-brand hover:bg-brand-650"
             >
               <CheckIcon className="h-4 w-4" /> Continue
             </button>

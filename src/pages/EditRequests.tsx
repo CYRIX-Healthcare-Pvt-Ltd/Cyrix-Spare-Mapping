@@ -145,7 +145,7 @@ export default function EditRequests() {
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex-1 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-4 ${
-                tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                tab === t.key ? 'bg-surface text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               {t.label}
@@ -173,7 +173,7 @@ export default function EditRequests() {
       ) : (
         <>
           {visibleRows.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-surface/60 px-6 py-12 text-center">
               <ClipboardIcon className="mx-auto mb-2 h-6 w-6 text-slate-300" />
               <p className="text-sm text-slate-500">{search ? 'Nothing matches that search.' : 'Nothing here yet.'}</p>
             </div>
@@ -181,7 +181,7 @@ export default function EditRequests() {
 
           <ul className="space-y-3">
             {visibleRows.map((r) => (
-          <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <li key={r.id} className="rounded-xl border border-slate-200 bg-surface p-4 shadow-sm">
             <div className="mb-1 flex items-start justify-between gap-2">
               <Link to={`/equipment/${r.equipment_id}`} className="font-medium text-slate-900 hover:underline">
                 {r.equipment?.name ?? 'Deleted spare'}
@@ -403,7 +403,7 @@ function RecentChanges({
 
   if (visible.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center">
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-surface/60 px-6 py-12 text-center">
         <HistoryIcon className="mx-auto mb-2 h-6 w-6 text-slate-300" />
         <p className="text-sm text-slate-500">{search ? 'Nothing matches that search.' : 'No changes yet.'}</p>
       </div>
@@ -420,7 +420,7 @@ function RecentChanges({
               <button
                 type="button"
                 onClick={() => setHistoryFor(r)}
-                className="w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50/50"
+                className="w-full rounded-xl border border-slate-200 bg-surface p-4 text-left shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50/50"
               >
                 <span className="mb-1 flex items-start justify-between gap-2">
                   <span className="font-medium text-slate-900">{r.equipmentName}</span>

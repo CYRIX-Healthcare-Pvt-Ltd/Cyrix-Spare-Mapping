@@ -77,7 +77,7 @@ function FacilityEditor({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+    <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-surface p-4">
       <input required placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
 
       {/* Broadest to narrowest: a district contains cities, so that's the
@@ -97,7 +97,7 @@ function FacilityEditor({
         <button
           type="submit"
           disabled={submitting}
-          className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-white hover:bg-brand-650 disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand hover:bg-brand-650 disabled:opacity-60"
         >
           {submitting ? <SpinnerIcon className="h-4 w-4" /> : <PlusIcon className="h-4 w-4" />}
           {submitLabel}
@@ -236,7 +236,7 @@ export default function Facilities() {
               />
             </li>
           ) : (
-            <li key={f.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3">
+            <li key={f.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-surface p-3">
               <div className="min-w-0">
                 <p className="font-medium text-slate-900">{f.name}</p>
                 <p className="truncate text-xs text-slate-500">

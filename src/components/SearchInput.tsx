@@ -42,7 +42,7 @@ export function SearchInput({
             onChange('')
           }
         }}
-        className={`w-full rounded-lg border border-slate-300 bg-white pl-8 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 ${
+        className={`w-full rounded-lg border border-slate-300 bg-surface pl-8 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 ${
           small ? 'py-1.5 pr-7 text-xs' : 'py-2 pr-9 text-sm'
         }`}
       />

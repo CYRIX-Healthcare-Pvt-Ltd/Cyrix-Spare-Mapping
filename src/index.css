@@ -4,7 +4,23 @@
    build. Importing from JS gets them through the normal asset pipeline. */
 @import "tailwindcss";
 
+/* Dark mode is opt-in via a class on <html>, so the toggle can override
+   whatever the OS prefers rather than being overruled by it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
+  /*
+   * Two semantic surfaces, so dark mode is a change of palette rather than a
+   * `dark:` variant bolted onto every element. `surface` is anything raised
+   * (cards, tables, dialogs, the sidebar); `canvas` is the page behind them.
+   * `on-brand` is whatever reads against a brand-700 fill -- which inverts,
+   * so text on a primary button can't be hardcoded white.
+   */
+  --color-surface: #ffffff;
+  --color-surface-muted: #fbfbfc;
+  --color-canvas: #f7f7f8;
+  --color-on-brand: #ffffff;
+
   /*
    * Cyrix Health Care palette, pulled from Cyrix-KPI's tailwind.config.js
    * — black, red, white, exactly as the logo. No blue in the chrome.
@@ -64,6 +80,104 @@
     'Space Grotesk Variable', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
+/*
+ * Dark mode inverts the neutral ramp in place rather than restating every
+ * colour: because the whole app is built on slate-*, brand-* and the two
+ * surface tokens, flipping those here retints everything at once. Reds and
+ * the status tints stay put -- they carry meaning, not brightness.
+ */
+.dark {
+  --color-surface: #17181c;
+  --color-surface-muted: #1d1e23;
+  --color-canvas: #0e0f12;
+  --color-on-brand: #0e0f12;
+
+  --color-slate-50: #1d1e23;
+  --color-slate-100: #24262c;
+  --color-slate-200: #32343b;
+  --color-slate-300: #4a4d56;
+  --color-slate-400: #7d818d;
+  --color-slate-500: #9a9eaa;
+  --color-slate-600: #b6bac4;
+  --color-slate-700: #d0d3da;
+  --color-slate-800: #e6e8ec;
+  --color-slate-900: #f4f5f7;
+  --color-slate-950: #ffffff;
+
+  /* Primary fills invert with the neutrals, so a primary button stays the
+     highest-contrast thing on the screen instead of vanishing into it. */
+  --color-brand-50: #24262c;
+  --color-brand-100: #32343b;
+  --color-brand-200: #4a4d56;
+  --color-brand-300: #7d818d;
+  --color-brand-500: #b6bac4;
+  --color-brand-600: #d0d3da;
+  --color-brand-650: #e6e8ec;
+  --color-brand-700: #f4f5f7;
+  --color-brand-800: #ffffff;
+  --color-brand-900: #ffffff;
+  --color-brand-950: #ffffff;
+
+
+  --color-emerald-50: #0d2a21;
+  --color-emerald-100: #123a2d;
+  --color-emerald-600: #34d399;
+  --color-emerald-700: #6ee7b7;
+
+  --color-amber-50: #2e2210;
+  --color-amber-100: #3d2d13;
+  --color-amber-600: #fbbf24;
+  --color-amber-700: #fcd34d;
+
+  --color-yellow-50: #2d2711;
+  --color-yellow-100: #3b3316;
+  --color-yellow-600: #facc15;
+  --color-yellow-700: #fde047;
+
+  --color-blue-50: #10233c;
+  --color-blue-100: #152e4f;
+  --color-blue-600: #60a5fa;
+  --color-blue-700: #93c5fd;
+
+  --color-purple-50: #221639;
+  --color-purple-100: #2d1d4b;
+  --color-purple-600: #c084fc;
+  --color-purple-700: #d8b4fe;
+
+  --color-teal-50: #0c2a2b;
+  --color-teal-100: #113a3b;
+  --color-teal-600: #2dd4bf;
+  --color-teal-700: #5eead4;
+
+  --color-cyan-50: #0b2830;
+  --color-cyan-100: #0f3742;
+  --color-cyan-600: #22d3ee;
+  --color-cyan-700: #67e8f9;
+
+  --color-lime-50: #1d2a0d;
+  --color-lime-100: #283a12;
+  --color-lime-600: #a3e635;
+  --color-lime-700: #bef264;
+
+  --color-indigo-50: #191c3d;
+  --color-indigo-100: #212651;
+  --color-indigo-600: #818cf8;
+  --color-indigo-700: #a5b4fc;
+
+  --color-orange-50: #331d0e;
+  --color-orange-100: #452812;
+  --color-orange-600: #fb923c;
+  --color-orange-700: #fdba74;
+
+  /* Red is the brand accent, already redefined above for light mode; only the
+     tint and the text tone need moving so errors still read as errors. */
+  --color-red-50: #33121a;
+  --color-red-100: #45161f;
+  --color-red-700: #fca5a5;
+
+  color-scheme: dark;
+}
+
 :root {
   /* Standard strong easing curves — the built-in CSS ones read as too
      weak to feel deliberate. Everything that moves should reach for one
@@ -73,6 +187,9 @@
   --dur-press: 160ms;
   --dur-fast: 200ms;
   --dur-ui: 250ms;
+  /* Long enough to read as a sweep across the screen, short enough not to
+     be in the way of the next thing you were going to do. */
+  --dur-theme: 620ms;
 }
 
 html,
@@ -82,7 +199,7 @@ body,
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-canvas text-slate-900 antialiased;
   font-family: var(--font-sans);
 }
 
@@ -126,6 +243,46 @@ button:not(:disabled):active {
     transform: none;
   }
   .animate-pop-in {
+    animation: none;
+  }
+}
+
+/*
+ * Theme switch: the whole page crosses over as one circular reveal spreading
+ * from the switch, rather than every element easing its own colour at its own
+ * pace. The browser holds a snapshot of the outgoing theme underneath while
+ * the incoming one is clipped in on top.
+ *
+ * --theme-x / --theme-y / --theme-r are set on :root by the toggle, which is
+ * what aims the circle at wherever the switch happens to be.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* The old theme just sits there; only the new one is animated in over it. */
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 10;
+  animation: theme-reveal var(--dur-theme) var(--ease-out) forwards;
+}
+
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(0 at var(--theme-x, 50%) var(--theme-y, 50%));
+  }
+  to {
+    clip-path: circle(var(--theme-r, 150vmax) at var(--theme-x, 50%) var(--theme-y, 50%));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) {
     animation: none;
   }
 }

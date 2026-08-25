@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { HomeIcon, ScanIcon, ClipboardIcon, TagIcon, SettingsIcon, LogOutIcon } from './icons'
+import { HomeIcon, ScanIcon, ClipboardIcon, TagIcon, SettingsIcon, LogOutIcon, PanelLeftIcon, SunIcon, MoonIcon } from './icons'
+import { useTheme } from '../context/ThemeContext'
 import { CyrixLogo } from './CyrixLogo'
 import { BlueStarLogo } from './BlueStarLogo'
 
@@ -17,6 +18,11 @@ export function Layout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [pendingCount, setPendingCount] = useState(0)
+  const { theme, toggle } = useTheme()
+  // Starts collapsed to a rail. Opening it is deliberate; clicking into the
+  // page puts it away again, so it never sits over the content you went there
+  // to read. Clicking a nav item leaves it open -- you're still navigating.
+  const [expanded, setExpanded] = useState(false)
 
   // Re-fetched on every route change (not just once) so approving/rejecting
   // a request elsewhere in the app is reflected here without a full reload.
@@ -47,10 +53,13 @@ export function Layout() {
   // the scanner's own purple laser theme, Tagged is the positive/done green,
   // Requests is a dark yellow, Admin uses the Cyrix brand red.
   const navItems = [
-    { to: '/', label: 'Home', icon: HomeIcon, show: true, activeText: 'text-brand-700', pillBg: 'bg-brand-50' },
-    { to: '/scan', label: 'Scan', icon: ScanIcon, show: true, activeText: 'text-purple-600', pillBg: 'bg-purple-50' },
-    { to: '/tagged', label: 'Tagged', icon: TagIcon, show: true, activeText: 'text-emerald-600', pillBg: 'bg-emerald-50' },
-    { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-yellow-600', pillBg: 'bg-yellow-50' },
+    // accentBg is spelled out rather than derived from activeText: Tailwind
+    // only generates classes it can find literally in the source, so a name
+    // built at runtime ("text-" swapped for "bg-") would never exist.
+    { to: '/', label: 'Home', icon: HomeIcon, show: true, activeText: 'text-brand-700', pillBg: 'bg-brand-50', accentBg: 'bg-brand-700' },
+    { to: '/scan', label: 'Scan', icon: ScanIcon, show: true, activeText: 'text-purple-600', pillBg: 'bg-purple-50', accentBg: 'bg-purple-600' },
+    { to: '/tagged', label: 'Tagged', icon: TagIcon, show: true, activeText: 'text-emerald-600', pillBg: 'bg-emerald-50', accentBg: 'bg-emerald-600' },
+    { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-yellow-600', pillBg: 'bg-yellow-50', accentBg: 'bg-yellow-600' },
     {
       to: '/admin/facilities',
       label: 'Admin',
@@ -58,6 +67,7 @@ export function Layout() {
       show: profile.role === 'admin',
       activeText: 'text-red-600',
       pillBg: 'bg-red-50',
+      accentBg: 'bg-red-600',
     },
   ].filter((item) => item.show)
 
@@ -67,8 +77,146 @@ export function Layout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur">
+    <div
+      className={`flex min-h-screen flex-col bg-canvas transition-[padding] duration-[var(--dur-ui)] ease-[var(--ease-out)] ${
+        expanded ? 'lg:pl-60' : 'lg:pl-16'
+      }`}
+    >
+      {/* Desktop gets a real app shell rather than the phone layout stretched
+          wide: a fixed sidebar carrying the brand, navigation and who you're
+          signed in as, leaving each page's own header to do nothing but
+          introduce that page. Below `lg` the top bar and tab rows below take
+          over, which is what actually fits a phone. */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-200 bg-surface transition-[width] duration-[var(--dur-ui)] ease-[var(--ease-out)] lg:flex ${
+          expanded ? 'w-60' : 'w-16'
+        }`}
+      >
+        {/* Everything in the rail lines up on one 16px gutter -- the toggle,
+            each nav icon, and the avatar all share the same left edge, so
+            collapsing doesn't shift anything sideways. */}
+        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 px-3">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? 'Collapse menu' : 'Expand menu'}
+            aria-expanded={expanded}
+            title={expanded ? 'Collapse menu' : 'Expand menu'}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+          >
+            <PanelLeftIcon className={`h-4.5 w-4.5 transition-transform duration-[var(--dur-ui)] ${expanded ? '' : 'rotate-180'}`} />
+          </button>
+          <span
+            className={`flex min-w-0 flex-col gap-1.5 overflow-hidden transition-opacity duration-[var(--dur-fast)] ${
+              expanded ? 'opacity-100' : 'pointer-events-none opacity-0'
+            }`}
+          >
+            <CyrixLogo className="text-[9px]" subtitle={false} />
+            <BlueStarLogo className="text-[6px]" />
+          </span>
+        </div>
+
+        <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-3">
+          {navItems.map(({ to, label, icon: Icon, activeText, pillBg, accentBg }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              title={expanded ? undefined : label}
+              className={({ isActive }) =>
+                `relative flex h-10 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium transition-colors ${
+                  isActive ? `${pillBg} ${activeText}` : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {/* A short accent bar on the active item, so the current
+                      page is legible from the edge of the screen. */}
+                  <span
+                    className={`absolute inset-y-1.5 left-0 w-0.5 rounded-full transition-opacity ${accentBg} ${
+                      isActive ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+                  <span className="relative grid w-4.5 shrink-0 place-items-center">
+                    <Icon className={`h-4.5 w-4.5 ${isActive ? activeText : 'text-slate-400'}`} />
+                    {to === '/requests' && pendingCount > 0 && (
+                      <span className="absolute -right-2 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-red-600 px-0.5 text-[9px] font-bold leading-none text-white">
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`truncate transition-opacity duration-[var(--dur-fast)] ${
+                      expanded ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="space-y-1 border-t border-slate-100 p-3">
+          <button
+            type="button"
+            onClick={(e) => toggle({ x: e.clientX, y: e.clientY })}
+            title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          >
+            {/* Both icons are always mounted and cross-fade, so the switch
+                reads as one control changing state rather than two swapping. */}
+            <span className="relative grid h-4.5 w-4.5 shrink-0 place-items-center">
+              <SunIcon
+                className={`absolute h-4.5 w-4.5 text-amber-500 transition-all duration-[var(--dur-ui)] ${
+                  theme === 'dark' ? 'rotate-0 scale-100 opacity-100' : 'rotate-90 scale-50 opacity-0'
+                }`}
+              />
+              <MoonIcon
+                className={`absolute h-4.5 w-4.5 text-indigo-400 transition-all duration-[var(--dur-ui)] ${
+                  theme === 'dark' ? '-rotate-90 scale-50 opacity-0' : 'rotate-0 scale-100 opacity-100'
+                }`}
+              />
+            </span>
+            <span className={`truncate transition-opacity duration-[var(--dur-fast)] ${expanded ? 'opacity-100' : 'opacity-0'}`}>
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </span>
+          </button>
+
+          <div className="flex items-center gap-1">
+            <Link
+              to="/account"
+              title={expanded ? undefined : profile.full_name}
+              className="flex h-10 min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-lg px-2 hover:bg-slate-100"
+            >
+              <span className="grid h-6.5 w-6.5 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-700">
+                {initials}
+              </span>
+              <span
+                className={`min-w-0 transition-opacity duration-[var(--dur-fast)] ${expanded ? 'opacity-100' : 'opacity-0'}`}
+              >
+                <span className="block truncate text-sm font-medium text-slate-900">{profile.full_name}</span>
+                <span className="block truncate text-xs text-slate-500">{ROLE_LABEL[profile.role]}</span>
+              </span>
+            </Link>
+            {expanded && (
+              <button
+                onClick={handleSignOut}
+                className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <LogOutIcon className="h-4.5 w-4.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-surface/90 px-4 py-3 backdrop-blur lg:hidden">
         <div className="flex items-center gap-2">
           <CyrixLogo className="text-[9px]" subtitle={false} />
           <span className="h-5 w-px bg-slate-200" />
@@ -85,6 +233,22 @@ export function Layout() {
             </span>
           </Link>
           <button
+            onClick={(e) => toggle({ x: e.clientX, y: e.clientY })}
+            className="relative grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            <SunIcon
+              className={`absolute h-5 w-5 text-amber-500 transition-all duration-[var(--dur-ui)] ${
+                theme === 'dark' ? 'rotate-0 scale-100 opacity-100' : 'rotate-90 scale-50 opacity-0'
+              }`}
+            />
+            <MoonIcon
+              className={`absolute h-5 w-5 text-indigo-400 transition-all duration-[var(--dur-ui)] ${
+                theme === 'dark' ? '-rotate-90 scale-50 opacity-0' : 'rotate-0 scale-100 opacity-100'
+              }`}
+            />
+          </button>
+          <button
             onClick={handleSignOut}
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
             aria-label="Sign out"
@@ -94,7 +258,7 @@ export function Layout() {
         </div>
       </header>
 
-      <nav className="sticky top-[57px] z-20 hidden border-b border-slate-200 bg-white px-4 py-2 sm:flex sm:gap-1">
+      <nav className="sticky top-[57px] z-20 hidden border-b border-slate-200 bg-surface px-4 py-2 sm:flex sm:gap-1 lg:hidden">
         {navItems.map(({ to, label, icon: Icon, activeText, pillBg }) => (
           <NavLink
             key={to}
@@ -119,11 +283,11 @@ export function Layout() {
         ))}
       </nav>
 
-      <main className="flex-1 pb-20 sm:pb-6">
+      <main onClick={() => setExpanded(false)} className="flex-1 pb-20 sm:pb-6 lg:pb-10">
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-slate-200 bg-white sm:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-slate-200 bg-surface sm:hidden">
         {navItems.map(({ to, label, icon: Icon, activeText, pillBg }) => (
           <NavLink
             key={to}

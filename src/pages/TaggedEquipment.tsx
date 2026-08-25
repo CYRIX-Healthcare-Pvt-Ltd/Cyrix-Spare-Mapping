@@ -19,8 +19,10 @@ interface DisplayRow extends EquipmentRow {
   cyrixItemName: string | null
 }
 
-const th = 'whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500'
-const td = 'px-3 py-2.5 align-middle'
+// Slightly tighter gutters from `lg` up: with the sidebar taking 240px, the
+// difference is what keeps a full row on screen instead of under a scrollbar.
+const th = 'whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 lg:px-2.5'
+const td = 'px-3 py-2.5 align-middle lg:px-2.5'
 
 export default function TaggedEquipment() {
   const { profile } = useAuth()
@@ -170,7 +172,7 @@ export default function TaggedEquipment() {
       </div>
 
       {rows.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-12 text-center">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-surface/60 px-6 py-12 text-center">
           <TagIcon className="mx-auto mb-2 h-6 w-6 text-slate-300" />
           <p className="text-sm text-slate-500">Nothing tagged yet.</p>
         </div>
@@ -205,9 +207,9 @@ export default function TaggedEquipment() {
             )}
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <table className="w-full min-w-max text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-surface shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50">
                 <tr>
                   {isAdmin && (
                     <th className="w-10 px-3 py-2.5">
@@ -274,14 +276,14 @@ export default function TaggedEquipment() {
                         )
                       }
                       return (
-                        <td key={f.id} className={`${td} whitespace-nowrap text-slate-700`}>
-                          {formatFieldValue(f, raw)}
+                        <td key={f.id} className={`${td} text-slate-700`}>
+                          <span className="block max-w-56">{formatFieldValue(f, raw)}</span>
                         </td>
                       )
                     })}
-                    <td className={`${td} whitespace-nowrap`}>
+                    <td className={td}>
                       {r.cyrixItemCode ? (
-                        <span className="text-slate-700">
+                        <span className="block max-w-64 text-slate-700">
                           <span className="font-mono text-sm text-slate-500">{r.cyrixItemCode}</span>
                           {r.cyrixItemName && ` · ${r.cyrixItemName}`}
                         </span>
