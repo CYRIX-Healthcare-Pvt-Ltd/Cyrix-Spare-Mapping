@@ -186,33 +186,42 @@ export function Layout() {
             </span>
           </button>
 
-          <div className="flex items-center gap-1">
-            <Link
-              to="/account"
-              title={expanded ? undefined : profile.full_name}
-              className="flex h-10 min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-lg px-2 hover:bg-slate-100"
+          {/* Account and sign-out are separate rows rather than a name with a
+              button tucked beside it, so signing out is reachable in the rail
+              too -- and every row in the rail is then the same shape. The
+              avatar's centre sits on the same gutter as the icons above it. */}
+          <Link
+            to="/account"
+            title={expanded ? undefined : profile.full_name}
+            className="flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-2 hover:bg-slate-100"
+          >
+            <span className="grid h-6.5 w-6.5 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-700">
+              {initials}
+            </span>
+            <span
+              className={`min-w-0 transition-opacity duration-[var(--dur-fast)] ${expanded ? 'opacity-100' : 'opacity-0'}`}
             >
-              <span className="grid h-6.5 w-6.5 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-700">
-                {initials}
-              </span>
-              <span
-                className={`min-w-0 transition-opacity duration-[var(--dur-fast)] ${expanded ? 'opacity-100' : 'opacity-0'}`}
-              >
-                <span className="block truncate text-sm font-medium text-slate-900">{profile.full_name}</span>
-                <span className="block truncate text-xs text-slate-500">{ROLE_LABEL[profile.role]}</span>
-              </span>
-            </Link>
-            {expanded && (
-              <button
-                onClick={handleSignOut}
-                className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                aria-label="Sign out"
-                title="Sign out"
-              >
-                <LogOutIcon className="h-4.5 w-4.5" />
-              </button>
-            )}
-          </div>
+              <span className="block truncate text-sm font-medium text-slate-900">{profile.full_name}</span>
+              <span className="block truncate text-xs text-slate-500">{ROLE_LABEL[profile.role]}</span>
+            </span>
+          </Link>
+
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="Sign out"
+            title="Sign out"
+            className="flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-600"
+          >
+            <span className="grid w-4.5 shrink-0 place-items-center">
+              <LogOutIcon className="h-4.5 w-4.5" />
+            </span>
+            <span
+              className={`truncate transition-opacity duration-[var(--dur-fast)] ${expanded ? 'opacity-100' : 'opacity-0'}`}
+            >
+              Sign out
+            </span>
+          </button>
         </div>
       </aside>
 
