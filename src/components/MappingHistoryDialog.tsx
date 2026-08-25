@@ -39,7 +39,7 @@ export function MappingHistoryDialog({ item, onClose }: { item: BlueStarItemRow;
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-900">Mapping history</h2>
             <p className="mt-0.5 truncate text-xs text-slate-500">
-              <span className="font-mono">{item.item_code}</span> · {item.item_name}
+              <span className="tabular-nums">{item.item_code}</span> · {item.item_name}
               {item.barcode && <span className="text-slate-400"> · {item.barcode}</span>}
             </p>
           </div>
@@ -94,14 +94,14 @@ export function MappingHistoryDialog({ item, onClose }: { item: BlueStarItemRow;
                   <p className="mt-1.5 rounded-lg bg-slate-50 px-2.5 py-2 text-xs text-slate-600">
                     {e.from_cyrix_item_code && (
                       <>
-                        <span className="font-mono text-slate-500">{e.from_cyrix_item_code}</span>
+                        <span className="tabular-nums text-slate-500">{e.from_cyrix_item_code}</span>
                         {e.from_cyrix_item_name && ` · ${e.from_cyrix_item_name}`}
                         {' → '}
                       </>
                     )}
                     {e.to_cyrix_item_code ? (
                       <>
-                        <span className="font-mono text-slate-500">{e.to_cyrix_item_code}</span>
+                        <span className="tabular-nums text-slate-500">{e.to_cyrix_item_code}</span>
                         {e.to_cyrix_item_name && ` · ${e.to_cyrix_item_name}`}
                       </>
                     ) : (

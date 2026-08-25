@@ -95,7 +95,7 @@ export function CyrixPickerDialog({
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-900">Map to a Cyrix item</h2>
             <p className="mt-0.5 truncate text-xs text-slate-500">
-              <span className="font-mono">{item.item_code}</span> · {item.item_name}
+              <span className="tabular-nums">{item.item_code}</span> · {item.item_name}
             </p>
           </div>
           <button
@@ -145,7 +145,7 @@ export function CyrixPickerDialog({
                 }`}
               >
                 <span className="min-w-0 truncate">
-                  <span className="font-mono text-xs text-slate-500">{cyrixItem.item_code}</span> · {cyrixItem.item_name}
+                  <span className="tabular-nums text-xs text-slate-500">{cyrixItem.item_code}</span> · {cyrixItem.item_name}
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
                   <MatchBadge score={scoreOf(cyrixItem.id)} />

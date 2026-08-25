@@ -76,8 +76,24 @@
   --color-ink-950: #000000;
   --color-ink-900: #141519;
 
+  /*
+   * SF Pro, in Apple's two optical sizes: Display for headings, Text for
+   * everything else. Both are named first so a machine that has them
+   * installed uses them, and -apple-system picks the right one automatically
+   * on Apple platforms.
+   *
+   * SF Pro is Apple's font and is only licensed for Apple platforms, so it
+   * cannot be shipped to Windows or Android. Inter is bundled as the stand-in
+   * there: it is open-licensed and close enough in metrics that the layout
+   * does not shift between platforms. Same stack for both, so a heading and
+   * a table cell only ever differ by optical size, never by typeface.
+   */
   --font-sans:
-    'Space Grotesk Variable', 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Inter Variable', Inter, 'Segoe UI', Roboto,
+    sans-serif;
+  --font-display:
+    'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter Variable', Inter, 'Segoe UI', Roboto,
+    sans-serif;
 }
 
 /*
@@ -201,6 +217,22 @@ body,
 body {
   @apply bg-canvas text-slate-900 antialiased;
   font-family: var(--font-sans);
+}
+
+/* Optical sizing, applied once here rather than per-heading: Display is cut
+   for large text and wants slightly tighter tracking to match. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+/* Codes and counts line up in a column without changing typeface -- what
+   monospace was doing for them before. */
+.tabular-nums,
+table {
+  font-variant-numeric: tabular-nums;
 }
 
 /* keeps the mobile viewport from rubber-banding/zooming during QR scans */

@@ -175,7 +175,7 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
 
       {state === 'success' && resultText ? (
         <div className="w-full max-w-xs animate-pop-in space-y-3">
-          <p className="truncate rounded-lg bg-slate-100 px-3 py-2 text-center font-mono text-xs text-slate-600">{resultText}</p>
+          <p className="truncate rounded-lg bg-slate-100 px-3 py-2 text-center tabular-nums text-xs text-slate-600">{resultText}</p>
           <div className="flex gap-2">
             <button
               type="button"

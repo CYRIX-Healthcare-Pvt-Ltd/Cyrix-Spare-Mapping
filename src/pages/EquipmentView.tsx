@@ -338,7 +338,7 @@ export default function EquipmentView() {
                   <th scope="row" className="w-1/3 whitespace-nowrap px-3 py-2 text-left font-normal text-slate-500">
                     Cyrix code
                   </th>
-                  <td className="px-3 py-2 font-mono text-sm text-slate-700">{equipment.qr_value}</td>
+                  <td className="px-3 py-2 tabular-nums text-sm text-slate-700">{equipment.qr_value}</td>
                 </tr>
                 <tr>
                   <th scope="row" className="w-1/3 whitespace-nowrap px-3 py-2 text-left font-normal text-slate-500">
@@ -347,7 +347,7 @@ export default function EquipmentView() {
                   <td className="px-3 py-2">
                     {blueStarItem?.cyrix_item_code ? (
                       <span className="font-medium text-slate-800">
-                        <span className="font-mono text-sm text-slate-500">{blueStarItem.cyrix_item_code}</span>
+                        <span className="tabular-nums text-sm text-slate-500">{blueStarItem.cyrix_item_code}</span>
                         {blueStarItem.cyrix_item_name && ` · ${blueStarItem.cyrix_item_name}`}
                       </span>
                     ) : (

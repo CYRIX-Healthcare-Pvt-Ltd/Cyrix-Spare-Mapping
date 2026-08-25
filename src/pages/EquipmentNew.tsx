@@ -167,7 +167,7 @@ export default function EquipmentNew() {
       </Link>
       <h1 className="mb-1 text-lg font-semibold text-slate-900 lg:text-xl">Tag new Blue Star spare</h1>
       <p className="mb-5 text-sm text-slate-500">
-        Cyrix code: <span className="font-mono">{qr}</span>
+        Cyrix code: <span className="tabular-nums">{qr}</span>
       </p>
 
       {facilities.length === 0 && (

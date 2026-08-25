@@ -335,7 +335,7 @@ export default function Users() {
         {createdPassword && (
           <p className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-700">
             Created <strong>{createdPassword.ecode}</strong> — default password:{' '}
-            <strong className="font-mono">{createdPassword.password}</strong>
+            <strong className="tabular-nums">{createdPassword.password}</strong>
           </p>
         )}
       </form>

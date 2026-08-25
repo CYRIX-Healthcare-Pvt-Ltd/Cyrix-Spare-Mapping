@@ -364,9 +364,9 @@ export default function ItemMasters() {
                 {tab === 'bluestar'
                   ? blueStarRows.map((r) => (
                       <tr key={r.id}>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-600">{r.item_code}</td>
+                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-600">{r.item_code}</td>
                         <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-500">{r.barcode ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-500">{r.barcode ?? '—'}</td>
                         <td className="px-3 py-2 text-slate-600">
                           <button
                             onClick={() => setMappingFor(r)}
@@ -375,7 +375,7 @@ export default function ItemMasters() {
                           >
                             {r.cyrix_item_code ? (
                               <span>
-                                <span className="font-mono text-sm text-slate-500">{r.cyrix_item_code}</span>
+                                <span className="tabular-nums text-sm text-slate-500">{r.cyrix_item_code}</span>
                                 {r.cyrix_item_name && ` · ${r.cyrix_item_name}`}
                               </span>
                             ) : (
@@ -418,7 +418,7 @@ export default function ItemMasters() {
                     ))
                   : cyrixRows.map((r) => (
                       <tr key={r.id}>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-600">{r.item_code}</td>
+                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-600">{r.item_code}</td>
                         <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-right">
                           <span
@@ -432,7 +432,7 @@ export default function ItemMasters() {
                         <td className="whitespace-nowrap px-3 py-2 text-right text-slate-600">
                           {r.item_cost == null ? '—' : r.item_cost.toLocaleString('en-IN')}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2 font-mono text-sm text-slate-500">
+                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-500">
                           {r.additional_identifier ?? '—'}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.item_group ?? '—'}</td>

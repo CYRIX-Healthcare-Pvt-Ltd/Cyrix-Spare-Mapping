@@ -284,11 +284,11 @@ export default function TaggedEquipment() {
                         <span className="block max-w-56">{formatFieldValue(f, r.custom_fields[f.field_key])}</span>
                       </td>
                     ))}
-                    <td className={`${td} whitespace-nowrap font-mono text-sm text-slate-500`}>{r.qr_value}</td>
+                    <td className={`${td} whitespace-nowrap tabular-nums text-sm text-slate-500`}>{r.qr_value}</td>
                     <td className={td}>
                       {r.cyrixItemCode ? (
                         <span className="block max-w-64 text-slate-700">
-                          <span className="font-mono text-sm text-slate-500">{r.cyrixItemCode}</span>
+                          <span className="tabular-nums text-sm text-slate-500">{r.cyrixItemCode}</span>
                           {r.cyrixItemName && ` · ${r.cyrixItemName}`}
                         </span>
                       ) : (

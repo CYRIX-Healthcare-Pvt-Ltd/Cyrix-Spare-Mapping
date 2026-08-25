@@ -259,7 +259,7 @@ export function CyrixMappingPanel({
       {blueStarItem && (
         <p className="mt-2 text-xs text-slate-600">
           <span className="text-slate-400">Blue Star: </span>
-          <span className="font-mono text-[11px] text-slate-500">{blueStarItem.item_code}</span> ·{' '}
+          <span className="tabular-nums text-[11px] text-slate-500">{blueStarItem.item_code}</span> ·{' '}
           {blueStarItem.item_name}
         </p>
       )}
@@ -268,7 +268,7 @@ export function CyrixMappingPanel({
         <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-2 text-sm text-emerald-800">
           <CheckIcon className="mt-0.5 h-4 w-4 shrink-0" />
           <span className="min-w-0">
-            <span className="font-mono text-xs">{selection.code}</span> · {selection.name}
+            <span className="tabular-nums text-xs">{selection.code}</span> · {selection.name}
           </span>
         </p>
       ) : (
@@ -371,7 +371,7 @@ function CyrixOption({
       className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-surface px-2.5 py-1.5 text-left text-sm hover:border-brand-300 hover:bg-brand-50"
     >
       <span className="min-w-0 truncate">
-        <span className="font-mono text-xs text-slate-500">{item.item_code}</span> · {item.item_name}
+        <span className="tabular-nums text-xs text-slate-500">{item.item_code}</span> · {item.item_name}
       </span>
       <span className="flex shrink-0 items-center gap-1">
         {score !== undefined && <MatchBadge score={score} />}
