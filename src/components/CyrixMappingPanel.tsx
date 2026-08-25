@@ -324,12 +324,16 @@ export function CyrixMappingPanel({
                             <span className="tabular-nums text-xs text-emerald-700">{prior.cyrixItemCode}</span>
                             {prior.cyrixItemName && ` · ${prior.cyrixItemName}`}
                           </span>
-                          <span className="text-[11px] text-emerald-700">
-                            {prior.itemCount > 1 && `${prior.itemCount} spares use this`}
-                            {prior.itemCount > 1 && prior.lastMappedBy && ' · '}
-                            {prior.lastMappedBy && `last linked by ${prior.lastMappedBy}`}
-                            {prior.itemCount === 1 && !prior.lastMappedBy && 'linked on an earlier tag'}
-                          </span>
+                          {/* Just the name. The heading above has already said
+                              these are earlier links, so repeating "last
+                              linked by" on every row only adds words. */}
+                          {(prior.lastMappedBy || prior.itemCount > 1) && (
+                            <span className="text-[11px] text-emerald-700">
+                              {[prior.itemCount > 1 ? `${prior.itemCount} spares use this` : null, prior.lastMappedBy]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </span>
+                          )}
                         </button>
                       </li>
                     ))}
