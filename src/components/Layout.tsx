@@ -88,8 +88,19 @@ export function Layout() {
           introduce that page. Below `lg` the top bar and tab rows below take
           over, which is what actually fits a phone. */}
       <aside
+        // Anywhere on the closed rail opens it, not just the little toggle --
+        // the rail is mostly empty space and that space is the easiest thing
+        // to hit. Clicks that landed on a link or button are left alone: those
+        // already mean something, and expanding after you have just navigated
+        // would be the opposite of what you asked for. Only one way round, so
+        // that selecting a name in the open sidebar doesn't shut it.
+        onClick={(e) => {
+          if (expanded) return
+          if ((e.target as Element).closest('a, button')) return
+          setExpanded(true)
+        }}
         className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-slate-200 bg-surface transition-[width] duration-[var(--dur-ui)] ease-[var(--ease-out)] lg:flex ${
-          expanded ? 'w-60' : 'w-16'
+          expanded ? 'w-60' : 'w-16 cursor-pointer'
         }`}
       >
         {/* Everything in the rail lines up on one 16px gutter -- the toggle,
