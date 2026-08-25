@@ -43,14 +43,8 @@ export interface Database {
         Row: {
           id: string
           name: string
-          address: string | null
           city: string | null
           district: string | null
-        // The app no longer records where anything is. address/latitude/
-        // longitude are left in place (nullable, never written or read) so
-        // values already stored aren't destroyed.
-          latitude: number | null
-          longitude: number | null
           active: boolean
           created_by: string | null
           created_at: string
@@ -58,21 +52,15 @@ export interface Database {
         }
         Insert: {
           name: string
-          address?: string | null
           city?: string | null
           district?: string | null
-          latitude?: number | null
-          longitude?: number | null
           active?: boolean
           created_by?: string | null
         }
         Update: Partial<{
           name: string
-          address: string | null
           city: string | null
           district: string | null
-          latitude: number | null
-          longitude: number | null
           active: boolean
         }>
         Relationships: []
@@ -128,11 +116,6 @@ export interface Database {
           location: string
           images: string[]
           custom_fields: Record<string, unknown>
-        // The app no longer captures location. These columns are left in
-        // place (nullable, never written) so the historical values already
-        // recorded aren't destroyed; nothing reads them.
-          tag_latitude: number | null
-          tag_longitude: number | null
           bluestar_item_id: string | null
           created_by: string | null
           updated_by: string | null
@@ -146,8 +129,6 @@ export interface Database {
           location: string
           images?: string[]
           custom_fields?: Record<string, unknown>
-          tag_latitude?: number | null
-          tag_longitude?: number | null
           bluestar_item_id?: string | null
           created_by?: string | null
         }
@@ -172,16 +153,12 @@ export interface Database {
           reviewed_by: string | null
           reviewed_at: string | null
           review_note: string | null
-          latitude: number | null
-          longitude: number | null
           created_at: string
         }
         Insert: {
           equipment_id: string
           requested_by: string
           proposed_changes: Record<string, unknown>
-          latitude?: number | null
-          longitude?: number | null
         }
         Update: never
         Relationships: []
@@ -206,16 +183,12 @@ export interface Database {
           performed_by: string | null
           performed_at: string
           approved_by: string | null
-          latitude: number | null
-          longitude: number | null
         }
         Insert: {
           equipment_id: string
           action: 'created' | 'updated'
           changes?: Record<string, unknown>
           performed_by?: string | null
-          latitude?: number | null
-          longitude?: number | null
         }
         Update: never
         Relationships: []
