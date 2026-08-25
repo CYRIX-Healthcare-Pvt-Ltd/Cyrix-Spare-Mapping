@@ -5,6 +5,7 @@ import { findCyrixMatches, searchCyrixItems, type ScoredItem } from '../lib/item
 import { SpinnerIcon, CheckIcon, AlertIcon, SearchIcon, PencilIcon, HistoryIcon, LinkIcon, XIcon, TrashIcon } from './icons'
 import { MatchBadge, StockBadge } from './ItemBadges'
 import { MappingHistoryDialog } from './MappingHistoryDialog'
+import { findPriorMappings, type PriorMapping } from '../lib/priorMapping'
 import { SearchInput } from './SearchInput'
 import type { ResolvedItem } from '../lib/itemAutofill'
 import type { BlueStarItemRow, CyrixItemRow } from '../types/app'
@@ -61,6 +62,7 @@ export function CyrixMappingPanel({
   const [manualTerm, setManualTerm] = useState('')
   const [manualResults, setManualResults] = useState<CyrixItemRow[]>([])
   const [searching, setSearching] = useState(false)
+  const [priorMappings, setPriorMappings] = useState<PriorMapping[]>([])
 
   const blueStarItem = lookup.state === 'found' ? lookup.item : null
   // Blue Star's own name for the item beats the typed one when we have it --
@@ -142,18 +144,23 @@ export function CyrixMappingPanel({
   }, [blueStarCode])
 
   // Suggestions follow the name, so they keep up as it is typed or autofilled.
+  // What the name has been linked to before is fetched alongside them: it is
+  // the strongest answer available, and it is the one thing fuzzy matching
+  // can't tell you -- that somebody has already decided this.
   useEffect(() => {
     if (!picking || matchName.length < 2) {
       setSuggestions([])
+      setPriorMappings([])
       setLoadingSuggestions(false)
       return
     }
     let cancelled = false
     setLoadingSuggestions(true)
     const timer = setTimeout(async () => {
-      const matches = await findCyrixMatches(matchName)
+      const [matches, prior] = await Promise.all([findCyrixMatches(matchName), findPriorMappings(matchName)])
       if (cancelled) return
       setSuggestions(matches)
+      setPriorMappings(prior)
       setLoadingSuggestions(false)
     }, 350)
     return () => {
@@ -187,6 +194,15 @@ export function CyrixMappingPanel({
   // like any other change of mapping.
   function remove() {
     onSelectionChange(null)
+    setChanging(false)
+    setSearchOpen(false)
+    setManualTerm('')
+    setManualResults([])
+  }
+
+  function chooseByCode(code: string, name: string | null) {
+    onSelectionChange({ code, name: name ?? code })
+    report(blueStarItem, code)
     setChanging(false)
     setSearchOpen(false)
     setManualTerm('')
@@ -281,18 +297,61 @@ export function CyrixMappingPanel({
             <p className="flex items-center gap-1.5 text-xs text-slate-400">
               <SpinnerIcon className="h-3.5 w-3.5" /> Matching &ldquo;{matchName}&rdquo;&hellip;
             </p>
-          ) : suggestions.length > 0 ? (
+          ) : suggestions.length > 0 || priorMappings.length > 0 ? (
             <>
-              <p className="text-xs text-slate-500">
-                Closest Cyrix items for <span className="font-medium text-slate-700">&ldquo;{matchName}&rdquo;</span>:
-              </p>
-              <ul className="space-y-1">
-                {suggestions.map(({ item, score }) => (
-                  <li key={item.id}>
-                    <CyrixOption item={item} score={score} onSelect={choose} />
-                  </li>
-                ))}
-              </ul>
+              {/* What this name has been linked to before leads, and is styled
+                  as a decision already taken rather than another guess. Two
+                  people tagging the same part on different days should land on
+                  the same Cyrix item, and neither can know that from a match
+                  percentage. */}
+              {priorMappings.length > 0 && (
+                <>
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                    <HistoryIcon className="h-3.5 w-3.5" />
+                    {priorMappings.length > 1
+                      ? 'This spare has been linked to more than one Cyrix item before:'
+                      : 'Already linked before — same spare name:'}
+                  </p>
+                  <ul className="space-y-1">
+                    {priorMappings.map((prior) => (
+                      <li key={prior.cyrixItemCode}>
+                        <button
+                          type="button"
+                          onClick={() => chooseByCode(prior.cyrixItemCode, prior.cyrixItemName)}
+                          className="flex w-full flex-col gap-0.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-left hover:border-emerald-300 hover:bg-emerald-100"
+                        >
+                          <span className="text-sm text-emerald-900">
+                            <span className="tabular-nums text-xs text-emerald-700">{prior.cyrixItemCode}</span>
+                            {prior.cyrixItemName && ` · ${prior.cyrixItemName}`}
+                          </span>
+                          <span className="text-[11px] text-emerald-700">
+                            {prior.itemCount > 1 && `${prior.itemCount} spares use this`}
+                            {prior.itemCount > 1 && prior.lastMappedBy && ' · '}
+                            {prior.lastMappedBy && `last linked by ${prior.lastMappedBy}`}
+                            {prior.itemCount === 1 && !prior.lastMappedBy && 'linked on an earlier tag'}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              {suggestions.length > 0 && (
+                <>
+                  <p className="text-xs text-slate-500">
+                    {priorMappings.length > 0 ? 'Other Cyrix items matching ' : 'Closest Cyrix items for '}
+                    <span className="font-medium text-slate-700">&ldquo;{matchName}&rdquo;</span>:
+                  </p>
+                  <ul className="space-y-1">
+                    {suggestions.map(({ item, score }) => (
+                      <li key={item.id}>
+                        <CyrixOption item={item} score={score} onSelect={choose} />
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </>
           ) : (
             <p className="text-xs text-slate-400">
