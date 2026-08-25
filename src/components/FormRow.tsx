@@ -26,7 +26,7 @@ export function FormRow({
   children: ReactNode
 }) {
   return (
-    <div className={fullWidth ? 'lg:col-span-2' : undefined}>
+    <div className={`min-w-0 ${fullWidth ? 'lg:col-span-2' : ''}`}>
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <label htmlFor={htmlFor} className="text-sm font-medium text-slate-700">
           {label}

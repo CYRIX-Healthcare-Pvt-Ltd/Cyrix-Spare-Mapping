@@ -55,7 +55,7 @@ export function EquipmentForm({
   }
 
   return (
-    <fieldset disabled={disabled} className="space-y-4">
+    <fieldset disabled={disabled} className="min-w-0 space-y-4">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* One grid for the warehouse picker and every custom field, so short
             controls pair up two-across once there's room. Stays a single
