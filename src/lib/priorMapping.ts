@@ -83,7 +83,18 @@ export async function findPriorMappings(spareName: string, limit = 3): Promise<P
       lastMappedBy: latestForCode.get(cyrixItemCode)?.by ?? null,
       lastMappedAt: latestForCode.get(cyrixItemCode)?.at ?? null,
     }))
-    // The one most spares already agree on leads.
-    .sort((a, b) => b.itemCount - a.itemCount)
+    .sort((a, b) => {
+      // Most agreement first: the link the greatest number of spares already
+      // point at is the one most likely to be right.
+      if (b.itemCount !== a.itemCount) return b.itemCount - a.itemCount
+
+      // Equally supported, so the most recent decision leads -- if people are
+      // split, what they concluded latest is the better guide. A link with no
+      // recorded date (one that arrived in an uploaded master file rather than
+      // from tagging) sorts last, since there is nothing to say it is recent.
+      const aAt = a.lastMappedAt ? Date.parse(a.lastMappedAt) : 0
+      const bAt = b.lastMappedAt ? Date.parse(b.lastMappedAt) : 0
+      return bAt - aAt
+    })
     .slice(0, limit)
 }
