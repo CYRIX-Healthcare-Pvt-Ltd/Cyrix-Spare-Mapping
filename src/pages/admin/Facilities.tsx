@@ -7,18 +7,19 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { BulkUploadModal, type RowOutcome } from '../../components/BulkUploadModal'
 import type { FacilityRow } from '../../types/app'
 
+// A warehouse is a name and where it sits, nothing more -- no address, no
+// coordinates. The app records which warehouse a spare is in; it does not
+// track where anyone or anything physically is.
 interface FacilityImportRow {
   name: string
   district: string | null
   city: string | null
-  address: string | null
 }
 
 interface FacilityValues {
   name: string
   district: string | null
   city: string
-  address: string | null
 }
 
 function parseFacilityRow(raw: Record<string, string>): { data: FacilityImportRow } | { error: string } {
@@ -30,7 +31,6 @@ function parseFacilityRow(raw: Record<string, string>): { data: FacilityImportRo
       name,
       district: raw.district?.trim() || null,
       city: raw.city?.trim() || null,
-      address: raw.address?.trim() || null,
     },
   }
 }
@@ -52,7 +52,6 @@ function FacilityEditor({
   onCancel?: () => void
 }) {
   const [name, setName] = useState(initial.name)
-  const [address, setAddress] = useState(initial.address ?? '')
   const [city, setCity] = useState(initial.city)
   const [district, setDistrict] = useState<string | null>(initial.district)
   const [submitting, setSubmitting] = useState(false)
@@ -62,8 +61,7 @@ function FacilityEditor({
     e.preventDefault()
     setSubmitting(true)
     setError(null)
-    const values: FacilityValues = { name, district, city, address: address || null }
-    const submitError = await onSubmit(values)
+    const submitError = await onSubmit({ name, district, city })
     setSubmitting(false)
     if (submitError) {
       setError(submitError)
@@ -73,7 +71,6 @@ function FacilityEditor({
       onCancel()
     } else {
       setName('')
-      setAddress('')
       setCity('')
       setDistrict(null)
     }
@@ -83,8 +80,8 @@ function FacilityEditor({
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
       <input required placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
 
-      {/* Broadest to narrowest: district contains cities, a city contains the
-          specific address/pin — so that's the order fields appear and fill in. */}
+      {/* Broadest to narrowest: a district contains cities, so that's the
+          order they're asked for. */}
       <div className="grid grid-cols-2 gap-2">
         <input
           placeholder="District"
@@ -93,17 +90,6 @@ function FacilityEditor({
           className={inputClass}
         />
         <input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} className={inputClass} />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-xs font-medium text-slate-500">Address</label>
-        <textarea
-          rows={2}
-          placeholder="Street address (optional)"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          className={inputClass}
-        />
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -230,7 +216,7 @@ export default function Facilities() {
       <div className="mb-6">
         <p className="mb-2 text-sm font-medium text-slate-700">Add a warehouse</p>
         <FacilityEditor
-          initial={{ name: '', district: null, city: '', address: null }}
+          initial={{ name: '', district: null, city: '' }}
           submitLabel="Add warehouse"
           onSubmit={handleAddSubmit}
         />
@@ -243,7 +229,7 @@ export default function Facilities() {
           editingId === f.id ? (
             <li key={f.id}>
               <FacilityEditor
-                initial={{ name: f.name, district: f.district, city: f.city ?? '', address: f.address }}
+                initial={{ name: f.name, district: f.district, city: f.city ?? '' }}
                 submitLabel="Save changes"
                 onSubmit={(values) => handleEditSubmit(f.id, values)}
                 onCancel={() => setEditingId(null)}
@@ -254,7 +240,7 @@ export default function Facilities() {
               <div className="min-w-0">
                 <p className="font-medium text-slate-900">{f.name}</p>
                 <p className="truncate text-xs text-slate-500">
-                  {[f.district, f.city, f.address].filter(Boolean).join(' · ') || '—'}
+                  {[f.district, f.city].filter(Boolean).join(' · ') || '—'}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -300,8 +286,8 @@ export default function Facilities() {
         title="Bulk upload warehouses"
         description="Import many warehouses at once from a CSV file."
         templateFilename="warehouses_template.csv"
-        templateHeaders={['name', 'district', 'city', 'address']}
-        templateSampleRows={[['General Hospital', 'Ernakulam', 'Kochi', 'MG Road', '9.9816', '76.2999']]}
+        templateHeaders={['name', 'district', 'city']}
+        templateSampleRows={[['WH Ekm', 'Ernakulam', 'Kochi']]}
         parseRow={(raw) => parseFacilityRow(raw)}
         submitRows={submitFacilityRows}
         onImported={load}

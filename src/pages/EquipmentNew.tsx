@@ -124,7 +124,7 @@ export default function EquipmentNew() {
   async function handleCreateFacility(input: { name: string; district: string | null; city: string | null }): Promise<FacilityRow> {
     if (!profile) throw new Error('Not signed in.')
 
-    // Just the name: an admin fills in the district, city and address from
+    // Just the name: an admin fills in the district and city from
     // Admin -> Warehouses. Nothing is captured from the device.
     const { data, error: insertError } = await supabase
       .from('facilities')

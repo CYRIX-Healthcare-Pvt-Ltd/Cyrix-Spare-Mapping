@@ -110,7 +110,7 @@ export function FacilityPicker({
     setCreating(true)
     setCreateError(null)
     try {
-      // Name only: an admin fills in district, city and address later from
+      // Name only: an admin fills in the district and city later from
       // Admin -> Warehouses. A tagger shouldn't have to know them.
       const created = await onCreateFacility({ name: text.trim(), district: null, city: null })
       onChange(created.id)

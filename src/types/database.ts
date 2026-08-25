@@ -46,9 +46,9 @@ export interface Database {
           address: string | null
           city: string | null
           district: string | null
-        // The app no longer captures location. These columns are left in
-        // place (nullable, never written) so the historical values already
-        // recorded aren't destroyed; nothing reads them.
+        // The app no longer records where anything is. address/latitude/
+        // longitude are left in place (nullable, never written or read) so
+        // values already stored aren't destroyed.
           latitude: number | null
           longitude: number | null
           active: boolean
