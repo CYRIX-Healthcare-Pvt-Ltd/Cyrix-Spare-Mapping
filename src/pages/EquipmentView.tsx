@@ -7,6 +7,7 @@ import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon } from '../comp
 import { formatDate } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
 import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
+import { ImageLightbox } from '../components/ImageLightbox'
 import { blueStarIdentityFromForm, upsertTaggedBlueStarItem } from '../lib/blueStarItem'
 import { setCyrixMapping } from '../lib/mapping'
 import type {
@@ -87,7 +88,7 @@ export default function EquipmentView() {
   const [editing, setEditing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [lightbox, setLightbox] = useState<string | null>(null)
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
 
   const load = useCallback(async () => {
@@ -377,8 +378,10 @@ export default function EquipmentView() {
                                 {images.map((src, i) => (
                                   <button
                                     key={i}
-                                    onClick={() => setLightbox(src)}
-                                    className="h-14 w-14 overflow-hidden rounded-lg border border-slate-200"
+                                    type="button"
+                                    onClick={() => setLightbox({ images, index: i })}
+                                    aria-label={`View ${f.label} ${i + 1}`}
+                                    className="h-14 w-14 overflow-hidden rounded-lg border border-slate-200 transition-transform hover:scale-105 hover:border-brand-300"
                                   >
                                     <img src={src} alt={`${f.label} ${i + 1}`} className="h-full w-full object-cover" />
                                   </button>
@@ -426,12 +429,13 @@ export default function EquipmentView() {
       )}
 
       {lightbox && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setLightbox(null)}
-        >
-          <img src={lightbox} alt="Spare full size" className="max-h-full max-w-full rounded-lg object-contain" />
-        </div>
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          title={equipment.name}
+          onIndexChange={(index) => setLightbox((l) => (l ? { ...l, index } : l))}
+          onClose={() => setLightbox(null)}
+        />
       )}
 
       {historyOpen && equipment && (

@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { TrashIcon, TagIcon } from '../components/icons'
 import type { EquipmentRow, FieldDefinitionRow } from '../types/app'
 import { SearchInput } from '../components/SearchInput'
+import { ImageLightbox, ThumbnailStack } from '../components/ImageLightbox'
 
 interface DisplayRow extends EquipmentRow {
   facilityName: string
@@ -34,6 +35,7 @@ export default function TaggedEquipment() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [confirmMode, setConfirmMode] = useState<'selected' | 'all' | null>(null)
+  const [lightbox, setLightbox] = useState<{ images: string[]; index: number; title: string } | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const isAdmin = profile?.role === 'admin'
@@ -105,6 +107,9 @@ export default function TaggedEquipment() {
   useEffect(() => {
     load()
   }, [load])
+
+  const dataFields = useMemo(() => fieldDefs.filter((f) => f.field_type !== 'image'), [fieldDefs])
+  const imageFields = useMemo(() => fieldDefs.filter((f) => f.field_type === 'image'), [fieldDefs])
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -222,16 +227,26 @@ export default function TaggedEquipment() {
                       />
                     </th>
                   )}
+                  {/* Reads left to right the way the spare is identified: where
+                      it is, what Blue Star calls it, what we call it, then the
+                      photo and who tagged it. Photos go last of the field
+                      columns because a thumbnail is the widest thing in a row
+                      and would otherwise split the codes apart. */}
                   <th className={th}>District</th>
                   <th className={th}>City</th>
                   <th className={th}>Warehouse</th>
-                  <th className={th}>Cyrix code</th>
-                  {fieldDefs.map((f) => (
+                  {dataFields.map((f) => (
                     <th key={f.id} className={th}>
                       {f.label}
                     </th>
                   ))}
+                  <th className={th}>Cyrix code</th>
                   <th className={th}>Cyrix item</th>
+                  {imageFields.map((f) => (
+                    <th key={f.id} className={th}>
+                      {f.label}
+                    </th>
+                  ))}
                   <th className={th}>Date</th>
                   {showAttribution && <th className={th}>Tagged by</th>}
                 </tr>
@@ -264,23 +279,12 @@ export default function TaggedEquipment() {
                     <td className={`${td} whitespace-nowrap text-slate-600`}>{r.facilityDistrict ?? '—'}</td>
                     <td className={`${td} whitespace-nowrap text-slate-600`}>{r.facilityCity ?? '—'}</td>
                     <td className={`${td} whitespace-nowrap font-medium text-slate-900`}>{r.facilityName}</td>
+                    {dataFields.map((f) => (
+                      <td key={f.id} className={`${td} text-slate-700`}>
+                        <span className="block max-w-56">{formatFieldValue(f, r.custom_fields[f.field_key])}</span>
+                      </td>
+                    ))}
                     <td className={`${td} whitespace-nowrap font-mono text-sm text-slate-500`}>{r.qr_value}</td>
-                    {fieldDefs.map((f) => {
-                      const raw = r.custom_fields[f.field_key]
-                      if (f.field_type === 'image') {
-                        const count = Array.isArray(raw) ? raw.length : 0
-                        return (
-                          <td key={f.id} className={`${td} whitespace-nowrap text-slate-500`}>
-                            {count === 0 ? '—' : `${count} photo${count === 1 ? '' : 's'}`}
-                          </td>
-                        )
-                      }
-                      return (
-                        <td key={f.id} className={`${td} text-slate-700`}>
-                          <span className="block max-w-56">{formatFieldValue(f, raw)}</span>
-                        </td>
-                      )
-                    })}
                     <td className={td}>
                       {r.cyrixItemCode ? (
                         <span className="block max-w-64 text-slate-700">
@@ -293,6 +297,19 @@ export default function TaggedEquipment() {
                         </span>
                       )}
                     </td>
+                    {imageFields.map((f) => {
+                      const raw = r.custom_fields[f.field_key]
+                      const images = Array.isArray(raw) ? (raw as string[]) : []
+                      return (
+                        <td key={f.id} className={`${td} whitespace-nowrap`} onClick={(e) => e.stopPropagation()}>
+                          <ThumbnailStack
+                            images={images}
+                            label={r.name}
+                            onOpen={(index) => setLightbox({ images, index, title: r.name })}
+                          />
+                        </td>
+                      )
+                    })}
                     <td className={`${td} whitespace-nowrap text-slate-500`}>{formatDate(r.created_at)}</td>
                     {showAttribution && (
                       <td className={`${td} whitespace-nowrap text-slate-500`}>
@@ -305,6 +322,16 @@ export default function TaggedEquipment() {
             </table>
           </div>
         </>
+      )}
+
+      {lightbox && (
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          title={lightbox.title}
+          onIndexChange={(index) => setLightbox((l) => (l ? { ...l, index } : l))}
+          onClose={() => setLightbox(null)}
+        />
       )}
 
       <ConfirmDialog
