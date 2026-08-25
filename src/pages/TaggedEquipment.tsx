@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { TrashIcon, TagIcon } from '../components/icons'
 import type { EquipmentRow, FieldDefinitionRow } from '../types/app'
 import { SearchInput } from '../components/SearchInput'
+import { taggedCreatorIds } from '../lib/taggedScope'
 import { ImageLightbox, ThumbnailStack } from '../components/ImageLightbox'
 
 interface DisplayRow extends EquipmentRow {
@@ -45,13 +46,7 @@ export default function TaggedEquipment() {
     const attribution = profile.role === 'project_manager' || profile.role === 'admin'
     setShowAttribution(attribution)
 
-    let creatorIds: string[] | null = [profile.id]
-    if (profile.role === 'project_manager') {
-      const { data: reports } = await supabase.from('profiles').select('id').eq('reports_to', profile.id)
-      creatorIds = [profile.id, ...(reports ?? []).map((r) => r.id)]
-    } else if (profile.role === 'admin') {
-      creatorIds = null // no filter -- admin sees every tagged item
-    }
+    const creatorIds = await taggedCreatorIds(profile)
 
     let query = supabase.from('equipment').select('*').order('created_at', { ascending: false })
     if (creatorIds) query = query.in('created_by', creatorIds)

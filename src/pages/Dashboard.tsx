@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { ScanIcon, ClipboardIcon, BuildingIcon, UsersIcon, SettingsIcon, PackageIcon, TagIcon } from '../components/icons'
+import { taggedCreatorIds } from '../lib/taggedScope'
 
 export default function Dashboard() {
   const { profile } = useAuth()
@@ -13,10 +14,17 @@ export default function Dashboard() {
   useEffect(() => {
     if (!profile) return
 
-    supabase
-      .from('equipment')
-      .select('id', { count: 'exact', head: true })
-      .then(({ count }) => setEquipmentCount(count ?? 0))
+    // Scoped exactly like the tagged list this card links to. Counting every
+    // spare the database would hand over told an engineer who had tagged
+    // nothing that there was one, and the list they clicked into was empty.
+    async function loadTaggedCount() {
+      const creatorIds = await taggedCreatorIds(profile!)
+      let query = supabase.from('equipment').select('id', { count: 'exact', head: true })
+      if (creatorIds) query = query.in('created_by', creatorIds)
+      const { count } = await query
+      setEquipmentCount(count ?? 0)
+    }
+    loadTaggedCount()
 
     const requestsQuery =
       profile.role === 'engineer'
@@ -60,7 +68,13 @@ export default function Dashboard() {
           <StatCard
             to="/tagged"
             value={equipmentCount}
-            label="Spares tracked"
+            label={
+              profile.role === 'engineer'
+                ? "Spares you've tagged"
+                : profile.role === 'project_manager'
+                  ? 'Tagged by your team'
+                  : 'Spares tagged'
+            }
             icon={<TagIcon className="h-4 w-4" />}
             accent="text-emerald-600 bg-emerald-50"
           />
