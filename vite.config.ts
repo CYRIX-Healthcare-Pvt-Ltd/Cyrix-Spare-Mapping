@@ -33,11 +33,34 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        // The navigation fallback must never answer a request for a real file.
-        // index.html served where a stylesheet was expected arrives as 200 OK
-        // and fails silently, which is far worse than a 404.
-        navigateFallbackDenylist: [/^\/auth/, /^\/assets\//, /^\/icons\//, /\.[a-zA-Z0-9]+$/],
+
+        // Fonts are part of how the app looks, so they belong in the precache
+        // alongside the stylesheet that asks for them.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,woff2}'],
+
+        // The HTML is deliberately NOT served from the precache.
+        //
+        // The default for a single-page app is to answer every navigation with
+        // the precached index.html. That is what made a normal refresh break
+        // while a hard refresh worked: the refresh got last deploy's HTML out
+        // of the cache, which names asset hashes that no longer exist, whereas
+        // a hard refresh bypasses the worker and fetches the current HTML.
+        // Going to the network first means an online refresh always gets the
+        // HTML that matches the assets actually on the server; the cached copy
+        // is only reached when the network does not answer.
+        navigateFallback: null,
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html',
+              // Short, so a flaky warehouse connection falls back to the
+              // cached page rather than hanging on a blank screen.
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 16 },
+            },
+          },
           {
             urlPattern: ({ url }) => url.hostname.endsWith('supabase.co'),
             handler: 'NetworkOnly',
