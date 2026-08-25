@@ -35,6 +35,9 @@ export default function Scan() {
       {toast && (
         <Toast
           message={toast}
+          // The only toast here is "spare added", and the first thing you want
+          // after saving one is to see it in the list it just joined.
+          action={{ label: 'View tagged', to: '/tagged' }}
           onDismiss={() => {
             setToast(null)
             navigate(location.pathname, { replace: true })
