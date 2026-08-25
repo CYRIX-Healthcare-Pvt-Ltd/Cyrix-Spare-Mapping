@@ -26,7 +26,17 @@ export default defineConfig({
         ],
       },
       workbox: {
-        navigateFallbackDenylist: [/^\/auth/],
+        // An old precache can keep a client booting the previous deploy: its
+        // index.html points at asset hashes that no longer exist, and the page
+        // then renders with no CSS at all. These make the new worker take over
+        // on the next load and bin what it replaced.
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        // The navigation fallback must never answer a request for a real file.
+        // index.html served where a stylesheet was expected arrives as 200 OK
+        // and fails silently, which is far worse than a 404.
+        navigateFallbackDenylist: [/^\/auth/, /^\/assets\//, /^\/icons\//, /\.[a-zA-Z0-9]+$/],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.hostname.endsWith('supabase.co'),
