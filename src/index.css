@@ -139,6 +139,13 @@
   --color-emerald-100: #123a2d;
   --color-emerald-600: #34d399;
   --color-emerald-700: #6ee7b7;
+  /* Used only as text on an emerald tint, never as a fill. Left at their
+     light-mode values they were near-black green on a dark green panel --
+     the item description in the Cyrix suggestions was all but invisible.
+     They continue past -700 in the same direction, so darker-numbered still
+     means higher contrast against the fill it sits on. */
+  --color-emerald-800: #a7f3d0;
+  --color-emerald-900: #d1fae5;
 
   --color-amber-50: #2e2210;
   --color-amber-100: #3d2d13;
