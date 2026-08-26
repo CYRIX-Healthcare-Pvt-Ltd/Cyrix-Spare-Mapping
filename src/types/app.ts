@@ -24,7 +24,7 @@ export interface EquipmentFormValues {
   // Three states, and the difference matters: a code links it, `undefined`
   // leaves whatever the catalogue already has alone, and `null` means the
   // tagger pressed Remove and wants it unlinked. Collapsing the last two
-  // would let a slow barcode lookup silently unlink a shared catalogue row.
+  // would let a slow item-code lookup silently unlink a mapping.
   cyrix_item_code: string | null | undefined
   cyrix_item_name: string | null
 }

@@ -5,31 +5,23 @@ import type { BlueStarItemRow, FieldDefinitionRow } from '../types/app'
 /**
  * Finds the Blue Star item a scanned code refers to.
  *
- * Blue Star's barcode is what's physically stuck on the spare, so that's
- * tried first; the same string is then tried as an item code, because the
- * master file and the label don't always agree on which of the two is
- * printed. Returns null when the code isn't in the catalogue -- that is a
- * real answer, not an error: the catalogue is Blue Star's reference data and
- * tagging never adds to it.
+ * The item code is the only link. Blue Star identifies a part by its code
+ * and nothing else, so a code that isn't in the catalogue simply isn't in it.
+ *
+ * Returns null when nothing matches, which is a real answer rather than an
+ * error: the catalogue is Blue Star's reference data and tagging never adds
+ * to it.
  */
 export async function lookupBlueStarItem(code: string): Promise<BlueStarItemRow | null> {
   const clean = code.trim()
   if (!clean) return null
 
-  const { data: byBarcode } = await supabase
-    .from('bluestar_item_master')
-    .select('*')
-    .eq('barcode', clean)
-    .order('created_at')
-    .limit(1)
-  if (byBarcode?.[0]) return byBarcode[0]
-
-  const { data: byCode } = await supabase
+  const { data } = await supabase
     .from('bluestar_item_master')
     .select('*')
     .eq('item_code', clean)
     .limit(1)
-  return byCode?.[0] ?? null
+  return data?.[0] ?? null
 }
 
 /** The Blue Star code a filled-in tag form is claiming, if any. */

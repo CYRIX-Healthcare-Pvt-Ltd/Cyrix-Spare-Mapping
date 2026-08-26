@@ -1,6 +1,6 @@
 import type { FieldDefinitionRow } from '../types/app'
 
-/** What a resolved barcode can contribute to the rest of the form. */
+/** What a resolved Blue Star item code can contribute to the rest of the form. */
 export interface ResolvedItem {
   blueStarItemCode: string | null
   blueStarItemName: string | null
@@ -20,7 +20,7 @@ export interface ResolvedItem {
  * declared link between a field and the item master. This infers one from
  * the label, which covers the fields these forms actually use. A field it
  * can't place is simply left alone for the engineer to fill in -- and every
- * field stays editable either way, since a barcode is optional and may not
+ * field stays editable either way, since the code is optional and may not
  * resolve at all.
  */
 /**
@@ -36,7 +36,7 @@ export function isNameField(field: FieldDefinitionRow): boolean {
 }
 
 export function valueForField(field: FieldDefinitionRow, item: ResolvedItem): string | null {
-  // Barcode and image fields are never autofilled: the barcode is the input
+  // Code and image fields are never autofilled: the code is the input
   // that produced this item, and photos have to be taken on the spot.
   if (field.field_type === 'image' || field.field_type === 'barcode') return null
 
@@ -58,7 +58,7 @@ export function valueForField(field: FieldDefinitionRow, item: ResolvedItem): st
 }
 
 /**
- * Builds the patch to apply to a form's custom_fields after a barcode
+ * Builds the patch to apply to a form's custom_fields after an item code
  * resolves. Only fills fields that are currently empty, so anything the
  * engineer already typed is never overwritten.
  */

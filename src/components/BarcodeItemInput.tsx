@@ -3,10 +3,12 @@ import { QRScanner } from './QRScanner'
 import { ScanIcon, XIcon } from './icons'
 
 /**
- * Captures the barcode already printed on a spare -- scanned with the camera,
- * or typed in when the sticker won't read. Resolving it to an item, and the
- * Cyrix mapping that follows, happens in CyrixMappingPanel, which the form
- * renders under the equipment-name field instead of here.
+ * Captures Blue Star's item code for a spare -- scanned off the label with
+ * the camera, or typed in when the sticker won't read. It is the link to
+ * Blue Star's catalogue; a scan that yields their barcode instead still
+ * matches, as a fallback. Resolving it to an item, and the Cyrix mapping that
+ * follows, happens in CyrixMappingPanel, which the form renders under the
+ * spare-name field instead of here.
  */
 export function BarcodeItemInput({
   id,
@@ -32,14 +34,14 @@ export function BarcodeItemInput({
           className={`${baseClass} flex-1`}
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Scan the Blue Star barcode, or type the code"
+          placeholder="Scan or type the Blue Star item code"
           required={required}
         />
         <button
           type="button"
           onClick={() => setScanning(true)}
           className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          aria-label="Scan barcode"
+          aria-label="Scan the code"
         >
           <ScanIcon className="h-4 w-4" />
         </button>

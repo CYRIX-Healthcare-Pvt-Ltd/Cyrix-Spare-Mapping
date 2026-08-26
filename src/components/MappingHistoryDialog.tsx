@@ -40,7 +40,6 @@ export function MappingHistoryDialog({ item, onClose }: { item: BlueStarItemRow;
             <h2 className="text-sm font-semibold text-slate-900">Mapping history</h2>
             <p className="mt-0.5 truncate text-xs text-slate-500">
               <span className="tabular-nums">{item.item_code}</span> · {item.item_name}
-              {item.barcode && <span className="text-slate-400"> · {item.barcode}</span>}
             </p>
           </div>
           <button

@@ -35,9 +35,9 @@ export function EquipmentForm({
     onSubmit(values)
   }
 
-  // A resolved barcode fills in whatever it can. Only empty fields are
-  // touched, so anything already typed survives, and every field stays
-  // editable afterwards -- the barcode is optional and may not resolve.
+  // A resolved item fills in whatever it can. Only empty fields are touched,
+  // so anything already typed survives, and every field stays editable
+  // afterwards -- the code is optional and may not resolve.
   function handleItemResolved(item: ResolvedItem) {
     setValues((v) => {
       const patch = buildAutofill(fieldDefs, v.custom_fields, item)

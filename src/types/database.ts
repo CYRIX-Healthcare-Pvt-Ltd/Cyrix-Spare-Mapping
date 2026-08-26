@@ -249,7 +249,6 @@ export interface Database {
           id: string
           item_code: string
           item_name: string
-          barcode: string | null
           cyrix_item_code: string | null
           cyrix_item_name: string | null
           /** How many units Blue Star's master file says exist (migration 0022). */
@@ -263,7 +262,6 @@ export interface Database {
         Insert: {
           item_code: string
           item_name: string
-          barcode?: string | null
           cyrix_item_code?: string | null
           cyrix_item_name?: string | null
           quantity?: number | null
@@ -272,7 +270,6 @@ export interface Database {
         Update: Partial<{
           item_code: string
           item_name: string
-          barcode: string | null
           cyrix_item_code: string | null
           cyrix_item_name: string | null
           quantity: number | null
@@ -285,7 +282,6 @@ export interface Database {
           id: string
           bluestar_item_id: string | null
           equipment_id: string | null
-          barcode: string | null
           bluestar_item_code: string | null
           from_cyrix_item_code: string | null
           from_cyrix_item_name: string | null

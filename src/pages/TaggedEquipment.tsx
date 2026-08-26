@@ -261,19 +261,23 @@ export default function TaggedEquipment() {
                     <td className={`${td} whitespace-nowrap text-slate-600`}>{r.facilityDistrict ?? '—'}</td>
                     <td className={`${td} whitespace-nowrap text-slate-600`}>{r.facilityCity ?? '—'}</td>
                     <td className={`${td} whitespace-nowrap font-medium text-slate-900`}>{r.facilityName}</td>
-                    {dataFields.map((f) => (
-                      <td key={f.id} className={`${td} text-slate-700`}>
-                        {/* One line per cell: a long value wrapping made a
-                            single row taller than the rest of the table. The
-                            full text is in the tooltip and on the spare. */}
-                        <span
-                          className="block max-w-56 truncate"
-                          title={String(formatFieldValue(f, r.custom_fields[f.field_key]) ?? '')}
-                        >
-                          {formatFieldValue(f, r.custom_fields[f.field_key])}
-                        </span>
-                      </td>
-                    ))}
+                    {dataFields.map((f) => {
+                      const raw = r.custom_fields[f.field_key]
+                      const shown = formatFieldValue(f, raw)
+                      // Only a real value gets a tooltip. formatFieldValue
+                      // renders an em dash for an empty cell, and hovering an
+                      // empty cell to be told "—" is worse than no tooltip.
+                      const hasValue = raw !== undefined && raw !== null && raw !== ''
+                      return (
+                        <td key={f.id} className={`${td} text-slate-700`}>
+                          {/* One line per cell: a long value wrapping made a
+                              single row taller than the rest of the table. */}
+                          <span className="block max-w-56 truncate" title={hasValue ? String(shown) : undefined}>
+                            {shown}
+                          </span>
+                        </td>
+                      )
+                    })}
                     <td className={`${td} whitespace-nowrap tabular-nums text-sm text-slate-500`}>{r.qr_value}</td>
                     <td className={td}>
                       {r.cyrix_item_code ? (

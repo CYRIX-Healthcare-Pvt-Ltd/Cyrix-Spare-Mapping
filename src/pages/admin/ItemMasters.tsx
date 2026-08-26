@@ -40,7 +40,6 @@ interface CyrixImportRow {
 interface BlueStarImportRow {
   item_code: string
   item_name: string
-  barcode: string | null
   cyrix_item_code: string | null
   cyrix_item_name: string | null
   /** Units Blue Star says exist. The denominator for tagging progress. */
@@ -93,7 +92,6 @@ function parseBlueStarRow(raw: Record<string, string>): { data: BlueStarImportRo
     data: {
       item_code,
       item_name,
-      barcode: raw.barcode?.trim() || null,
       cyrix_item_code: raw.cyrix_item_code?.trim() || null,
       cyrix_item_name: raw.cyrix_item_name?.trim() || null,
       quantity: quantity.value,
@@ -202,7 +200,7 @@ export default function ItemMasters() {
     let cyrixQuery = supabase.from('cyrix_item_master').select('*', { count: 'exact' }).order('item_code').range(from, to)
     if (term) {
       const pattern = `%${term}%`
-      blueStarQuery = blueStarQuery.or(`item_code.ilike.${pattern},item_name.ilike.${pattern},barcode.ilike.${pattern}`)
+      blueStarQuery = blueStarQuery.or(`item_code.ilike.${pattern},item_name.ilike.${pattern}`)
       cyrixQuery = cyrixQuery.or(
         `item_code.ilike.${pattern},item_name.ilike.${pattern},additional_identifier.ilike.${pattern},make.ilike.${pattern},model.ilike.${pattern}`
       )
@@ -276,11 +274,11 @@ export default function ItemMasters() {
     for (let from = 0; ; from += EXPORT_PAGE) {
       if (tab === 'bluestar') {
         let q = supabase.from('bluestar_item_master').select('*').order('item_code').range(from, from + EXPORT_PAGE - 1)
-        if (term) q = q.or(`item_code.ilike.${pattern},item_name.ilike.${pattern},barcode.ilike.${pattern}`)
+        if (term) q = q.or(`item_code.ilike.${pattern},item_name.ilike.${pattern}`)
         const { data } = await q
         const batch = data ?? []
         for (const r of batch) {
-          rows.push([r.item_code, r.item_name, r.barcode, r.quantity, r.cyrix_item_code, r.cyrix_item_name])
+          rows.push([r.item_code, r.item_name, r.quantity, r.cyrix_item_code, r.cyrix_item_name])
         }
         setExportDone(rows.length)
         if (batch.length < EXPORT_PAGE) break
@@ -313,7 +311,7 @@ export default function ItemMasters() {
 
     const headers =
       tab === 'bluestar'
-        ? ['item_code', 'item_name', 'barcode', 'quantity', 'cyrix_item_code', 'cyrix_item_name']
+        ? ['item_code', 'item_name', 'quantity', 'cyrix_item_code', 'cyrix_item_name']
         : [
             'item_code',
             'item_name',
@@ -352,7 +350,7 @@ export default function ItemMasters() {
     <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-none sm:px-6 lg:px-8 lg:py-8">
       <h1 className="mb-1 text-lg font-semibold text-slate-900">Item masters</h1>
       <p className="mb-4 text-sm text-slate-500">
-        Blue Star's catalogue is matched by the barcode already on the spare. Cyrix's is our own naming for the same parts.
+        Blue Star's catalogue is matched by the item code on the spare. Cyrix's is our own naming for the same parts.
         {!canEdit && ' Read-only — ask an admin to change anything here.'}
       </p>
 
@@ -380,7 +378,7 @@ export default function ItemMasters() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder={tab === 'bluestar' ? 'Search code, name, or barcode…' : 'Search code, name, identifier, make, or model…'}
+          placeholder={tab === 'bluestar' ? 'Search code or name…' : 'Search code, name, identifier, make, or model…'}
           className="flex-1"
         />
         {canEdit && (
@@ -423,7 +421,6 @@ export default function ItemMasters() {
                   <th className="whitespace-nowrap px-3 py-2 font-semibold">Item name</th>
                   {tab === 'bluestar' ? (
                     <>
-                      <th className="whitespace-nowrap px-3 py-2 font-semibold">Barcode</th>
                       <th className="whitespace-nowrap px-3 py-2 font-semibold">Cyrix item</th>
                       <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">Qty</th>
                       <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">Tagged</th>
@@ -449,7 +446,6 @@ export default function ItemMasters() {
                       <tr key={r.id}>
                         <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-600">{r.item_code}</td>
                         <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
-                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-500">{r.barcode ?? '—'}</td>
                         <td className="px-3 py-2 text-slate-600">
                           <CyrixCell shares={mappingShares.get(r.id) ?? []} onOpenSplit={() => setSplitFor(r)} />
                         </td>
@@ -596,10 +592,10 @@ export default function ItemMasters() {
         open={bulkOpen === 'bluestar'}
         onClose={() => setBulkOpen(null)}
         title="Upload Blue Star item master"
-        description="Blue Star's catalogue, including the barcode printed on each spare and how many units there are. Quantity is what tagging progress is measured against — without it an item shows no status. Re-uploading updates items that already exist, matched on item_code. The Cyrix columns are optional — leave them blank to map later."
+        description="Blue Star's catalogue: the item code that identifies each part, its name, and how many units there are. Quantity is what tagging progress is measured against — without it an item shows no status. Re-uploading updates items that already exist, matched on item_code. The Cyrix columns are optional — leave them blank to map later."
         templateFilename="bluestar_item_master_template.csv"
-        templateHeaders={['item_code', 'item_name', 'barcode', 'quantity', 'cyrix_item_code', 'cyrix_item_name']}
-        templateSampleRows={[['BS-5501', 'ABC Sensor Assembly', '8901234567890', '4', '', '']]}
+        templateHeaders={['item_code', 'item_name', 'quantity', 'cyrix_item_code', 'cyrix_item_name']}
+        templateSampleRows={[['BS-5501', 'ABC Sensor Assembly', '4', '', '']]}
         parseRow={(raw) => parseBlueStarRow(raw)}
         submitRows={submitBlueStarRows}
         onImported={load}
