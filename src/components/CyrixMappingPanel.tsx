@@ -268,8 +268,8 @@ export function CyrixMappingPanel({
       {lookup.state === 'missing' && (
         <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-700">
           <AlertIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          That code is not in the Blue Star item master yet &mdash; it gets added when you save. Matching below uses the
-          spare name instead.
+          That code isn't in the Blue Star item master. The spare can still be tagged, but it won't count towards any
+          item's progress until an admin loads a master file containing it. Matching below uses the spare name instead.
         </p>
       )}
       {blueStarItem && (

@@ -8,7 +8,7 @@ import { formatDate } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
 import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
 import { ImageLightbox } from '../components/ImageLightbox'
-import { blueStarIdentityFromForm, upsertTaggedBlueStarItem } from '../lib/blueStarItem'
+import { blueStarCodeFromForm, lookupBlueStarItem } from '../lib/blueStarItem'
 import { setCyrixMapping } from '../lib/mapping'
 import type {
   BlueStarItemRow,
@@ -179,21 +179,25 @@ export default function EquipmentView() {
       return
     }
 
-    // A manager's or admin's edit is final, so the spare's Blue Star catalogue
-    // row is brought in line with it in the same breath -- including the Cyrix
-    // link, which the RPC routes through the mapping history.
-    const identity = blueStarIdentityFromForm(fieldDefs, values.custom_fields, equipment.qr_value)
-    const { item: updatedItem, error: itemError } = await upsertTaggedBlueStarItem({
-      ...identity,
-      cyrixCode: values.cyrix_item_code,
-    })
-    if (itemError || !updatedItem) {
-      setError(`Saved, but the Blue Star item master couldn't be updated${itemError ? `: ${itemError}` : ''}.`)
-      await load()
-      return
+    // Re-point the spare at whichever catalogue item its code now matches.
+    // Never creates one: the catalogue is Blue Star's reference data, and a
+    // code matching nothing means this spare is genuinely unmatched.
+    const code = blueStarCodeFromForm(fieldDefs, values.custom_fields)
+    const matched = code ? await lookupBlueStarItem(code) : null
+    const nextItemId = matched?.id ?? null
+    if (nextItemId !== equipment.bluestar_item_id) {
+      await supabase.from('equipment').update({ bluestar_item_id: nextItemId }).eq('id', equipment.id)
     }
-    if (updatedItem.id !== equipment.bluestar_item_id) {
-      await supabase.from('equipment').update({ bluestar_item_id: updatedItem.id }).eq('id', equipment.id)
+
+    // The mapping is the one thing tagging may change on a catalogue row, and
+    // it goes through the RPC so the change is recorded.
+    if (matched && values.cyrix_item_code !== undefined && values.cyrix_item_code !== matched.cyrix_item_code) {
+      const { error: mapError } = await setCyrixMapping(matched.id, values.cyrix_item_code)
+      if (mapError) {
+        setError(mapError)
+        await load()
+        return
+      }
     }
 
     setEditing(false)

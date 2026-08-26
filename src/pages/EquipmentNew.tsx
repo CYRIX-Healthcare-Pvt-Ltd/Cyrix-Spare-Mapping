@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { fetchFieldSuggestions } from '../lib/fieldSuggestions'
-import { blueStarIdentityFromForm, upsertTaggedBlueStarItem } from '../lib/blueStarItem'
+import { blueStarCodeFromForm, lookupBlueStarItem } from '../lib/blueStarItem'
+import { setCyrixMapping } from '../lib/mapping'
 import { ChevronLeftIcon, AlertIcon } from '../components/icons'
 import type { FacilityRow, FieldDefinitionRow, EquipmentFormValues } from '../types/app'
 
@@ -20,9 +21,6 @@ export default function EquipmentNew() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // Set when the spare saved but its catalogue row did not, so the message
-  // can link straight to the spare that now needs finishing off.
-  const [savedId, setSavedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!profile) return
@@ -90,35 +88,34 @@ export default function EquipmentNew() {
       performed_by: profile.id,
     })
 
-    // Everything tagged here is one of Blue Star's spares, so the tag has to
-    // reach their catalogue -- that's where the Cyrix link lives, and it's
-    // what makes the item list reflect the work. Done after the equipment row
-    // exists so a rejected QR (already tagged) doesn't leave a stray item
-    // behind; the RPC matches an existing catalogue row before creating one.
-    const identity = blueStarIdentityFromForm(fieldDefs, values.custom_fields, qr)
-    const { item: blueStarItem, error: itemError } = await upsertTaggedBlueStarItem({
-      ...identity,
-      cyrixCode: values.cyrix_item_code,
-    })
+    // The catalogue is Blue Star's reference data: this points the tag at an
+    // item that is already in it, and never adds one. A code that matches
+    // nothing leaves the spare unlinked, which is the truth and is worth
+    // saying -- an unlinked tag counts towards no item's progress.
+    const code = blueStarCodeFromForm(fieldDefs, values.custom_fields)
+    const blueStarItem = code ? await lookupBlueStarItem(code) : null
 
-    // The spare itself is saved by this point, so this can't be retried by
-    // resubmitting -- the QR would come back as already tagged. Say plainly
-    // what didn't happen and link to the spare instead of navigating away as
-    // though everything worked: swallowing this is what let a Cyrix item the
-    // tagger had picked disappear without a word.
-    if (itemError || !blueStarItem) {
-      setSavedId(data.id)
-      setError(
-        `The spare was saved, but it couldn't be added to the Blue Star item master${
-          itemError ? `: ${itemError}` : ''
-        }. Open it to link the Cyrix item.`
-      )
-      return
+    if (blueStarItem) {
+      await supabase.from('equipment').update({ bluestar_item_id: blueStarItem.id }).eq('id', data.id)
+
+      // Confirming a Cyrix item is a change to the mapping on that catalogue
+      // row, which is the one thing tagging is allowed to change -- and it
+      // goes through the RPC so it lands in the mapping history.
+      if (values.cyrix_item_code && values.cyrix_item_code !== blueStarItem.cyrix_item_code) {
+        await setCyrixMapping(blueStarItem.id, values.cyrix_item_code)
+      }
     }
 
-    await supabase.from('equipment').update({ bluestar_item_id: blueStarItem.id }).eq('id', data.id)
-
-    navigate('/scan', { replace: true, state: { toast: `Spare added at ${facility?.name ?? 'warehouse'}` } })
+    navigate('/scan', {
+      replace: true,
+      state: {
+        toast: blueStarItem
+          ? `Spare added at ${facility?.name ?? 'warehouse'}`
+          : code
+            ? `Spare added — ${code} isn't in the Blue Star item master`
+            : `Spare added at ${facility?.name ?? 'warehouse'} — no Blue Star code`,
+      },
+    })
   }
 
   async function handleCreateFacility(input: { name: string; district: string | null; city: string | null }): Promise<FacilityRow> {
@@ -197,14 +194,7 @@ export default function EquipmentNew() {
       </div>
 
       {error && (
-        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          <p>{error}</p>
-          {savedId && (
-            <Link to={`/equipment/${savedId}`} className="mt-1 inline-block font-medium underline">
-              Open the spare
-            </Link>
-          )}
-        </div>
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
     </div>
   )

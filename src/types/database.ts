@@ -245,10 +245,10 @@ export interface Database {
           barcode: string | null
           cyrix_item_code: string | null
           cyrix_item_name: string | null
+          /** How many units Blue Star's master file says exist (migration 0022). */
+          quantity: number | null
           // Generated column (migration 0012) -- read-only, never inserted.
           name_normalized: string
-          /** 'upload' from Blue Star's master file, 'tagged' if created by tagging a spare (0018). */
-          origin: 'upload' | 'tagged'
           active: boolean
           created_at: string
           updated_at: string
@@ -259,6 +259,7 @@ export interface Database {
           barcode?: string | null
           cyrix_item_code?: string | null
           cyrix_item_name?: string | null
+          quantity?: number | null
           active?: boolean
         }
         Update: Partial<{
@@ -267,6 +268,7 @@ export interface Database {
           barcode: string | null
           cyrix_item_code: string | null
           cyrix_item_name: string | null
+          quantity: number | null
           active: boolean
         }>
         Relationships: []
@@ -302,17 +304,12 @@ export interface Database {
         Args: { item_id: string; new_cyrix_code: string | null }
         Returns: Database['public']['Tables']['bluestar_item_master']['Row']
       }
-      // Tagging a spare records it in Blue Star's catalogue. Definer-only:
-      // engineers can't insert into the catalogue directly (migration 0018).
-      upsert_tagged_bluestar_item: {
-        Args: {
-          p_item_code: string
-          p_item_name: string
-          p_barcode: string | null
-          p_cyrix_code: string | null
-          p_clear_cyrix: boolean
-        }
-        Returns: Database['public']['Tables']['bluestar_item_master']['Row']
+      // How many QR codes are tagged against each catalogue item. Definer-only
+      // so the count spans every warehouse rather than only the ones the
+      // caller can see (migration 0022).
+      bluestar_tag_counts: {
+        Args: { item_ids: string[] }
+        Returns: { bluestar_item_id: string; tagged_count: number }[]
       }
       is_admin: { Args: Record<string, never>; Returns: boolean }
     }

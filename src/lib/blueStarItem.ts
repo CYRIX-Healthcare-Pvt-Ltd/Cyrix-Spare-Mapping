@@ -8,8 +8,9 @@ import type { BlueStarItemRow, FieldDefinitionRow } from '../types/app'
  * Blue Star's barcode is what's physically stuck on the spare, so that's
  * tried first; the same string is then tried as an item code, because the
  * master file and the label don't always agree on which of the two is
- * printed. Returns null when the code isn't in the catalogue yet -- that's a
- * normal case, not an error: tagging it is what puts it there.
+ * printed. Returns null when the code isn't in the catalogue -- that is a
+ * real answer, not an error: the catalogue is Blue Star's reference data and
+ * tagging never adds to it.
  */
 export async function lookupBlueStarItem(code: string): Promise<BlueStarItemRow | null> {
   const clean = code.trim()
@@ -31,56 +32,55 @@ export async function lookupBlueStarItem(code: string): Promise<BlueStarItemRow 
   return byCode?.[0] ?? null
 }
 
-/**
- * Records a tagged spare in Blue Star's catalogue and applies its Cyrix link.
- *
- * Every tagged spare is one of Blue Star's items, so tagging one has to leave
- * a row in their catalogue -- otherwise the mapping made while tagging has
- * nowhere to live and the item list never reflects the work. Goes through the
- * definer RPC (migration 0018) because engineers can't write to the catalogue
- * directly, and because the Cyrix link has to land in the mapping history.
- */
-export async function upsertTaggedBlueStarItem(input: {
-  itemCode: string
-  itemName: string | null
-  barcode: string | null
-  /** A code links it, `undefined` leaves it alone, `null` unlinks it. */
-  cyrixCode: string | null | undefined
-}): Promise<{ item: BlueStarItemRow | null; error: string | null }> {
-  const { data, error } = await supabase.rpc('upsert_tagged_bluestar_item', {
-    p_item_code: input.itemCode,
-    p_item_name: input.itemName ?? '',
-    p_barcode: input.barcode,
-    p_cyrix_code: input.cyrixCode ?? null,
-    p_clear_cyrix: input.cyrixCode === null,
-  })
-  if (error) return { item: null, error: error.message }
-  return { item: data as BlueStarItemRow, error: null }
+/** The Blue Star code a filled-in tag form is claiming, if any. */
+export function blueStarCodeFromForm(
+  fields: FieldDefinitionRow[],
+  customFields: Record<string, unknown>
+): string | null {
+  const key = fields.find((f) => f.field_type === 'barcode')?.field_key
+  if (!key) return null
+  const raw = customFields[key]
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null
+}
+
+/** The spare name a filled-in tag form carries, used for matching. */
+export function spareNameFromForm(
+  fields: FieldDefinitionRow[],
+  customFields: Record<string, unknown>
+): string | null {
+  const key = fields.find(isNameField)?.field_key
+  if (!key) return null
+  const raw = customFields[key]
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : null
 }
 
 /**
- * Works out which Blue Star item a filled-in tag form describes.
+ * How many QR codes have been tagged against each of these catalogue items.
  *
- * The spare's name and Blue Star code are admin-defined custom fields, so
- * which keys hold them is inferred the same way the form infers where to put
- * the mapping panel. When no Blue Star code was scanned the Cyrix QR stuck on
- * the spare stands in as the item code -- every tagged spare has to be
- * identifiable in the catalogue, and that sticker is the one identifier that
- * always exists.
+ * Goes through a definer function rather than counting equipment rows in the
+ * browser: equipment is readable only for the warehouses you're assigned to,
+ * so a client-side count would say "1 of 4" to one person and "3 of 4" to
+ * another. The function returns counts and nothing else.
  */
-export function blueStarIdentityFromForm(
-  fields: FieldDefinitionRow[],
-  customFields: Record<string, unknown>,
-  qrValue: string
-): { itemCode: string; itemName: string | null; barcode: string | null } {
-  const text = (key: string | undefined) => {
-    if (!key) return null
-    const raw = customFields[key]
-    return typeof raw === 'string' && raw.trim() ? raw.trim() : null
-  }
+export async function fetchTagCounts(itemIds: string[]): Promise<Map<string, number>> {
+  if (itemIds.length === 0) return new Map()
+  const { data } = await supabase.rpc('bluestar_tag_counts', { item_ids: itemIds })
+  const rows = (data ?? []) as { bluestar_item_id: string; tagged_count: number }[]
+  return new Map(rows.map((r) => [r.bluestar_item_id, Number(r.tagged_count)]))
+}
 
-  const barcode = text(fields.find((f) => f.field_type === 'barcode')?.field_key)
-  const itemName = text(fields.find(isNameField)?.field_key)
+export type TaggingStatus = 'pending' | 'partial' | 'complete' | 'unknown'
 
-  return { itemCode: barcode ?? qrValue, itemName, barcode }
+/**
+ * Where an item stands: nothing tagged yet, some of its units tagged, or all
+ * of them. Without a quantity there is no denominator, so the honest answer
+ * is that the status isn't known rather than a guess.
+ *
+ * More tags than the quantity still counts as complete -- it means the master
+ * file is behind, not that the work is unfinished.
+ */
+export function taggingStatus(tagged: number, quantity: number | null): TaggingStatus {
+  if (quantity == null || quantity <= 0) return 'unknown'
+  if (tagged <= 0) return 'pending'
+  return tagged >= quantity ? 'complete' : 'partial'
 }

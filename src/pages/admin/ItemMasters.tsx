@@ -9,6 +9,7 @@ import { MappingHistoryDialog } from '../../components/MappingHistoryDialog'
 import { downloadXlsx, type CellValue } from '../../lib/xlsx'
 import type { BlueStarItemRow, CyrixItemRow } from '../../types/app'
 import { SearchInput } from '../../components/SearchInput'
+import { fetchTagCounts, taggingStatus, type TaggingStatus } from '../../lib/blueStarItem'
 
 type Tab = 'bluestar' | 'cyrix'
 
@@ -36,6 +37,8 @@ interface BlueStarImportRow {
   barcode: string | null
   cyrix_item_code: string | null
   cyrix_item_name: string | null
+  /** Units Blue Star says exist. The denominator for tagging progress. */
+  quantity: number | null
 }
 
 function parseNumber(value: string | undefined): { ok: true; value: number | null } | { ok: false } {
@@ -76,6 +79,10 @@ function parseBlueStarRow(raw: Record<string, string>): { data: BlueStarImportRo
   const item_name = raw.item_name?.trim()
   if (!item_code) return { error: 'item_code is required' }
   if (!item_name) return { error: 'item_name is required' }
+
+  const quantity = parseNumber(raw.quantity)
+  if (!quantity.ok) return { error: `Invalid quantity "${raw.quantity}"` }
+
   return {
     data: {
       item_code,
@@ -83,8 +90,18 @@ function parseBlueStarRow(raw: Record<string, string>): { data: BlueStarImportRo
       barcode: raw.barcode?.trim() || null,
       cyrix_item_code: raw.cyrix_item_code?.trim() || null,
       cyrix_item_name: raw.cyrix_item_name?.trim() || null,
+      quantity: quantity.value,
     },
   }
+}
+
+const STATUS_STYLE: Record<TaggingStatus, { label: string; className: string }> = {
+  pending: { label: 'Pending', className: 'bg-slate-100 text-slate-600' },
+  partial: { label: 'Partly tagged', className: 'bg-amber-50 text-amber-700' },
+  complete: { label: 'Completed', className: 'bg-emerald-50 text-emerald-700' },
+  // No quantity in the master file means no denominator, so there is nothing
+  // honest to say about progress.
+  unknown: { label: 'No quantity', className: 'bg-slate-100 text-slate-500' },
 }
 
 /** The Cyrix mapping shown on a Blue Star row, identical read-only or not. */
@@ -135,6 +152,7 @@ export default function ItemMasters() {
   const [historyFor, setHistoryFor] = useState<BlueStarItemRow | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportDone, setExportDone] = useState(0)
+  const [tagCounts, setTagCounts] = useState<Map<string, number>>(new Map())
 
   // A new search or tab has its own result set, so any page offset from the
   // previous one is meaningless -- and page 3 of a 2-page result renders empty.
@@ -165,6 +183,8 @@ export default function ItemMasters() {
 
     setBlueStarRows(blueStar ?? [])
     setCyrixRows(cyrix ?? [])
+    // Only for the rows on screen -- the catalogue runs to tens of thousands.
+    setTagCounts(await fetchTagCounts((blueStar ?? []).map((r) => r.id)))
     setBlueStarCount(blueStarTotal ?? 0)
     setCyrixCount(cyrixTotal ?? 0)
     setLoading(false)
@@ -228,7 +248,7 @@ export default function ItemMasters() {
         const { data } = await q
         const batch = data ?? []
         for (const r of batch) {
-          rows.push([r.item_code, r.item_name, r.barcode, r.cyrix_item_code, r.cyrix_item_name])
+          rows.push([r.item_code, r.item_name, r.barcode, r.quantity, r.cyrix_item_code, r.cyrix_item_name])
         }
         setExportDone(rows.length)
         if (batch.length < EXPORT_PAGE) break
@@ -261,7 +281,7 @@ export default function ItemMasters() {
 
     const headers =
       tab === 'bluestar'
-        ? ['item_code', 'item_name', 'barcode', 'cyrix_item_code', 'cyrix_item_name']
+        ? ['item_code', 'item_name', 'barcode', 'quantity', 'cyrix_item_code', 'cyrix_item_name']
         : [
             'item_code',
             'item_name',
@@ -373,7 +393,9 @@ export default function ItemMasters() {
                     <>
                       <th className="whitespace-nowrap px-3 py-2 font-semibold">Barcode</th>
                       <th className="whitespace-nowrap px-3 py-2 font-semibold">Cyrix item</th>
-                      <th className="whitespace-nowrap px-3 py-2 font-semibold">Source</th>
+                      <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">Qty</th>
+                      <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">Tagged</th>
+                      <th className="whitespace-nowrap px-3 py-2 font-semibold">Status</th>
                     </>
                   ) : (
                     <>
@@ -411,17 +433,25 @@ export default function ItemMasters() {
                               </span>
                             )}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2">
-                          {/* Where the row came from: Blue Star's own master
-                              file, or a spare tagged in this app. */}
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                              r.origin === 'tagged' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {r.origin === 'tagged' ? 'Tagged' : 'Uploaded'}
-                          </span>
-                        </td>
+                        {(() => {
+                          const tagged = tagCounts.get(r.id) ?? 0
+                          const status = STATUS_STYLE[taggingStatus(tagged, r.quantity)]
+                          return (
+                            <>
+                              <td className="whitespace-nowrap px-3 py-2 text-right text-slate-600">
+                                {r.quantity ?? '—'}
+                              </td>
+                              {/* Just the count: Qty is the column next to it,
+                                  so repeating the denominator says nothing new. */}
+                              <td className="whitespace-nowrap px-3 py-2 text-right text-slate-900">{tagged}</td>
+                              <td className="whitespace-nowrap px-3 py-2">
+                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
+                                  {status.label}
+                                </span>
+                              </td>
+                            </>
+                          )
+                        })()}
                         <td className="whitespace-nowrap px-3 py-2">
                           <span className="flex items-center gap-1">
                             <button
@@ -546,10 +576,10 @@ export default function ItemMasters() {
         open={bulkOpen === 'bluestar'}
         onClose={() => setBulkOpen(null)}
         title="Upload Blue Star item master"
-        description="Blue Star's catalogue, including the barcode printed on each spare. Re-uploading updates items that already exist, matched on item_code. The Cyrix columns are optional — leave them blank to map later."
+        description="Blue Star's catalogue, including the barcode printed on each spare and how many units there are. Quantity is what tagging progress is measured against — without it an item shows no status. Re-uploading updates items that already exist, matched on item_code. The Cyrix columns are optional — leave them blank to map later."
         templateFilename="bluestar_item_master_template.csv"
-        templateHeaders={['item_code', 'item_name', 'barcode', 'cyrix_item_code', 'cyrix_item_name']}
-        templateSampleRows={[['BS-5501', 'ABC Sensor Assembly', '8901234567890', '', '']]}
+        templateHeaders={['item_code', 'item_name', 'barcode', 'quantity', 'cyrix_item_code', 'cyrix_item_name']}
+        templateSampleRows={[['BS-5501', 'ABC Sensor Assembly', '8901234567890', '4', '', '']]}
         parseRow={(raw) => parseBlueStarRow(raw)}
         submitRows={submitBlueStarRows}
         onImported={load}
