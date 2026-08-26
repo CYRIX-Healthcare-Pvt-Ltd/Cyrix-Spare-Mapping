@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { SpinnerIcon } from '../components/icons'
 import { CyrixLogo } from '../components/CyrixLogo'
-import { BlueStarLogo } from '../components/BlueStarLogo'
 
 export default function Login() {
   const { session, loading, signIn } = useAuth()
@@ -38,10 +37,8 @@ export default function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-ink-950 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-surface p-8 shadow-xl">
-        <div className="mb-6 flex flex-col items-center gap-3">
+        <div className="mb-6 flex flex-col items-center">
           <CyrixLogo className="text-lg text-center [&>div]:justify-center" />
-          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400">for</p>
-          <BlueStarLogo className="text-sm" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -57,7 +54,6 @@ export default function Login() {
               value={ecode}
               onChange={(e) => setEcode(e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-              placeholder="e.g. ENG-104"
             />
           </div>
           <div>

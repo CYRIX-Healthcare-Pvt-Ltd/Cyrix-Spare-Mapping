@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabaseClient'
 import { HomeIcon, ScanIcon, ClipboardIcon, TagIcon, SettingsIcon, LogOutIcon, PanelLeftIcon, SunIcon, MoonIcon, PackageIcon } from './icons'
 import { useTheme } from '../context/ThemeContext'
 import { CyrixLogo } from './CyrixLogo'
-import { BlueStarLogo } from './BlueStarLogo'
 
 const ROLE_LABEL: Record<string, string> = {
   engineer: 'Engineer',
@@ -124,7 +123,6 @@ export function Layout() {
             }`}
           >
             <CyrixLogo className="text-[9px]" subtitle={false} />
-            <BlueStarLogo className="text-[6px]" />
           </span>
         </div>
 
@@ -240,8 +238,6 @@ export function Layout() {
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-surface/90 px-4 py-3 backdrop-blur lg:hidden">
         <div className="flex items-center gap-2">
           <CyrixLogo className="text-[9px]" subtitle={false} />
-          <span className="h-5 w-px bg-slate-200" />
-          <BlueStarLogo className="text-[7px]" />
         </div>
         <div className="flex items-center gap-3">
           <Link to="/account" className="flex items-center gap-2" aria-label="Your account">
