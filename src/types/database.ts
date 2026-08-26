@@ -359,6 +359,12 @@ export interface Database {
         Args: { item_ids: string[] }
         Returns: { bluestar_item_id: string; cyrix_item_code: string; cyrix_item_name: string | null; tag_count: number }[]
       }
+      // Clears item master rows -- the ticked ones, or everything a search
+      // matches (migration 0030). Definer, so it re-checks is_admin() itself.
+      delete_catalogue_rows: {
+        Args: { p_catalogue: CatalogueKey; p_search?: string | null; p_ids?: string[] | null }
+        Returns: number
+      }
       // What a spare name has been mapped to before, across every warehouse.
       cyrix_mappings_for_name: {
         Args: { p_name_normalized: string }

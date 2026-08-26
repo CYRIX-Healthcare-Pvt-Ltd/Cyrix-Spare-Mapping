@@ -317,6 +317,10 @@ export default function ItemMasters() {
   const [splitFor, setSplitFor] = useState<BlueStarItemRow | null>(null)
   const [columns, setColumns] = useState<CatalogueColumn[]>([])
   const [columnsOpen, setColumnsOpen] = useState(false)
+  const [selected, setSelected] = useState<string[]>([])
+  const [bulkMode, setBulkMode] = useState<null | 'selected' | 'all'>(null)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
 
   const loadColumns = useCallback(async () => {
     const [bluestar, cyrix] = await Promise.all([fetchCatalogueColumns('bluestar'), fetchCatalogueColumns('cyrix')])
@@ -332,6 +336,13 @@ export default function ItemMasters() {
   useEffect(() => {
     setPage(0)
   }, [search, tab])
+
+  // Ticks refer to rows; a new tab, search or page is a different set of rows,
+  // so carrying the ticks across would arm a delete against things nobody can
+  // see any more.
+  useEffect(() => {
+    setSelected([])
+  }, [search, tab, page])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -502,6 +513,48 @@ export default function ItemMasters() {
     setExporting(false)
   }
 
+  const pageRows: { id: string }[] = tab === 'bluestar' ? blueStarRows : cyrixRows
+  const allPageSelected = pageRows.length > 0 && selected.length === pageRows.length
+
+  function toggleRow(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  function toggleAllOnPage() {
+    setSelected(allPageSelected ? [] : pageRows.map((r) => r.id))
+  }
+
+  /**
+   * Clears either the ticked rows or the whole catalogue.
+   *
+   * "All" cannot mean the rows on screen: this list pages a hundred at a time
+   * through tens of thousands, so it means everything the current search
+   * matches -- the same set the count beside the tab is reporting, and the
+   * same set Export writes. The filter goes to the database rather than a
+   * list of ids the browser would have to fetch first.
+   */
+  async function performBulkDelete() {
+    setBulkBusy(true)
+    setBulkError(null)
+    const { data, error } = await supabase.rpc('delete_catalogue_rows', {
+      p_catalogue: tab,
+      p_search: bulkMode === 'all' ? search.trim() || null : null,
+      p_ids: bulkMode === 'selected' ? selected : null,
+    })
+    setBulkBusy(false)
+    if (error) {
+      setBulkError(error.message)
+      return
+    }
+    setBulkMode(null)
+    setSelected([])
+    // A page offset into a list that just shrank points at nothing.
+    setPage(0)
+    await load()
+    await loadColumns()
+    if (data === 0) setBulkError('Nothing was deleted.')
+  }
+
   async function performDelete() {
     if (!confirmDelete) return
     setDeleting(true)
@@ -581,6 +634,43 @@ export default function ItemMasters() {
         )}
       </div>
 
+      {/* Only admins, and only ever admins: DELETE on both tables is
+          restricted to is_admin() by RLS, and the function behind "delete
+          all" checks it again because a definer function bypasses RLS. A
+          project manager can read and upload but not clear. */}
+      {canEdit && activeCount > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-slate-500">
+            {selected.length > 0
+              ? `${selected.length} selected on this page`
+              : `${activeCount.toLocaleString('en-IN')} item${activeCount === 1 ? '' : 's'}${
+                  search.trim() ? ' matching this search' : ''
+                }`}
+          </span>
+          <span className="flex-1" />
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setBulkMode('selected')}
+              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+            >
+              <TrashIcon className="h-3.5 w-3.5" /> Delete selected
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setBulkMode('all')}
+            className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+          >
+            <TrashIcon className="h-3.5 w-3.5" /> {search.trim() ? 'Delete all matching' : 'Delete all'}
+          </button>
+        </div>
+      )}
+
+      {bulkError && (
+        <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{bulkError}</p>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-10 text-slate-400">
           <SpinnerIcon className="h-6 w-6" />
@@ -595,6 +685,17 @@ export default function ItemMasters() {
             <table className="w-full min-w-max text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50">
                 <tr className="text-xs uppercase tracking-wide text-slate-500">
+                  {canEdit && (
+                    <th className="w-10 px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={allPageSelected}
+                        onChange={toggleAllOnPage}
+                        className="h-4 w-4 accent-brand-700"
+                        aria-label="Select every item on this page"
+                      />
+                    </th>
+                  )}
                   {visibleColumns.map((column) => (
                     <th
                       key={column.key}
@@ -612,6 +713,17 @@ export default function ItemMasters() {
                 {tab === 'bluestar'
                   ? blueStarRows.map((r) => (
                       <tr key={r.id}>
+                        {canEdit && (
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={selected.includes(r.id)}
+                              onChange={() => toggleRow(r.id)}
+                              className="h-4 w-4 accent-brand-700"
+                              aria-label={`Select ${r.item_code}`}
+                            />
+                          </td>
+                        )}
                         {visibleColumns.map((column) => (
                           <td key={column.key} className={cellClass(column.key)}>
                             {blueStarCell(column.key, r, {
@@ -645,6 +757,17 @@ export default function ItemMasters() {
                     ))
                   : cyrixRows.map((r) => (
                       <tr key={r.id}>
+                        {canEdit && (
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={selected.includes(r.id)}
+                              onChange={() => toggleRow(r.id)}
+                              className="h-4 w-4 accent-brand-700"
+                              aria-label={`Select ${r.item_code}`}
+                            />
+                          </td>
+                        )}
                         {visibleColumns.map((column) => (
                           <td key={column.key} className={cellClass(column.key)}>
                             {cyrixCell(column.key, r)}
@@ -756,6 +879,45 @@ export default function ItemMasters() {
           onClose={() => setSplitFor(null)}
         />
       )}
+
+      {/* Two different scales of damage, so two different messages. Deleting
+          the ticked rows is bounded by what is on screen; clearing a whole
+          catalogue is tens of thousands of rows that only a re-upload brings
+          back, so that one has to be typed out. */}
+      <ConfirmDialog
+        open={bulkMode === 'selected'}
+        title={`Delete ${selected.length} selected item${selected.length === 1 ? '' : 's'}?`}
+        message={
+          tab === 'bluestar'
+            ? 'Spares already tagged against them stay, but stop counting towards any item until the master file is uploaded again. Their mapping history goes with them.'
+            : 'Spares keep the Cyrix code they were mapped to. Lookups and match suggestions will no longer find these items.'
+        }
+        confirmLabel={bulkBusy ? 'Deleting…' : 'Delete'}
+        busy={bulkBusy}
+        onConfirm={performBulkDelete}
+        onCancel={() => setBulkMode(null)}
+      />
+
+      <ConfirmDialog
+        open={bulkMode === 'all'}
+        title={
+          search.trim()
+            ? `Delete all ${activeCount.toLocaleString('en-IN')} item${
+                activeCount === 1 ? '' : 's'
+              } matching “${search.trim()}”?`
+            : `Delete the entire ${tab === 'bluestar' ? 'Blue Star' : 'Cyrix'} item master?`
+        }
+        message={`${activeCount.toLocaleString('en-IN')} item${activeCount === 1 ? '' : 's'} will be removed. ${
+          tab === 'bluestar'
+            ? 'Spares already tagged against them stay, but stop counting towards any item until the master file is uploaded again.'
+            : 'Spares keep the Cyrix code they were mapped to, but lookups and match suggestions will find nothing.'
+        } This can't be undone — the only way back is to upload the file again.`}
+        confirmText={search.trim() ? undefined : 'DELETE'}
+        confirmLabel={bulkBusy ? 'Deleting…' : 'Delete all'}
+        busy={bulkBusy}
+        onConfirm={performBulkDelete}
+        onCancel={() => setBulkMode(null)}
+      />
 
       <ConfirmDialog
         open={!!confirmDelete}
