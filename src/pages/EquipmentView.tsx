@@ -178,7 +178,18 @@ export default function EquipmentView() {
     const matched = code ? await lookupBlueStarItem(code) : null
     const nextItemId = matched?.id ?? null
     if (nextItemId !== equipment.bluestar_item_id) {
-      await supabase.from('equipment').update({ bluestar_item_id: nextItemId }).eq('id', equipment.id)
+      const { error: linkError } = await supabase
+        .from('equipment')
+        .update({ bluestar_item_id: nextItemId })
+        .eq('id', equipment.id)
+      // Said rather than swallowed. A tag that silently fails to re-point is
+      // invisible: it keeps showing under Tagged while counting towards the
+      // wrong item's progress, or towards none at all.
+      if (linkError) {
+        setError(`Saved, but the Blue Star item could not be re-linked: ${linkError.message}`)
+        await load()
+        return
+      }
     }
 
     // The mapping belongs to this unit, and goes through the RPC so the

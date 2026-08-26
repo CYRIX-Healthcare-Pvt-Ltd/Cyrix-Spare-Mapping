@@ -56,6 +56,19 @@ export default function EquipmentNew() {
     const facility = facilities.find((f) => f.id === values.facility_id)
     const autoName = facility ? `${facility.name} · ${qr}` : qr
 
+    // The catalogue is Blue Star's reference data: this points the tag at an
+    // item that is already in it, and never adds one. A code that matches
+    // nothing leaves the spare unlinked, which is the truth and is worth
+    // saying -- an unlinked tag counts towards no item's progress.
+    //
+    // Resolved before the insert, and written as part of it, because an
+    // engineer may create an equipment row but never update one: edits go
+    // through the approval flow instead. Setting the link in a second
+    // statement meant RLS quietly dropped it for every tag an engineer made
+    // -- and engineers are the ones doing the tagging.
+    const code = blueStarCodeFromForm(fieldDefs, values.custom_fields)
+    const blueStarItem = code ? await lookupBlueStarItem(code) : null
+
     const { data, error: insertError } = await supabase
       .from('equipment')
       .insert({
@@ -64,6 +77,7 @@ export default function EquipmentNew() {
         name: autoName,
         location: '',
         custom_fields: values.custom_fields,
+        bluestar_item_id: blueStarItem?.id ?? null,
         // The Cyrix choice belongs to this unit, so it is written with it.
         cyrix_item_code: values.cyrix_item_code ?? null,
         cyrix_item_name: values.cyrix_item_name,
@@ -90,16 +104,6 @@ export default function EquipmentNew() {
       performed_by: profile.id,
     })
 
-    // The catalogue is Blue Star's reference data: this points the tag at an
-    // item that is already in it, and never adds one. A code that matches
-    // nothing leaves the spare unlinked, which is the truth and is worth
-    // saying -- an unlinked tag counts towards no item's progress.
-    const code = blueStarCodeFromForm(fieldDefs, values.custom_fields)
-    const blueStarItem = code ? await lookupBlueStarItem(code) : null
-
-    if (blueStarItem) {
-      await supabase.from('equipment').update({ bluestar_item_id: blueStarItem.id }).eq('id', data.id)
-    }
 
     navigate('/scan', {
       replace: true,
