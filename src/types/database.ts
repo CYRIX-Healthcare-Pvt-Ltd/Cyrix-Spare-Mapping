@@ -117,6 +117,9 @@ export interface Database {
           images: string[]
           custom_fields: Record<string, unknown>
           bluestar_item_id: string | null
+          /** The Cyrix item chosen for THIS unit, not for the part (0023). */
+          cyrix_item_code: string | null
+          cyrix_item_name: string | null
           created_by: string | null
           updated_by: string | null
           created_at: string
@@ -130,6 +133,8 @@ export interface Database {
           images?: string[]
           custom_fields?: Record<string, unknown>
           bluestar_item_id?: string | null
+          cyrix_item_code?: string | null
+          cyrix_item_name?: string | null
           created_by?: string | null
         }
         Update: Partial<{
@@ -139,6 +144,8 @@ export interface Database {
           images: string[]
           custom_fields: Record<string, unknown>
           bluestar_item_id: string | null
+          cyrix_item_code: string | null
+          cyrix_item_name: string | null
           updated_by: string | null
         }>
         Relationships: []
@@ -276,7 +283,8 @@ export interface Database {
       bluestar_item_mapping_history: {
         Row: {
           id: string
-          bluestar_item_id: string
+          bluestar_item_id: string | null
+          equipment_id: string | null
           barcode: string | null
           bluestar_item_code: string | null
           from_cyrix_item_code: string | null
@@ -310,6 +318,29 @@ export interface Database {
       bluestar_tag_counts: {
         Args: { item_ids: string[] }
         Returns: { bluestar_item_id: string; tagged_count: number }[]
+      }
+      // What each catalogue item's tags actually add up to -- one row per
+      // distinct Cyrix item, so a part whose units disagree reports both.
+      bluestar_mapping_summary: {
+        Args: { item_ids: string[] }
+        Returns: { bluestar_item_id: string; cyrix_item_code: string; cyrix_item_name: string | null; tag_count: number }[]
+      }
+      // What a spare name has been mapped to before, across every warehouse.
+      cyrix_mappings_for_name: {
+        Args: { p_name_normalized: string }
+        Returns: {
+          cyrix_item_code: string
+          cyrix_item_name: string | null
+          tag_count: number
+          last_mapped_by: string | null
+          last_mapped_at: string | null
+        }[]
+      }
+      // Changes the Cyrix item recorded against one tagged unit, writing the
+      // mapping history in the same transaction.
+      set_tag_cyrix_mapping: {
+        Args: { p_equipment_id: string; p_cyrix_code: string | null }
+        Returns: Database['public']['Tables']['equipment']['Row']
       }
       is_admin: { Args: Record<string, never>; Returns: boolean }
     }

@@ -5,7 +5,7 @@ import { normalizeItemName } from './itemMatch'
 export interface PriorMapping {
   cyrixItemCode: string
   cyrixItemName: string | null
-  /** How many Blue Star items with this name point at it. */
+  /** How many tagged units of parts with this name point at it. */
   itemCount: number
   /** Who made the most recent of those links, when it is known. */
   lastMappedBy: string | null
@@ -18,8 +18,8 @@ export interface PriorMapping {
  * Without this, two engineers tagging the same part on different days each
  * pick from fuzzy suggestions on their own, and the same spare ends up
  * against two different Cyrix items -- with nothing on screen to warn either
- * of them. Matching on the normalised name means "Ecg Cable 12 Pin" and
- * "ecg cable 12pin" are recognised as the same decision already taken.
+ * of them. Matching is on the Blue Star item's normalised name, so "Ecg Cable 12
+ * Pin" and "ecg cable 12pin" count as the same decision already taken.
  *
  * Deliberately reported rather than applied: a name is not proof two spares
  * are the same part, so the tagger still confirms. Where the name has been
@@ -30,68 +30,44 @@ export async function findPriorMappings(spareName: string, limit = 3): Promise<P
   const normalized = normalizeItemName(spareName)
   if (!normalized) return []
 
-  const { data: items } = await supabase
-    .from('bluestar_item_master')
-    .select('id, cyrix_item_code, cyrix_item_name')
-    .eq('name_normalized', normalized)
-    .not('cyrix_item_code', 'is', null)
-    .limit(50)
+  // Answered from the tags, since that is where a mapping is recorded now,
+  // and through a definer function so the counts span every warehouse rather
+  // than only the ones this person can see.
+  const { data } = await supabase.rpc('cyrix_mappings_for_name', { p_name_normalized: normalized })
+  const rows = (data ?? []) as {
+    cyrix_item_code: string
+    cyrix_item_name: string | null
+    tag_count: number
+    last_mapped_by: string | null
+    last_mapped_at: string | null
+  }[]
+  if (rows.length === 0) return []
 
-  if (!items || items.length === 0) return []
-
-  // One entry per Cyrix item, carrying how many spares agree on it.
-  const byCode = new Map<string, { name: string | null; ids: string[] }>()
-  for (const item of items) {
-    if (!item.cyrix_item_code) continue
-    const entry = byCode.get(item.cyrix_item_code) ?? { name: item.cyrix_item_name, ids: [] }
-    entry.ids.push(item.id)
-    byCode.set(item.cyrix_item_code, entry)
-  }
-
-  // Who decided this, from the mapping history -- the whole point is that the
-  // next person can see it was someone's call and whose.
-  const allIds = [...byCode.values()].flatMap((e) => e.ids)
-  const { data: history } = await supabase
-    .from('bluestar_item_mapping_history')
-    .select('to_cyrix_item_code, performed_by, performed_at')
-    .in('bluestar_item_id', allIds)
-    .not('to_cyrix_item_code', 'is', null)
-    .order('performed_at', { ascending: false })
-
-  const performerIds = [...new Set((history ?? []).map((h) => h.performed_by).filter((v): v is string => !!v))]
+  const performerIds = [...new Set(rows.map((r) => r.last_mapped_by).filter((v): v is string => !!v))]
   const { data: people } = performerIds.length
     ? await supabase.from('profiles').select('id, full_name, ecode').in('id', performerIds)
     : { data: [] }
   const personById = new Map((people ?? []).map((p) => [p.id, p]))
 
-  const latestForCode = new Map<string, { by: string | null; at: string }>()
-  for (const h of history ?? []) {
-    // Ordered newest first, so the first sighting of a code is its latest.
-    if (!h.to_cyrix_item_code || latestForCode.has(h.to_cyrix_item_code)) continue
-    const person = h.performed_by ? personById.get(h.performed_by) : null
-    latestForCode.set(h.to_cyrix_item_code, {
-      by: person ? `${person.full_name}${person.ecode ? ` (${person.ecode})` : ''}` : null,
-      at: h.performed_at,
+  return rows
+    .map((r) => {
+      const person = r.last_mapped_by ? personById.get(r.last_mapped_by) : null
+      return {
+        cyrixItemCode: r.cyrix_item_code,
+        cyrixItemName: r.cyrix_item_name,
+        itemCount: Number(r.tag_count),
+        lastMappedBy: person ? `${person.full_name}${person.ecode ? ` (${person.ecode})` : ''}` : null,
+        lastMappedAt: r.last_mapped_at,
+      }
     })
-  }
-
-  return [...byCode.entries()]
-    .map(([cyrixItemCode, entry]) => ({
-      cyrixItemCode,
-      cyrixItemName: entry.name,
-      itemCount: entry.ids.length,
-      lastMappedBy: latestForCode.get(cyrixItemCode)?.by ?? null,
-      lastMappedAt: latestForCode.get(cyrixItemCode)?.at ?? null,
-    }))
     .sort((a, b) => {
-      // Most agreement first: the link the greatest number of spares already
+      // Most agreement first: the link the greatest number of units already
       // point at is the one most likely to be right.
       if (b.itemCount !== a.itemCount) return b.itemCount - a.itemCount
 
       // Equally supported, so the most recent decision leads -- if people are
       // split, what they concluded latest is the better guide. A link with no
-      // recorded date (one that arrived in an uploaded master file rather than
-      // from tagging) sorts last, since there is nothing to say it is recent.
+      // recorded date sorts last, since there is nothing to say it is recent.
       const aAt = a.lastMappedAt ? Date.parse(a.lastMappedAt) : 0
       const bAt = b.lastMappedAt ? Date.parse(b.lastMappedAt) : 0
       return bAt - aAt

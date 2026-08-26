@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabaseClient'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { fetchFieldSuggestions } from '../lib/fieldSuggestions'
 import { blueStarCodeFromForm, lookupBlueStarItem } from '../lib/blueStarItem'
-import { setCyrixMapping } from '../lib/mapping'
 import { ChevronLeftIcon, AlertIcon } from '../components/icons'
 import type { FacilityRow, FieldDefinitionRow, EquipmentFormValues } from '../types/app'
 
@@ -65,6 +64,9 @@ export default function EquipmentNew() {
         name: autoName,
         location: '',
         custom_fields: values.custom_fields,
+        // The Cyrix choice belongs to this unit, so it is written with it.
+        cyrix_item_code: values.cyrix_item_code ?? null,
+        cyrix_item_name: values.cyrix_item_name,
         created_by: profile.id,
       })
       .select('id')
@@ -97,13 +99,6 @@ export default function EquipmentNew() {
 
     if (blueStarItem) {
       await supabase.from('equipment').update({ bluestar_item_id: blueStarItem.id }).eq('id', data.id)
-
-      // Confirming a Cyrix item is a change to the mapping on that catalogue
-      // row, which is the one thing tagging is allowed to change -- and it
-      // goes through the RPC so it lands in the mapping history.
-      if (values.cyrix_item_code && values.cyrix_item_code !== blueStarItem.cyrix_item_code) {
-        await setCyrixMapping(blueStarItem.id, values.cyrix_item_code)
-      }
     }
 
     navigate('/scan', {

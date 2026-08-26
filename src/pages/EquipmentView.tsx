@@ -9,9 +9,8 @@ import { formatFieldValue } from '../lib/fieldFormat'
 import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
 import { ImageLightbox } from '../components/ImageLightbox'
 import { blueStarCodeFromForm, lookupBlueStarItem } from '../lib/blueStarItem'
-import { setCyrixMapping } from '../lib/mapping'
+import { setTagCyrixMapping } from '../lib/mapping'
 import type {
-  BlueStarItemRow,
   EquipmentRow,
   FacilityRow,
   FieldDefinitionRow,
@@ -21,15 +20,14 @@ import type {
 
 type PerformEdit = (values: EquipmentFormValues) => Promise<void>
 
-function toFormValues(eq: EquipmentRow, blueStar: BlueStarItemRow | null): EquipmentFormValues {
+function toFormValues(eq: EquipmentRow): EquipmentFormValues {
   return {
     facility_id: eq.facility_id,
     custom_fields: eq.custom_fields,
-    // The Cyrix link lives on the spare's Blue Star catalogue row rather than
-    // on the spare itself, so it is read back from there. Undefined rather
-    // than null when there is none: nothing to unlink, nothing to change.
-    cyrix_item_code: blueStar?.cyrix_item_code ?? undefined,
-    cyrix_item_name: blueStar?.cyrix_item_name ?? null,
+    // The Cyrix item this particular unit was mapped to. Undefined rather than
+    // null when there is none: nothing to unlink, nothing to change.
+    cyrix_item_code: eq.cyrix_item_code ?? undefined,
+    cyrix_item_name: eq.cyrix_item_name,
   }
 }
 
@@ -76,7 +74,6 @@ export default function EquipmentView() {
   const navigate = useNavigate()
 
   const [equipment, setEquipment] = useState<EquipmentRow | null>(null)
-  const [blueStarItem, setBlueStarItem] = useState<BlueStarItemRow | null>(null)
   const [facility, setFacility] = useState<FacilityRow | null>(null)
   const [taggedBy, setTaggedBy] = useState<{ full_name: string; ecode: string } | null>(null)
   const [updatedBy, setUpdatedBy] = useState<{ full_name: string; ecode: string } | null>(null)
@@ -110,7 +107,6 @@ export default function EquipmentView() {
       { data: pending },
       { data: tagger },
       { data: updater },
-      { data: blueStar },
     ] =
       await Promise.all([
         supabase.from('facilities').select('*').eq('id', eq.facility_id).maybeSingle(),
@@ -129,12 +125,8 @@ export default function EquipmentView() {
         eq.updated_by
           ? supabase.from('profiles').select('full_name, ecode').eq('id', eq.updated_by).maybeSingle()
           : Promise.resolve({ data: null }),
-        eq.bluestar_item_id
-          ? supabase.from('bluestar_item_master').select('*').eq('id', eq.bluestar_item_id).maybeSingle()
-          : Promise.resolve({ data: null }),
       ])
 
-    setBlueStarItem(blueStar ?? null)
     setFacility(fac ?? null)
     setTaggedBy(tagger ?? null)
     setUpdatedBy(updater ?? null)
@@ -154,7 +146,7 @@ export default function EquipmentView() {
   async function performDirectUpdate(values: EquipmentFormValues) {
     if (!equipment || !profile) return
 
-    const historyChanges = buildHistoryChanges(toFormValues(equipment, blueStarItem), values)
+    const historyChanges = buildHistoryChanges(toFormValues(equipment), values)
 
     const { error: updateError } = await supabase
       .from('equipment')
@@ -189,10 +181,10 @@ export default function EquipmentView() {
       await supabase.from('equipment').update({ bluestar_item_id: nextItemId }).eq('id', equipment.id)
     }
 
-    // The mapping is the one thing tagging may change on a catalogue row, and
-    // it goes through the RPC so the change is recorded.
-    if (matched && values.cyrix_item_code !== undefined && values.cyrix_item_code !== matched.cyrix_item_code) {
-      const { error: mapError } = await setCyrixMapping(matched.id, values.cyrix_item_code)
+    // The mapping belongs to this unit, and goes through the RPC so the
+    // change is recorded against it by name.
+    if (values.cyrix_item_code !== undefined && values.cyrix_item_code !== equipment.cyrix_item_code) {
+      const { error: mapError } = await setTagCyrixMapping(equipment.id, values.cyrix_item_code)
       if (mapError) {
         setError(mapError)
         await load()
@@ -212,19 +204,15 @@ export default function EquipmentView() {
     // Only the spare's own fields need a manager's approval, so the mapping is
     // applied now and the rest is proposed below.
     const desiredCyrix = values.cyrix_item_code
-    if (
-      equipment.bluestar_item_id &&
-      desiredCyrix !== undefined &&
-      desiredCyrix !== (blueStarItem?.cyrix_item_code ?? null)
-    ) {
-      const { error: mapError } = await setCyrixMapping(equipment.bluestar_item_id, desiredCyrix)
+    if (desiredCyrix !== undefined && desiredCyrix !== equipment.cyrix_item_code) {
+      const { error: mapError } = await setTagCyrixMapping(equipment.id, desiredCyrix)
       if (mapError) {
         setError(mapError)
         return
       }
     }
 
-    const diff = buildDiff(toFormValues(equipment, blueStarItem), values)
+    const diff = buildDiff(toFormValues(equipment), values)
     if (Object.keys(diff).length === 0) {
       setEditing(false)
       await load()
@@ -287,7 +275,7 @@ export default function EquipmentView() {
             <EquipmentForm
               facilities={allFacilities}
               fieldDefs={fieldDefs}
-              initialValues={toFormValues(equipment, blueStarItem)}
+              initialValues={toFormValues(equipment)}
               submitLabel={canEditDirectly ? 'Save changes' : 'Submit request'}
               submitting={submitting}
               onSubmit={(values) => submit(values, canEditDirectly ? performDirectUpdate : performRequestEdit)}
@@ -349,10 +337,10 @@ export default function EquipmentView() {
                     Cyrix item
                   </th>
                   <td className="px-3 py-2">
-                    {blueStarItem?.cyrix_item_code ? (
+                    {equipment.cyrix_item_code ? (
                       <span className="font-medium text-slate-800">
-                        <span className="tabular-nums text-sm text-slate-500">{blueStarItem.cyrix_item_code}</span>
-                        {blueStarItem.cyrix_item_name && ` · ${blueStarItem.cyrix_item_name}`}
+                        <span className="tabular-nums text-sm text-slate-500">{equipment.cyrix_item_code}</span>
+                        {equipment.cyrix_item_name && ` · ${equipment.cyrix_item_name}`}
                       </span>
                     ) : (
                       <button

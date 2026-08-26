@@ -17,8 +17,6 @@ interface DisplayRow extends EquipmentRow {
   facilityCity: string | null
   taggerName: string | null
   taggerEcode: string | null
-  cyrixItemCode: string | null
-  cyrixItemName: string | null
 }
 
 // Slightly tighter gutters from `lg` up: with the sidebar taking 240px, the
@@ -60,30 +58,21 @@ export default function TaggedEquipment() {
 
     const facilityIds = [...new Set(list.map((e) => e.facility_id))]
     const creatorIdsSeen = [...new Set(list.map((e) => e.created_by).filter((id): id is string => !!id))]
-    // Every tagged spare is a Blue Star item, and its Cyrix link is recorded
-    // on that catalogue row -- so the mapping is read from there, not from
-    // the equipment row.
-    const itemIds = [...new Set(list.map((e) => e.bluestar_item_id).filter((id): id is string => !!id))]
 
-    const [{ data: facilityRows }, { data: profileRows }, { data: itemRows }] = await Promise.all([
+    const [{ data: facilityRows }, { data: profileRows }] = await Promise.all([
       facilityIds.length
         ? supabase.from('facilities').select('id, name, district, city').in('id', facilityIds)
         : Promise.resolve({ data: [] }),
       attribution && creatorIdsSeen.length
         ? supabase.from('profiles').select('id, full_name, ecode').in('id', creatorIdsSeen)
         : Promise.resolve({ data: [] }),
-      itemIds.length
-        ? supabase.from('bluestar_item_master').select('id, cyrix_item_code, cyrix_item_name').in('id', itemIds)
-        : Promise.resolve({ data: [] }),
     ])
 
     const facilityMap = new Map((facilityRows ?? []).map((f) => [f.id, f]))
     const profileMap = new Map((profileRows ?? []).map((p) => [p.id, p]))
-    const itemMap = new Map((itemRows ?? []).map((i) => [i.id, i]))
 
     setRows(
       list.map((e) => {
-        const item = e.bluestar_item_id ? itemMap.get(e.bluestar_item_id) : null
         return {
           ...e,
           facilityName: facilityMap.get(e.facility_id)?.name ?? 'Unknown warehouse',
@@ -91,8 +80,6 @@ export default function TaggedEquipment() {
           facilityCity: facilityMap.get(e.facility_id)?.city ?? null,
           taggerName: e.created_by ? (profileMap.get(e.created_by)?.full_name ?? null) : null,
           taggerEcode: e.created_by ? (profileMap.get(e.created_by)?.ecode ?? null) : null,
-          cyrixItemCode: item?.cyrix_item_code ?? null,
-          cyrixItemName: item?.cyrix_item_name ?? null,
         }
       })
     )
@@ -115,8 +102,8 @@ export default function TaggedEquipment() {
         r.facilityCity,
         r.facilityDistrict,
         r.qr_value,
-        r.cyrixItemCode,
-        r.cyrixItemName,
+        r.cyrix_item_code,
+        r.cyrix_item_name,
         r.taggerName,
         r.taggerEcode,
         ...Object.values(r.custom_fields).map((v) => (typeof v === 'string' ? v : null)),
@@ -281,10 +268,10 @@ export default function TaggedEquipment() {
                     ))}
                     <td className={`${td} whitespace-nowrap tabular-nums text-sm text-slate-500`}>{r.qr_value}</td>
                     <td className={td}>
-                      {r.cyrixItemCode ? (
+                      {r.cyrix_item_code ? (
                         <span className="block max-w-64 text-slate-700">
-                          <span className="tabular-nums text-sm text-slate-500">{r.cyrixItemCode}</span>
-                          {r.cyrixItemName && ` · ${r.cyrixItemName}`}
+                          <span className="tabular-nums text-sm text-slate-500">{r.cyrix_item_code}</span>
+                          {r.cyrix_item_name && ` · ${r.cyrix_item_name}`}
                         </span>
                       ) : (
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">

@@ -84,3 +84,41 @@ export function taggingStatus(tagged: number, quantity: number | null): TaggingS
   if (tagged <= 0) return 'pending'
   return tagged >= quantity ? 'complete' : 'partial'
 }
+
+/** One Cyrix item that a part's units point at, and how many of them do. */
+export interface MappingShare {
+  cyrixItemCode: string
+  cyrixItemName: string | null
+  tagCount: number
+}
+
+/**
+ * What each catalogue item's tags actually add up to.
+ *
+ * The mapping lives on the tag, so a part with four units can legitimately
+ * point at two different Cyrix items -- two engineers, two readings of the
+ * same shelf. This reports every distinct answer with its count rather than
+ * picking one, because a split is the thing worth seeing.
+ *
+ * Definer-backed for the same reason the tag counts are: equipment is
+ * readable only for the warehouses you're assigned to, so counting in the
+ * browser would give each person a different picture of the same part.
+ */
+export async function fetchMappingSummary(itemIds: string[]): Promise<Map<string, MappingShare[]>> {
+  if (itemIds.length === 0) return new Map()
+  const { data } = await supabase.rpc('bluestar_mapping_summary', { item_ids: itemIds })
+  const rows = (data ?? []) as {
+    bluestar_item_id: string
+    cyrix_item_code: string
+    cyrix_item_name: string | null
+    tag_count: number
+  }[]
+
+  const byItem = new Map<string, MappingShare[]>()
+  for (const r of rows) {
+    const list = byItem.get(r.bluestar_item_id) ?? []
+    list.push({ cyrixItemCode: r.cyrix_item_code, cyrixItemName: r.cyrix_item_name, tagCount: Number(r.tag_count) })
+    byItem.set(r.bluestar_item_id, list)
+  }
+  return byItem
+}

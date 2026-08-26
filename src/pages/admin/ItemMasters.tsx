@@ -9,7 +9,13 @@ import { MappingHistoryDialog } from '../../components/MappingHistoryDialog'
 import { downloadXlsx, type CellValue } from '../../lib/xlsx'
 import type { BlueStarItemRow, CyrixItemRow } from '../../types/app'
 import { SearchInput } from '../../components/SearchInput'
-import { fetchTagCounts, taggingStatus, type TaggingStatus } from '../../lib/blueStarItem'
+import {
+  fetchTagCounts,
+  fetchMappingSummary,
+  taggingStatus,
+  type TaggingStatus,
+  type MappingShare,
+} from '../../lib/blueStarItem'
 
 type Tab = 'bluestar' | 'cyrix'
 
@@ -104,17 +110,40 @@ const STATUS_STYLE: Record<TaggingStatus, { label: string; className: string }> 
   unknown: { label: 'No quantity', className: 'bg-slate-100 text-slate-500' },
 }
 
-/** The Cyrix mapping shown on a Blue Star row, identical read-only or not. */
-function CyrixCell({ row }: { row: BlueStarItemRow }) {
-  if (!row.cyrix_item_code) {
+/**
+ * What this part's tagged units were mapped to.
+ *
+ * A single Cyrix item when they agree; every one of them, with counts and a
+ * warning, when they don't -- units of one part pointing at different Cyrix
+ * items is a disagreement someone has to resolve, so it is stated rather than
+ * flattened to whichever is most common.
+ */
+function CyrixCell({ shares }: { shares: MappingShare[] }) {
+  if (shares.length === 0) {
+    return <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Not mapped</span>
+  }
+
+  if (shares.length === 1) {
     return (
-      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Not mapped</span>
+      <span>
+        <span className="tabular-nums text-sm text-slate-500">{shares[0].cyrixItemCode}</span>
+        {shares[0].cyrixItemName && ` · ${shares[0].cyrixItemName}`}
+      </span>
     )
   }
+
   return (
-    <span>
-      <span className="tabular-nums text-sm text-slate-500">{row.cyrix_item_code}</span>
-      {row.cyrix_item_name && ` · ${row.cyrix_item_name}`}
+    <span className="block space-y-0.5">
+      <span className="block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+        {shares.length} different Cyrix items
+      </span>
+      {shares.map((sh) => (
+        <span key={sh.cyrixItemCode} className="block text-xs text-slate-600">
+          <span className="tabular-nums text-slate-500">{sh.cyrixItemCode}</span>
+          {sh.cyrixItemName && ` · ${sh.cyrixItemName}`}
+          <span className="text-slate-400"> ({sh.tagCount})</span>
+        </span>
+      ))}
     </span>
   )
 }
@@ -153,6 +182,7 @@ export default function ItemMasters() {
   const [exporting, setExporting] = useState(false)
   const [exportDone, setExportDone] = useState(0)
   const [tagCounts, setTagCounts] = useState<Map<string, number>>(new Map())
+  const [mappingShares, setMappingShares] = useState<Map<string, MappingShare[]>>(new Map())
 
   // A new search or tab has its own result set, so any page offset from the
   // previous one is meaningless -- and page 3 of a 2-page result renders empty.
@@ -184,7 +214,10 @@ export default function ItemMasters() {
     setBlueStarRows(blueStar ?? [])
     setCyrixRows(cyrix ?? [])
     // Only for the rows on screen -- the catalogue runs to tens of thousands.
-    setTagCounts(await fetchTagCounts((blueStar ?? []).map((r) => r.id)))
+    const visibleIds = (blueStar ?? []).map((r) => r.id)
+    const [counts, shares] = await Promise.all([fetchTagCounts(visibleIds), fetchMappingSummary(visibleIds)])
+    setTagCounts(counts)
+    setMappingShares(shares)
     setBlueStarCount(blueStarTotal ?? 0)
     setCyrixCount(cyrixTotal ?? 0)
     setLoading(false)
@@ -425,11 +458,11 @@ export default function ItemMasters() {
                                 className="rounded-lg px-1.5 py-0.5 text-left hover:bg-slate-100"
                                 aria-label={`Change Cyrix mapping for ${r.item_code}`}
                               >
-                                <CyrixCell row={r} />
+                                <CyrixCell shares={mappingShares.get(r.id) ?? []} />
                               </button>
                             ) : (
                               <span className="px-1.5 py-0.5">
-                                <CyrixCell row={r} />
+                                <CyrixCell shares={mappingShares.get(r.id) ?? []} />
                               </span>
                             )}
                         </td>

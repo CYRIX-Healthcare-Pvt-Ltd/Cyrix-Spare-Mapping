@@ -22,6 +22,25 @@ export async function setCyrixMapping(
   return { item: data as BlueStarItemRow, error: null }
 }
 
+/**
+ * Records the Cyrix item chosen for one tagged unit.
+ *
+ * Per tag, not per part: four units of the same Blue Star item can legitimately
+ * be mapped differently, and one engineer's later choice must not silently
+ * rewrite what an earlier engineer recorded for a different unit. Goes through
+ * the RPC so the change lands in the mapping history naming the unit.
+ */
+export async function setTagCyrixMapping(
+  equipmentId: string,
+  cyrixItemCode: string | null
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('set_tag_cyrix_mapping', {
+    p_equipment_id: equipmentId,
+    p_cyrix_code: cyrixItemCode,
+  })
+  return { error: error ? error.message : null }
+}
+
 export interface MappingHistoryEntry extends MappingHistoryRow {
   performerName: string | null
   performerEcode: string | null
