@@ -263,13 +263,24 @@ export default function TaggedEquipment() {
                     <td className={`${td} whitespace-nowrap font-medium text-slate-900`}>{r.facilityName}</td>
                     {dataFields.map((f) => (
                       <td key={f.id} className={`${td} text-slate-700`}>
-                        <span className="block max-w-56">{formatFieldValue(f, r.custom_fields[f.field_key])}</span>
+                        {/* One line per cell: a long value wrapping made a
+                            single row taller than the rest of the table. The
+                            full text is in the tooltip and on the spare. */}
+                        <span
+                          className="block max-w-56 truncate"
+                          title={String(formatFieldValue(f, r.custom_fields[f.field_key]) ?? '')}
+                        >
+                          {formatFieldValue(f, r.custom_fields[f.field_key])}
+                        </span>
                       </td>
                     ))}
                     <td className={`${td} whitespace-nowrap tabular-nums text-sm text-slate-500`}>{r.qr_value}</td>
                     <td className={td}>
                       {r.cyrix_item_code ? (
-                        <span className="block max-w-64 text-slate-700">
+                        <span
+                          className="block max-w-64 truncate text-slate-700"
+                          title={`${r.cyrix_item_code}${r.cyrix_item_name ? ` · ${r.cyrix_item_name}` : ''}`}
+                        >
                           <span className="tabular-nums text-sm text-slate-500">{r.cyrix_item_code}</span>
                           {r.cyrix_item_name && ` · ${r.cyrix_item_name}`}
                         </span>

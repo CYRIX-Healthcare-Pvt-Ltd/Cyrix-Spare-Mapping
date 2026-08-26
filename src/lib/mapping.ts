@@ -1,26 +1,5 @@
 import { supabase } from './supabaseClient'
-import type { BlueStarItemRow, MappingHistoryRow } from '../types/app'
-
-/**
- * Points a Blue Star item at a Cyrix item (or clears it with null).
- *
- * Always goes through the set_cyrix_mapping RPC rather than updating the row
- * directly: the function writes the audit row and applies the change in one
- * transaction, so a mapping can't be changed without leaving a trace, and
- * non-admins can change the mapping without being able to touch anything
- * else on the catalogue row.
- */
-export async function setCyrixMapping(
-  itemId: string,
-  cyrixItemCode: string | null
-): Promise<{ item: BlueStarItemRow | null; error: string | null }> {
-  const { data, error } = await supabase.rpc('set_cyrix_mapping', {
-    item_id: itemId,
-    new_cyrix_code: cyrixItemCode,
-  })
-  if (error) return { item: null, error: error.message }
-  return { item: data as BlueStarItemRow, error: null }
-}
+import type { MappingHistoryRow } from '../types/app'
 
 /**
  * Records the Cyrix item chosen for one tagged unit.

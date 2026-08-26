@@ -4,8 +4,8 @@ import { useAuth } from '../../context/AuthContext'
 import { UploadIcon, DownloadIcon, SpinnerIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, HistoryIcon } from '../../components/icons'
 import { BulkUploadModal, type RowOutcome } from '../../components/BulkUploadModal'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { CyrixPickerDialog } from '../../components/CyrixPickerDialog'
 import { MappingHistoryDialog } from '../../components/MappingHistoryDialog'
+import { MappingSplitDialog } from '../../components/MappingSplitDialog'
 import { downloadXlsx, type CellValue } from '../../lib/xlsx'
 import type { BlueStarItemRow, CyrixItemRow } from '../../types/app'
 import { SearchInput } from '../../components/SearchInput'
@@ -118,33 +118,32 @@ const STATUS_STYLE: Record<TaggingStatus, { label: string; className: string }> 
  * items is a disagreement someone has to resolve, so it is stated rather than
  * flattened to whichever is most common.
  */
-function CyrixCell({ shares }: { shares: MappingShare[] }) {
+function CyrixCell({ shares, onOpenSplit }: { shares: MappingShare[]; onOpenSplit: () => void }) {
   if (shares.length === 0) {
     return <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Not mapped</span>
   }
 
   if (shares.length === 1) {
+    const only = shares[0]
+    const full = `${only.cyrixItemCode}${only.cyrixItemName ? ` · ${only.cyrixItemName}` : ''}`
     return (
-      <span>
-        <span className="tabular-nums text-sm text-slate-500">{shares[0].cyrixItemCode}</span>
-        {shares[0].cyrixItemName && ` · ${shares[0].cyrixItemName}`}
+      <span className="block max-w-64 truncate" title={full}>
+        <span className="tabular-nums text-sm text-slate-500">{only.cyrixItemCode}</span>
+        {only.cyrixItemName && ` · ${only.cyrixItemName}`}
       </span>
     )
   }
 
+  // Twenty units could in principle carry twenty different answers, so the
+  // cell states the count and the dialog carries the list.
   return (
-    <span className="block space-y-0.5">
-      <span className="block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-        {shares.length} different Cyrix items
-      </span>
-      {shares.map((sh) => (
-        <span key={sh.cyrixItemCode} className="block text-xs text-slate-600">
-          <span className="tabular-nums text-slate-500">{sh.cyrixItemCode}</span>
-          {sh.cyrixItemName && ` · ${sh.cyrixItemName}`}
-          <span className="text-slate-400"> ({sh.tagCount})</span>
-        </span>
-      ))}
-    </span>
+    <button
+      type="button"
+      onClick={onOpenSplit}
+      className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+    >
+      {shares.length} Cyrix items
+    </button>
   )
 }
 
@@ -177,12 +176,12 @@ export default function ItemMasters() {
   const [confirmDelete, setConfirmDelete] = useState<PendingDelete | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [page, setPage] = useState(0)
-  const [mappingFor, setMappingFor] = useState<BlueStarItemRow | null>(null)
   const [historyFor, setHistoryFor] = useState<BlueStarItemRow | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportDone, setExportDone] = useState(0)
   const [tagCounts, setTagCounts] = useState<Map<string, number>>(new Map())
   const [mappingShares, setMappingShares] = useState<Map<string, MappingShare[]>>(new Map())
+  const [splitFor, setSplitFor] = useState<BlueStarItemRow | null>(null)
 
   // A new search or tab has its own result set, so any page offset from the
   // previous one is meaningless -- and page 3 of a 2-page result renders empty.
@@ -452,19 +451,7 @@ export default function ItemMasters() {
                         <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
                         <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-500">{r.barcode ?? '—'}</td>
                         <td className="px-3 py-2 text-slate-600">
-                          {canEdit ? (
-                              <button
-                                onClick={() => setMappingFor(r)}
-                                className="rounded-lg px-1.5 py-0.5 text-left hover:bg-slate-100"
-                                aria-label={`Change Cyrix mapping for ${r.item_code}`}
-                              >
-                                <CyrixCell shares={mappingShares.get(r.id) ?? []} />
-                              </button>
-                            ) : (
-                              <span className="px-1.5 py-0.5">
-                                <CyrixCell shares={mappingShares.get(r.id) ?? []} />
-                              </span>
-                            )}
+                          <CyrixCell shares={mappingShares.get(r.id) ?? []} onOpenSplit={() => setSplitFor(r)} />
                         </td>
                         {(() => {
                           const tagged = tagCounts.get(r.id) ?? 0
@@ -618,17 +605,16 @@ export default function ItemMasters() {
         onImported={load}
       />
 
-      {mappingFor && (
-        <CyrixPickerDialog
-          item={mappingFor}
-          onClose={() => setMappingFor(null)}
-          onMapped={(updated) =>
-            setBlueStarRows((rows) => rows.map((row) => (row.id === updated.id ? updated : row)))
-          }
+      {historyFor && <MappingHistoryDialog item={historyFor} onClose={() => setHistoryFor(null)} />}
+
+      {splitFor && (
+        <MappingSplitDialog
+          itemCode={splitFor.item_code}
+          itemName={splitFor.item_name}
+          shares={mappingShares.get(splitFor.id) ?? []}
+          onClose={() => setSplitFor(null)}
         />
       )}
-
-      {historyFor && <MappingHistoryDialog item={historyFor} onClose={() => setHistoryFor(null)} />}
 
       <ConfirmDialog
         open={!!confirmDelete}
