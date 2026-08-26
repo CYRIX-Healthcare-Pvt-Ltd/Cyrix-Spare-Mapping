@@ -8,7 +8,10 @@ const STAR_POINTS =
 export function BlueStarLogo({ className = '' }: { className?: string }) {
   return (
     <div className={`inline-flex select-none items-stretch text-[1em] ${className}`}>
-      <div className="grid aspect-square place-items-center border-2 border-[#004c97] bg-surface p-[0.25em]">
+      {/* Literal white, never the surface token: this is Blue Star's mark and
+          the blue-on-white square is part of it. Theming a logo repaints
+          someone else's brand, so every colour in here is fixed. */}
+      <div className="grid aspect-square place-items-center border-2 border-[#004c97] bg-[#ffffff] p-[0.25em]">
         <svg viewBox="0 0 100 100" className="h-[1.6em] w-[1.6em]" fill="#004c97">
           <polygon points={STAR_POINTS} />
         </svg>
