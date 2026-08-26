@@ -284,8 +284,8 @@ export default function Facilities() {
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
         title="Bulk upload warehouses"
-        description="Import many warehouses at once from a CSV file."
-        templateFilename="warehouses_template.csv"
+        description="Import many warehouses at once from an Excel or CSV file."
+        templateName="warehouses_template"
         templateHeaders={['name', 'district', 'city']}
         templateSampleRows={[['WH Ekm', 'Ernakulam', 'Kochi']]}
         parseRow={(raw) => parseFacilityRow(raw)}

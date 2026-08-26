@@ -8,6 +8,9 @@ export type AppRole = 'engineer' | 'project_manager' | 'admin'
 export type FieldType = 'text' | 'number' | 'date' | 'dropdown' | 'textarea' | 'boolean' | 'image' | 'barcode'
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
+export type CatalogueKey = 'bluestar' | 'cyrix'
+export type CatalogueColumnSource = 'core' | 'imported'
+
 export interface Database {
   public: {
     Tables: {
@@ -200,6 +203,33 @@ export interface Database {
         Update: never
         Relationships: []
       }
+      // Which columns each catalogue shows on the site, and in what order
+      // (migration 0026). Site-wide, admin-maintained.
+      catalogue_columns: {
+        Row: {
+          catalogue: CatalogueKey
+          key: string
+          label: string
+          source: CatalogueColumnSource
+          visible: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          catalogue: CatalogueKey
+          key: string
+          label: string
+          source?: CatalogueColumnSource
+          visible?: boolean
+          sort_order?: number
+        }
+        Update: Partial<{
+          label: string
+          visible: boolean
+          sort_order: number
+        }>
+        Relationships: []
+      }
       cyrix_item_master: {
         Row: {
           id: string
@@ -212,6 +242,8 @@ export interface Database {
           parent_equipment: string | null
           make: string | null
           model: string | null
+          /** Every other column the uploaded master file carried (migration 0026). */
+          attributes: Record<string, string>
           // Generated column (migration 0012) -- read-only, never inserted.
           name_normalized: string
           active: boolean
@@ -227,6 +259,7 @@ export interface Database {
           item_group?: string | null
           parent_equipment?: string | null
           make?: string | null
+          attributes?: Record<string, string>
           model?: string | null
           active?: boolean
         }
@@ -239,6 +272,7 @@ export interface Database {
           item_group: string | null
           parent_equipment: string | null
           make: string | null
+          attributes?: Record<string, string>
           model: string | null
           active: boolean
         }>
@@ -253,6 +287,8 @@ export interface Database {
           cyrix_item_name: string | null
           /** How many units Blue Star's master file says exist (migration 0022). */
           quantity: number | null
+          /** Every other column the uploaded master file carried (migration 0026). */
+          attributes: Record<string, string>
           // Generated column (migration 0012) -- read-only, never inserted.
           name_normalized: string
           active: boolean
@@ -264,6 +300,7 @@ export interface Database {
           item_name: string
           cyrix_item_code?: string | null
           cyrix_item_name?: string | null
+          attributes?: Record<string, string>
           quantity?: number | null
           active?: boolean
         }
@@ -272,6 +309,7 @@ export interface Database {
           item_name: string
           cyrix_item_code: string | null
           cyrix_item_name: string | null
+          attributes?: Record<string, string>
           quantity: number | null
           active: boolean
         }>

@@ -1,11 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
-import { UploadIcon, DownloadIcon, SpinnerIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, HistoryIcon } from '../../components/icons'
-import { BulkUploadModal, type RowOutcome } from '../../components/BulkUploadModal'
+import {
+  UploadIcon,
+  DownloadIcon,
+  SpinnerIcon,
+  TrashIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  HistoryIcon,
+  ColumnsIcon,
+} from '../../components/icons'
+import { BulkUploadModal, type RowOutcome, type ImportContext } from '../../components/BulkUploadModal'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { MappingHistoryDialog } from '../../components/MappingHistoryDialog'
 import { MappingSplitDialog } from '../../components/MappingSplitDialog'
+import { ColumnChooserDialog } from '../../components/ColumnChooserDialog'
 import { downloadXlsx, type CellValue } from '../../lib/xlsx'
 import type { BlueStarItemRow, CyrixItemRow } from '../../types/app'
 import { SearchInput } from '../../components/SearchInput'
@@ -16,8 +27,20 @@ import {
   type TaggingStatus,
   type MappingShare,
 } from '../../lib/blueStarItem'
+import {
+  CORE_COLUMNS,
+  MAPPABLE_FIELDS,
+  isChoosable,
+  attributeKeysFor,
+  fetchCatalogueColumns,
+  registerImportedColumns,
+  rowAttributes,
+  type CatalogueColumn,
+  type CatalogueKey,
+  type FieldMapping,
+} from '../../lib/catalogueColumns'
 
-type Tab = 'bluestar' | 'cyrix'
+type Tab = CatalogueKey
 
 interface PendingDelete {
   table: 'bluestar_item_master' | 'cyrix_item_master'
@@ -35,15 +58,16 @@ interface CyrixImportRow {
   parent_equipment: string | null
   make: string | null
   model: string | null
+  /** Every column of the sheet the app has no dedicated column for. */
+  attributes: Record<string, string>
 }
 
 interface BlueStarImportRow {
   item_code: string
   item_name: string
-  cyrix_item_code: string | null
-  cyrix_item_name: string | null
   /** Units Blue Star says exist. The denominator for tagging progress. */
   quantity: number | null
+  attributes: Record<string, string>
 }
 
 function parseNumber(value: string | undefined): { ok: true; value: number | null } | { ok: false } {
@@ -53,16 +77,22 @@ function parseNumber(value: string | undefined): { ok: true; value: number | nul
   return Number.isFinite(n) ? { ok: true, value: n } : { ok: false }
 }
 
-function parseCyrixRow(raw: Record<string, string>): { data: CyrixImportRow } | { error: string } {
-  const item_code = raw.item_code?.trim()
-  const item_name = raw.item_name?.trim()
-  if (!item_code) return { error: 'item_code is required' }
-  if (!item_name) return { error: 'item_name is required' }
+/** The cell a field was mapped to, or '' when the file has no such column. */
+function mapped(raw: Record<string, string>, mapping: FieldMapping, key: string): string {
+  const header = mapping[key]
+  return header ? (raw[header] ?? '').trim() : ''
+}
 
-  const in_stock = parseNumber(raw.in_stock)
-  if (!in_stock.ok) return { error: `Invalid in_stock "${raw.in_stock}"` }
-  const item_cost = parseNumber(raw.item_cost)
-  if (!item_cost.ok) return { error: `Invalid item_cost "${raw.item_cost}"` }
+function parseCyrixRow(raw: Record<string, string>, ctx: ImportContext): { data: CyrixImportRow } | { error: string } {
+  const item_code = mapped(raw, ctx.mapping, 'item_code')
+  const item_name = mapped(raw, ctx.mapping, 'item_name')
+  if (!item_code) return { error: 'Item code is empty' }
+  if (!item_name) return { error: 'Item name is empty' }
+
+  const in_stock = parseNumber(mapped(raw, ctx.mapping, 'in_stock'))
+  if (!in_stock.ok) return { error: `Invalid in stock "${mapped(raw, ctx.mapping, 'in_stock')}"` }
+  const item_cost = parseNumber(mapped(raw, ctx.mapping, 'item_cost'))
+  if (!item_cost.ok) return { error: `Invalid item cost "${mapped(raw, ctx.mapping, 'item_cost')}"` }
 
   return {
     data: {
@@ -70,31 +100,34 @@ function parseCyrixRow(raw: Record<string, string>): { data: CyrixImportRow } | 
       item_name,
       in_stock: in_stock.value,
       item_cost: item_cost.value,
-      additional_identifier: raw.additional_identifier?.trim() || null,
-      item_group: raw.item_group?.trim() || null,
-      parent_equipment: raw.parent_equipment?.trim() || null,
-      make: raw.make?.trim() || null,
-      model: raw.model?.trim() || null,
+      additional_identifier: mapped(raw, ctx.mapping, 'additional_identifier') || null,
+      item_group: mapped(raw, ctx.mapping, 'item_group') || null,
+      parent_equipment: mapped(raw, ctx.mapping, 'parent_equipment') || null,
+      make: mapped(raw, ctx.mapping, 'make') || null,
+      model: mapped(raw, ctx.mapping, 'model') || null,
+      attributes: rowAttributes(raw, attributeKeysFor('cyrix', ctx.headers, ctx.mapping)),
     },
   }
 }
 
-function parseBlueStarRow(raw: Record<string, string>): { data: BlueStarImportRow } | { error: string } {
-  const item_code = raw.item_code?.trim()
-  const item_name = raw.item_name?.trim()
-  if (!item_code) return { error: 'item_code is required' }
-  if (!item_name) return { error: 'item_name is required' }
+function parseBlueStarRow(
+  raw: Record<string, string>,
+  ctx: ImportContext
+): { data: BlueStarImportRow } | { error: string } {
+  const item_code = mapped(raw, ctx.mapping, 'item_code')
+  const item_name = mapped(raw, ctx.mapping, 'item_name')
+  if (!item_code) return { error: 'Item code is empty' }
+  if (!item_name) return { error: 'Item name is empty' }
 
-  const quantity = parseNumber(raw.quantity)
-  if (!quantity.ok) return { error: `Invalid quantity "${raw.quantity}"` }
+  const quantity = parseNumber(mapped(raw, ctx.mapping, 'quantity'))
+  if (!quantity.ok) return { error: `Invalid quantity "${mapped(raw, ctx.mapping, 'quantity')}"` }
 
   return {
     data: {
       item_code,
       item_name,
-      cyrix_item_code: raw.cyrix_item_code?.trim() || null,
-      cyrix_item_name: raw.cyrix_item_name?.trim() || null,
       quantity: quantity.value,
+      attributes: rowAttributes(raw, attributeKeysFor('bluestar', ctx.headers, ctx.mapping)),
     },
   }
 }
@@ -145,6 +178,99 @@ function CyrixCell({ shares, onOpenSplit }: { shares: MappingShare[]; onOpenSpli
   )
 }
 
+/* ------------------------------------------------------------ rendering --- */
+
+// Quantities and money read as columns of digits, so they line up on the
+// right; everything else reads as text and lines up on the left.
+const NUMERIC_COLUMNS = new Set(['quantity', 'tagged', 'in_stock', 'item_cost'])
+
+// Derived from which QR codes have been tagged rather than read from any
+// file, so they render but never export.
+const COMPUTED_COLUMNS = new Set(['cyrix_item', 'tagged', 'status'])
+
+function cellClass(key: string): string {
+  if (key === 'item_name') return 'px-3 py-2 font-medium text-slate-900'
+  if (key === 'item_code') return 'whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-600'
+  if (NUMERIC_COLUMNS.has(key)) return 'whitespace-nowrap px-3 py-2 text-right text-slate-600'
+  return 'whitespace-nowrap px-3 py-2 text-slate-600'
+}
+
+/**
+ * A column the file brought with it.
+ *
+ * Width is capped rather than left to the content: an imported column can hold
+ * a paragraph of remarks, and one such column would otherwise push everything
+ * after it off the side of the table.
+ */
+function AttributeCell({ value }: { value: string | undefined }) {
+  if (!value) return <span className="text-slate-400">—</span>
+  return (
+    <span className="block max-w-56 truncate" title={value}>
+      {value}
+    </span>
+  )
+}
+
+function blueStarCell(
+  key: string,
+  row: BlueStarItemRow,
+  helpers: { tagged: number; shares: MappingShare[]; onOpenSplit: () => void }
+): ReactNode {
+  switch (key) {
+    case 'item_code':
+      return row.item_code
+    case 'item_name':
+      return row.item_name
+    case 'cyrix_item':
+      return <CyrixCell shares={helpers.shares} onOpenSplit={helpers.onOpenSplit} />
+    case 'quantity':
+      return row.quantity ?? '—'
+    // Just the count: Qty is a column of its own, so repeating the
+    // denominator here says nothing new.
+    case 'tagged':
+      return helpers.tagged
+    case 'status': {
+      const status = STATUS_STYLE[taggingStatus(helpers.tagged, row.quantity)]
+      return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>{status.label}</span>
+    }
+    default:
+      return <AttributeCell value={row.attributes?.[key]} />
+  }
+}
+
+function cyrixCell(key: string, row: CyrixItemRow): ReactNode {
+  switch (key) {
+    case 'item_code':
+      return row.item_code
+    case 'item_name':
+      return row.item_name
+    case 'in_stock':
+      return (
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            (row.in_stock ?? 0) > 0 ? 'bg-blue-50 text-blue-700' : 'text-slate-400'
+          }`}
+        >
+          {row.in_stock ?? 0}
+        </span>
+      )
+    case 'item_cost':
+      return row.item_cost == null ? '—' : row.item_cost.toLocaleString('en-IN')
+    case 'additional_identifier':
+      return row.additional_identifier ?? '—'
+    case 'item_group':
+      return row.item_group ?? '—'
+    case 'parent_equipment':
+      return row.parent_equipment ?? '—'
+    case 'make':
+      return row.make ?? '—'
+    case 'model':
+      return row.model ?? '—'
+    default:
+      return <AttributeCell value={row.attributes?.[key]} />
+  }
+}
+
 const PAGE_SIZE = 100
 const CHUNK_SIZE = 500
 
@@ -152,6 +278,15 @@ function fillOutcomes(outcomes: RowOutcome[], start: number, length: number, err
   for (let i = 0; i < length; i++) {
     outcomes[start + i] = errorMessage ? { status: 'error', message: errorMessage } : { status: 'ok', message: 'Saved' }
   }
+}
+
+/** Registers whatever extra columns the file turned out to carry. */
+async function rememberColumns(catalogue: CatalogueKey, ctx: ImportContext) {
+  const keys = attributeKeysFor(catalogue, ctx.headers, ctx.mapping)
+  await registerImportedColumns(
+    catalogue,
+    [...keys].map(([header, key]) => ({ key, label: header }))
+  )
 }
 
 export default function ItemMasters() {
@@ -180,6 +315,17 @@ export default function ItemMasters() {
   const [tagCounts, setTagCounts] = useState<Map<string, number>>(new Map())
   const [mappingShares, setMappingShares] = useState<Map<string, MappingShare[]>>(new Map())
   const [splitFor, setSplitFor] = useState<BlueStarItemRow | null>(null)
+  const [columns, setColumns] = useState<CatalogueColumn[]>([])
+  const [columnsOpen, setColumnsOpen] = useState(false)
+
+  const loadColumns = useCallback(async () => {
+    const [bluestar, cyrix] = await Promise.all([fetchCatalogueColumns('bluestar'), fetchCatalogueColumns('cyrix')])
+    setColumns([...bluestar, ...cyrix])
+  }, [])
+
+  useEffect(() => {
+    loadColumns()
+  }, [loadColumns])
 
   // A new search or tab has its own result set, so any page offset from the
   // previous one is meaningless -- and page 3 of a 2-page result renders empty.
@@ -225,14 +371,39 @@ export default function ItemMasters() {
     return () => clearTimeout(t)
   }, [load])
 
+  // The seeded core columns are the fallback, so a table still renders if the
+  // layout hasn't loaded yet rather than briefly showing no columns at all.
+  const activeColumns = useMemo(() => {
+    const forTab = columns.filter((c) => c.catalogue === tab)
+    if (forTab.length > 0) return forTab
+    return CORE_COLUMNS[tab].map((c, i) => ({
+      catalogue: tab,
+      key: c.key,
+      label: c.label,
+      source: 'core' as const,
+      visible: true,
+      sort_order: i * 10,
+      created_at: '',
+    }))
+  }, [columns, tab])
+
+  // The built-in columns always render; only the file's own columns answer
+  // to the visibility the admin chose for them.
+  const visibleColumns = useMemo(
+    () => activeColumns.filter((c) => !isChoosable(c) || c.visible),
+    [activeColumns]
+  )
+
   // Master files get re-uploaded as they're revised, so a row that already
   // exists should be updated rather than rejected as a duplicate -- hence
   // upsert on item_code rather than a plain insert. Chunked so a very large
   // catalogue doesn't go over the request size limit in one shot.
   async function submitCyrixRows(
     rows: CyrixImportRow[],
-    onProgress: (done: number, total: number) => void
+    onProgress: (done: number, total: number) => void,
+    ctx: ImportContext
   ): Promise<RowOutcome[]> {
+    await rememberColumns('cyrix', ctx)
     const outcomes: RowOutcome[] = new Array(rows.length)
     for (let start = 0; start < rows.length; start += CHUNK_SIZE) {
       const chunk = rows.slice(start, start + CHUNK_SIZE)
@@ -240,13 +411,16 @@ export default function ItemMasters() {
       fillOutcomes(outcomes, start, chunk.length, error?.message)
       onProgress(Math.min(start + CHUNK_SIZE, rows.length), rows.length)
     }
+    await loadColumns()
     return outcomes
   }
 
   async function submitBlueStarRows(
     rows: BlueStarImportRow[],
-    onProgress: (done: number, total: number) => void
+    onProgress: (done: number, total: number) => void,
+    ctx: ImportContext
   ): Promise<RowOutcome[]> {
+    await rememberColumns('bluestar', ctx)
     const outcomes: RowOutcome[] = new Array(rows.length)
     for (let start = 0; start < rows.length; start += CHUNK_SIZE) {
       const chunk = rows.slice(start, start + CHUNK_SIZE)
@@ -254,8 +428,37 @@ export default function ItemMasters() {
       fillOutcomes(outcomes, start, chunk.length, error?.message)
       onProgress(Math.min(start + CHUNK_SIZE, rows.length), rows.length)
     }
+    await loadColumns()
     return outcomes
   }
+
+  /**
+   * Every column the catalogue holds, including the ones currently hidden.
+   *
+   * Export follows the table's order but not its visibility: a hidden column
+   * is still data, and an export that quietly drops it is how a round-trip
+   * through Excel loses a column nobody was watching.
+   *
+   * `cyrix_item`, `tagged` and `status` are left out, because none of them
+   * is catalogue data -- all three are derived from which QR codes have been
+   * tagged, so exporting them would produce a file that cannot be uploaded
+   * back in.
+   */
+  const exportFields = useMemo(() => {
+    const fields: { header: string; get: (row: Record<string, unknown>) => CellValue }[] = []
+    for (const column of activeColumns) {
+      if (COMPUTED_COLUMNS.has(column.key)) continue
+      if (column.source === 'core') {
+        fields.push({ header: column.key, get: (r) => (r[column.key] as CellValue) ?? '' })
+      } else {
+        fields.push({
+          header: column.label,
+          get: (r) => (r.attributes as Record<string, string> | null)?.[column.key] ?? '',
+        })
+      }
+    }
+    return fields
+  }, [activeColumns])
 
   /**
    * Exports the whole catalogue, not just the page on screen -- and the whole
@@ -269,65 +472,30 @@ export default function ItemMasters() {
     const term = search.trim()
     const pattern = `%${term}%`
     const EXPORT_PAGE = 1000
+    const table = tab === 'bluestar' ? 'bluestar_item_master' : 'cyrix_item_master'
 
     const rows: CellValue[][] = []
     for (let from = 0; ; from += EXPORT_PAGE) {
-      if (tab === 'bluestar') {
-        let q = supabase.from('bluestar_item_master').select('*').order('item_code').range(from, from + EXPORT_PAGE - 1)
-        if (term) q = q.or(`item_code.ilike.${pattern},item_name.ilike.${pattern}`)
-        const { data } = await q
-        const batch = data ?? []
-        for (const r of batch) {
-          rows.push([r.item_code, r.item_name, r.quantity, r.cyrix_item_code, r.cyrix_item_name])
-        }
-        setExportDone(rows.length)
-        if (batch.length < EXPORT_PAGE) break
-      } else {
-        let q = supabase.from('cyrix_item_master').select('*').order('item_code').range(from, from + EXPORT_PAGE - 1)
-        if (term) {
-          q = q.or(
-            `item_code.ilike.${pattern},item_name.ilike.${pattern},additional_identifier.ilike.${pattern},make.ilike.${pattern},model.ilike.${pattern}`
-          )
-        }
-        const { data } = await q
-        const batch = data ?? []
-        for (const r of batch) {
-          rows.push([
-            r.item_code,
-            r.item_name,
-            r.in_stock,
-            r.item_cost,
-            r.additional_identifier,
-            r.item_group,
-            r.parent_equipment,
-            r.make,
-            r.model,
-          ])
-        }
-        setExportDone(rows.length)
-        if (batch.length < EXPORT_PAGE) break
+      let q = supabase.from(table).select('*').order('item_code').range(from, from + EXPORT_PAGE - 1)
+      if (term) {
+        q =
+          tab === 'bluestar'
+            ? q.or(`item_code.ilike.${pattern},item_name.ilike.${pattern}`)
+            : q.or(
+                `item_code.ilike.${pattern},item_name.ilike.${pattern},additional_identifier.ilike.${pattern},make.ilike.${pattern},model.ilike.${pattern}`
+              )
       }
+      const { data } = await q
+      const batch = data ?? []
+      for (const r of batch) rows.push(exportFields.map((f) => f.get(r as Record<string, unknown>)))
+      setExportDone(rows.length)
+      if (batch.length < EXPORT_PAGE) break
     }
-
-    const headers =
-      tab === 'bluestar'
-        ? ['item_code', 'item_name', 'quantity', 'cyrix_item_code', 'cyrix_item_name']
-        : [
-            'item_code',
-            'item_name',
-            'in_stock',
-            'item_cost',
-            'additional_identifier',
-            'item_group',
-            'parent_equipment',
-            'make',
-            'model',
-          ]
 
     const stamp = new Date().toISOString().slice(0, 10)
     downloadXlsx(
       tab === 'bluestar' ? `bluestar_item_master_${stamp}.xlsx` : `cyrix_item_master_${stamp}.xlsx`,
-      headers,
+      exportFields.map((f) => f.header),
       rows,
       tab === 'bluestar' ? 'Blue Star items' : 'Cyrix items'
     )
@@ -345,6 +513,7 @@ export default function ItemMasters() {
 
   const activeCount = tab === 'bluestar' ? blueStarCount : cyrixCount
   const shownCount = tab === 'bluestar' ? blueStarRows.length : cyrixRows.length
+  const hiddenCount = activeColumns.length - visibleColumns.length
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-none sm:px-6 lg:px-8 lg:py-8">
@@ -385,6 +554,15 @@ export default function ItemMasters() {
           <>
             <button
               type="button"
+              onClick={() => setColumnsOpen(true)}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <ColumnsIcon className="h-4 w-4" />
+              Columns
+              {hiddenCount > 0 && <span className="text-xs font-normal text-slate-400">{hiddenCount} hidden</span>}
+            </button>
+            <button
+              type="button"
               onClick={handleExport}
               disabled={exporting || activeCount === 0}
               className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#107c41] px-3 py-2 text-sm font-medium text-white hover:bg-[#0e6b38] disabled:opacity-50"
@@ -409,7 +587,7 @@ export default function ItemMasters() {
         </div>
       ) : activeCount === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-400">
-          {search ? 'No items match that search.' : 'Nothing uploaded yet — use Upload to import a CSV.'}
+          {search ? 'No items match that search.' : 'Nothing uploaded yet — use Upload to import an Excel or CSV file.'}
         </p>
       ) : (
         <>
@@ -417,26 +595,16 @@ export default function ItemMasters() {
             <table className="w-full min-w-max text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50">
                 <tr className="text-xs uppercase tracking-wide text-slate-500">
-                  <th className="whitespace-nowrap px-3 py-2 font-semibold">Item code</th>
-                  <th className="whitespace-nowrap px-3 py-2 font-semibold">Item name</th>
-                  {tab === 'bluestar' ? (
-                    <>
-                      <th className="whitespace-nowrap px-3 py-2 font-semibold">Cyrix item</th>
-                      <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">Qty</th>
-                      <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">Tagged</th>
-                      <th className="whitespace-nowrap px-3 py-2 font-semibold">Status</th>
-                    </>
-                  ) : (
-                    <>
-                      <th className="whitespace-nowrap px-3 py-2 text-right font-medium">In stock</th>
-                      <th className="whitespace-nowrap px-3 py-2 text-right font-medium">Item cost</th>
-                      <th className="whitespace-nowrap px-3 py-2 font-medium">Addl. identifier</th>
-                      <th className="whitespace-nowrap px-3 py-2 font-medium">Item group</th>
-                      <th className="whitespace-nowrap px-3 py-2 font-medium">Parent equip</th>
-                      <th className="whitespace-nowrap px-3 py-2 font-medium">Make</th>
-                      <th className="whitespace-nowrap px-3 py-2 font-medium">Model</th>
-                    </>
-                  )}
+                  {visibleColumns.map((column) => (
+                    <th
+                      key={column.key}
+                      className={`whitespace-nowrap px-3 py-2 font-semibold ${
+                        NUMERIC_COLUMNS.has(column.key) ? 'text-right' : ''
+                      }`}
+                    >
+                      {column.label}
+                    </th>
+                  ))}
                   <th className="w-10 px-3 py-2" />
                 </tr>
               </thead>
@@ -444,30 +612,15 @@ export default function ItemMasters() {
                 {tab === 'bluestar'
                   ? blueStarRows.map((r) => (
                       <tr key={r.id}>
-                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-600">{r.item_code}</td>
-                        <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
-                        <td className="px-3 py-2 text-slate-600">
-                          <CyrixCell shares={mappingShares.get(r.id) ?? []} onOpenSplit={() => setSplitFor(r)} />
-                        </td>
-                        {(() => {
-                          const tagged = tagCounts.get(r.id) ?? 0
-                          const status = STATUS_STYLE[taggingStatus(tagged, r.quantity)]
-                          return (
-                            <>
-                              <td className="whitespace-nowrap px-3 py-2 text-right text-slate-600">
-                                {r.quantity ?? '—'}
-                              </td>
-                              {/* Just the count: Qty is the column next to it,
-                                  so repeating the denominator says nothing new. */}
-                              <td className="whitespace-nowrap px-3 py-2 text-right text-slate-900">{tagged}</td>
-                              <td className="whitespace-nowrap px-3 py-2">
-                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>
-                                  {status.label}
-                                </span>
-                              </td>
-                            </>
-                          )
-                        })()}
+                        {visibleColumns.map((column) => (
+                          <td key={column.key} className={cellClass(column.key)}>
+                            {blueStarCell(column.key, r, {
+                              tagged: tagCounts.get(r.id) ?? 0,
+                              shares: mappingShares.get(r.id) ?? [],
+                              onOpenSplit: () => setSplitFor(r),
+                            })}
+                          </td>
+                        ))}
                         <td className="whitespace-nowrap px-3 py-2">
                           <span className="flex items-center gap-1">
                             <button
@@ -492,27 +645,11 @@ export default function ItemMasters() {
                     ))
                   : cyrixRows.map((r) => (
                       <tr key={r.id}>
-                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-600">{r.item_code}</td>
-                        <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                              (r.in_stock ?? 0) > 0 ? 'bg-blue-50 text-blue-700' : 'text-slate-400'
-                            }`}
-                          >
-                            {r.in_stock ?? 0}
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right text-slate-600">
-                          {r.item_cost == null ? '—' : r.item_cost.toLocaleString('en-IN')}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-500">
-                          {r.additional_identifier ?? '—'}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.item_group ?? '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.parent_equipment ?? '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.make ?? '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.model ?? '—'}</td>
+                        {visibleColumns.map((column) => (
+                          <td key={column.key} className={cellClass(column.key)}>
+                            {cyrixCell(column.key, r)}
+                          </td>
+                        ))}
                         <td className="px-3 py-2">
                           {canEdit && (
                             <button
@@ -567,8 +704,8 @@ export default function ItemMasters() {
         open={bulkOpen === 'cyrix'}
         onClose={() => setBulkOpen(null)}
         title="Upload Cyrix item master"
-        description="Our own catalogue — columns A to I of the item master workbook. Re-uploading updates items that already exist, matched on item_code."
-        templateFilename="cyrix_item_master_template.csv"
+        description="Our own catalogue — every column in the file is kept. Re-uploading updates items that already exist, matched on the item code."
+        templateName="cyrix_item_master_template"
         templateHeaders={[
           'item_code',
           'item_name',
@@ -580,10 +717,9 @@ export default function ItemMasters() {
           'make',
           'model',
         ]}
-        templateSampleRows={[
-          ['I-100002', 'Everflo 230V OPI,Old Birt', '1', '0', '1020009', 'Philips', '', '', ''],
-        ]}
-        parseRow={(raw) => parseCyrixRow(raw)}
+        templateSampleRows={[['I-100002', 'Everflo 230V OPI,Old Birt', '1', '0', '1020009', 'Philips', '', '', '']]}
+        mappableFields={MAPPABLE_FIELDS.cyrix}
+        parseRow={(raw, _line, ctx) => parseCyrixRow(raw, ctx)}
         submitRows={submitCyrixRows}
         onImported={load}
       />
@@ -592,14 +728,23 @@ export default function ItemMasters() {
         open={bulkOpen === 'bluestar'}
         onClose={() => setBulkOpen(null)}
         title="Upload Blue Star item master"
-        description="Blue Star's catalogue: the item code that identifies each part, its name, and how many units there are. Quantity is what tagging progress is measured against — without it an item shows no status. Re-uploading updates items that already exist, matched on item_code. The Cyrix columns are optional — leave them blank to map later."
-        templateFilename="bluestar_item_master_template.csv"
-        templateHeaders={['item_code', 'item_name', 'quantity', 'cyrix_item_code', 'cyrix_item_name']}
-        templateSampleRows={[['BS-5501', 'ABC Sensor Assembly', '4', '', '']]}
-        parseRow={(raw) => parseBlueStarRow(raw)}
+        description="Blue Star's catalogue — every column in the file is kept. Qty is what tagging progress is measured against; without it an item shows no status. Re-uploading updates items that already exist, matched on the item code."
+        templateName="bluestar_item_master_template"
+        templateHeaders={['item_code', 'item_name', 'quantity']}
+        templateSampleRows={[['BS-5501', 'ABC Sensor Assembly', '4']]}
+        mappableFields={MAPPABLE_FIELDS.bluestar}
+        parseRow={(raw, _line, ctx) => parseBlueStarRow(raw, ctx)}
         submitRows={submitBlueStarRows}
         onImported={load}
       />
+
+      {columnsOpen && (
+        <ColumnChooserDialog
+          columns={activeColumns}
+          onClose={() => setColumnsOpen(false)}
+          onSaved={loadColumns}
+        />
+      )}
 
       {historyFor && <MappingHistoryDialog item={historyFor} onClose={() => setHistoryFor(null)} />}
 

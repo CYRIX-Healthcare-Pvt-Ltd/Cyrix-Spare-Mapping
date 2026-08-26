@@ -490,8 +490,8 @@ export default function Users() {
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
         title="Bulk upload users"
-        description="Import many users at once from a CSV file. Every new login gets the default password 123456."
-        templateFilename="users_template.csv"
+        description="Import many users at once from an Excel or CSV file. Every new login gets the default password 123456."
+        templateName="users_template"
         templateHeaders={['ecode', 'full_name', 'role', 'reports_to_ecode', 'facility_names']}
         templateSampleRows={[['E2001', 'Jane Doe', 'engineer', 'E1001', 'GH Ekm; City Hospital']]}
         parseRow={(raw) => parseUserRow(raw)}

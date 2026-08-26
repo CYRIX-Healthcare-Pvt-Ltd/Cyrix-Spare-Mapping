@@ -1,6 +1,11 @@
 // Minimal CSV parser/builder -- handles quoted fields (with commas, newlines,
 // and escaped "" quotes inside them), which is enough for admin-authored
 // bulk-upload sheets without pulling in a library.
+/** The raw grid, header row included -- see `parseCsv` for keyed records. */
+export function parseCsvGrid(text: string): string[][] {
+  return parseRows(text)
+}
+
 export function parseCsv(text: string): Record<string, string>[] {
   const rows = parseRows(text)
   if (rows.length === 0) return []

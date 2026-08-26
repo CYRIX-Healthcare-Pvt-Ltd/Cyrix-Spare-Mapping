@@ -304,3 +304,39 @@ export function PanelLeftIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function ColumnsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M9 3v18M15 3v18" />
+    </svg>
+  )
+}
+
+export function ChevronUpIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="m6 15 6-6 6 6" />
+    </svg>
+  )
+}
+
+export function EyeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+export function EyeOffIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M10.6 6.2A9.8 9.8 0 0 1 12 6c6.5 0 10 7 10 7a17 17 0 0 1-2.9 3.7M6.6 6.7A17 17 0 0 0 2 13s3.5 7 10 7a9.6 9.6 0 0 0 4.5-1.1" />
+      <path d="m2 3 20 20" />
+      <path d="M9.9 10.1a3 3 0 0 0 4.1 4.2" />
+    </svg>
+  )
+}

@@ -102,10 +102,6 @@ export function CyrixMappingPanel({
   // making that effect re-run (and re-query) on every parent render.
   const reportRef = useRef(report)
   reportRef.current = report
-  const selectionRef = useRef(selection)
-  selectionRef.current = selection
-  const onSelectionChangeRef = useRef(onSelectionChange)
-  onSelectionChangeRef.current = onSelectionChange
 
   // Debounced so typing a code by hand does not fire a query per keystroke.
   useEffect(() => {
@@ -126,15 +122,11 @@ export function CyrixMappingPanel({
         return
       }
       setLookup({ state: 'found', item })
-      reportRef.current(item, item.cyrix_item_code)
-      // A link already recorded against this item is the answer -- adopt it
-      // rather than asking the tagger to choose again.
-      if (item.cyrix_item_code && !selectionRef.current) {
-        onSelectionChangeRef.current({
-          code: item.cyrix_item_code,
-          name: item.cyrix_item_name ?? item.cyrix_item_code,
-        })
-      }
+      // The catalogue row carries no Cyrix link to offer: a link belongs to
+      // one tagged unit, and four units of this part may well point at two
+      // different Cyrix items. What this part has been linked to before is
+      // shown from the tags themselves, by the prior-mappings panel.
+      reportRef.current(item, null)
     }, 350)
 
     return () => {
