@@ -596,13 +596,18 @@ export default function ItemMasters() {
         ))}
       </div>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {/* Sized to a search term rather than to the window: it was
+            stretching across the whole width and pushing every control to
+            the far edge. On a phone it takes its own line and the buttons
+            wrap beneath it. */}
         <SearchInput
           value={search}
           onChange={setSearch}
           placeholder={tab === 'bluestar' ? 'Search code or name…' : 'Search code, name, identifier, make, or model…'}
-          className="flex-1"
+          className="min-w-0 basis-full sm:w-72 sm:basis-auto lg:w-96"
         />
+        <span className="hidden flex-1 sm:block" />
         {canEdit && (
           <>
             <button
@@ -630,42 +635,39 @@ export default function ItemMasters() {
             >
               <UploadIcon className="h-4 w-4" /> Upload
             </button>
+
+            {/* One button, because ticking rows is what decides which of
+                the two deletions is meant -- and the confirmation says
+                plainly which one it is about to do. Filled while rows are
+                ticked, outlined otherwise, so clearing the catalogue never
+                looks like the ordinary thing to click.
+
+                Admins only, and only ever admins: DELETE on both tables is
+                restricted to is_admin() by RLS, and the function behind
+                "delete all" checks it again because a definer function
+                bypasses RLS. A project manager can read and upload, not
+                clear. */}
+            {activeCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setBulkMode(selected.length > 0 ? 'selected' : 'all')}
+                className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium ${
+                  selected.length > 0
+                    ? 'bg-red-600 text-white hover:bg-red-700'
+                    : 'border border-red-200 text-red-600 hover:bg-red-50'
+                }`}
+              >
+                <TrashIcon className="h-4 w-4" />
+                {selected.length > 0
+                  ? `Delete ${selected.length}`
+                  : search.trim()
+                    ? 'Delete all matching'
+                    : 'Delete all'}
+              </button>
+            )}
           </>
         )}
       </div>
-
-      {/* Only admins, and only ever admins: DELETE on both tables is
-          restricted to is_admin() by RLS, and the function behind "delete
-          all" checks it again because a definer function bypasses RLS. A
-          project manager can read and upload but not clear. */}
-      {canEdit && activeCount > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-slate-500">
-            {selected.length > 0
-              ? `${selected.length} selected on this page`
-              : `${activeCount.toLocaleString('en-IN')} item${activeCount === 1 ? '' : 's'}${
-                  search.trim() ? ' matching this search' : ''
-                }`}
-          </span>
-          <span className="flex-1" />
-          {selected.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setBulkMode('selected')}
-              className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
-            >
-              <TrashIcon className="h-3.5 w-3.5" /> Delete selected
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setBulkMode('all')}
-            className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-          >
-            <TrashIcon className="h-3.5 w-3.5" /> {search.trim() ? 'Delete all matching' : 'Delete all'}
-          </button>
-        </div>
-      )}
 
       {bulkError && (
         <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{bulkError}</p>
