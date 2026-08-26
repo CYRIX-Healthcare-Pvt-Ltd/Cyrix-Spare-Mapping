@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useAuth } from '../../context/AuthContext'
 import { UploadIcon, DownloadIcon, SpinnerIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon, HistoryIcon } from '../../components/icons'
 import { BulkUploadModal, type RowOutcome } from '../../components/BulkUploadModal'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -86,6 +87,21 @@ function parseBlueStarRow(raw: Record<string, string>): { data: BlueStarImportRo
   }
 }
 
+/** The Cyrix mapping shown on a Blue Star row, identical read-only or not. */
+function CyrixCell({ row }: { row: BlueStarItemRow }) {
+  if (!row.cyrix_item_code) {
+    return (
+      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Not mapped</span>
+    )
+  }
+  return (
+    <span>
+      <span className="tabular-nums text-sm text-slate-500">{row.cyrix_item_code}</span>
+      {row.cyrix_item_name && ` · ${row.cyrix_item_name}`}
+    </span>
+  )
+}
+
 const PAGE_SIZE = 100
 const CHUNK_SIZE = 500
 
@@ -96,6 +112,14 @@ function fillOutcomes(outcomes: RowOutcome[], start: number, length: number, err
 }
 
 export default function ItemMasters() {
+  const { profile } = useAuth()
+  // Everyone can read both catalogues -- an engineer looking a part up in the
+  // warehouse needs them as much as an admin does. Only an admin gets the
+  // controls that change anything. This decides what to render, not what is
+  // permitted: the database grants SELECT to any signed-in user and restricts
+  // INSERT, UPDATE and DELETE on both tables to is_admin(), so hiding a button
+  // is a courtesy rather than the safeguard.
+  const canEdit = profile?.role === 'admin'
   const [tab, setTab] = useState<Tab>('bluestar')
   const [blueStarRows, setBlueStarRows] = useState<BlueStarItemRow[]>([])
   const [cyrixRows, setCyrixRows] = useState<CyrixItemRow[]>([])
@@ -277,6 +301,7 @@ export default function ItemMasters() {
       <h1 className="mb-1 text-lg font-semibold text-slate-900">Item masters</h1>
       <p className="mb-4 text-sm text-slate-500">
         Blue Star's catalogue is matched by the barcode already on the spare. Cyrix's is our own naming for the same parts.
+        {!canEdit && ' Read-only — ask an admin to change anything here.'}
       </p>
 
       <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 p-1">
@@ -306,22 +331,26 @@ export default function ItemMasters() {
           placeholder={tab === 'bluestar' ? 'Search code, name, or barcode…' : 'Search code, name, identifier, make, or model…'}
           className="flex-1"
         />
-        <button
-          type="button"
-          onClick={handleExport}
-          disabled={exporting || activeCount === 0}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#107c41] px-3 py-2 text-sm font-medium text-white hover:bg-[#0e6b38] disabled:opacity-50"
-        >
-          {exporting ? <SpinnerIcon className="h-4 w-4" /> : <DownloadIcon className="h-4 w-4" />}
-          {exporting ? `${exportDone.toLocaleString('en-IN')}…` : 'Excel'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setBulkOpen(tab)}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand hover:bg-brand-650"
-        >
-          <UploadIcon className="h-4 w-4" /> Upload
-        </button>
+        {canEdit && (
+          <>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting || activeCount === 0}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[#107c41] px-3 py-2 text-sm font-medium text-white hover:bg-[#0e6b38] disabled:opacity-50"
+            >
+              {exporting ? <SpinnerIcon className="h-4 w-4" /> : <DownloadIcon className="h-4 w-4" />}
+              {exporting ? `${exportDone.toLocaleString('en-IN')}…` : 'Excel'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setBulkOpen(tab)}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand hover:bg-brand-650"
+            >
+              <UploadIcon className="h-4 w-4" /> Upload
+            </button>
+          </>
+        )}
       </div>
 
       {loading ? (
@@ -368,22 +397,19 @@ export default function ItemMasters() {
                         <td className="px-3 py-2 font-medium text-slate-900">{r.item_name}</td>
                         <td className="whitespace-nowrap px-3 py-2 tabular-nums text-sm text-slate-500">{r.barcode ?? '—'}</td>
                         <td className="px-3 py-2 text-slate-600">
-                          <button
-                            onClick={() => setMappingFor(r)}
-                            className="rounded-lg px-1.5 py-0.5 text-left hover:bg-slate-100"
-                            aria-label={`Change Cyrix mapping for ${r.item_code}`}
-                          >
-                            {r.cyrix_item_code ? (
-                              <span>
-                                <span className="tabular-nums text-sm text-slate-500">{r.cyrix_item_code}</span>
-                                {r.cyrix_item_name && ` · ${r.cyrix_item_name}`}
-                              </span>
+                          {canEdit ? (
+                              <button
+                                onClick={() => setMappingFor(r)}
+                                className="rounded-lg px-1.5 py-0.5 text-left hover:bg-slate-100"
+                                aria-label={`Change Cyrix mapping for ${r.item_code}`}
+                              >
+                                <CyrixCell row={r} />
+                              </button>
                             ) : (
-                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-100">
-                                Not mapped
+                              <span className="px-1.5 py-0.5">
+                                <CyrixCell row={r} />
                               </span>
                             )}
-                          </button>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">
                           {/* Where the row came from: Blue Star's own master
@@ -405,13 +431,15 @@ export default function ItemMasters() {
                             >
                               <HistoryIcon className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => setConfirmDelete({ table: 'bluestar_item_master', id: r.id, label: `${r.item_code} · ${r.item_name}` })}
-                              className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
-                              aria-label={`Delete ${r.item_code}`}
-                            >
-                              <TrashIcon className="h-4 w-4" />
-                            </button>
+                            {canEdit && (
+                              <button
+                                onClick={() => setConfirmDelete({ table: 'bluestar_item_master', id: r.id, label: `${r.item_code} · ${r.item_name}` })}
+                                className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+                                aria-label={`Delete ${r.item_code}`}
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            )}
                           </span>
                         </td>
                       </tr>
@@ -440,13 +468,21 @@ export default function ItemMasters() {
                         <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.make ?? '—'}</td>
                         <td className="whitespace-nowrap px-3 py-2 text-slate-600">{r.model ?? '—'}</td>
                         <td className="px-3 py-2">
-                          <button
-                            onClick={() => setConfirmDelete({ table: 'cyrix_item_master', id: r.id, label: `${r.item_code} · ${r.item_name}` })}
-                            className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
-                            aria-label={`Delete ${r.item_code}`}
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() =>
+                                setConfirmDelete({
+                                  table: 'cyrix_item_master',
+                                  id: r.id,
+                                  label: `${r.item_code} · ${r.item_name}`,
+                                })
+                              }
+                              className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700"
+                              aria-label={`Delete ${r.item_code}`}
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

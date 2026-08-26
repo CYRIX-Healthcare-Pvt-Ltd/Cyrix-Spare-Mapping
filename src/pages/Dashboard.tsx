@@ -100,7 +100,7 @@ export default function Dashboard() {
               hoverClass="hover:border-blue-300 hover:bg-blue-50"
             />
             <AdminLink
-              to="/admin/items"
+              to="/items"
               icon={PackageIcon}
               label="Item masters"
               iconClass="text-teal-600"

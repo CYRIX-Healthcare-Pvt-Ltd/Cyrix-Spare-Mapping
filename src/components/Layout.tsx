@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { HomeIcon, ScanIcon, ClipboardIcon, TagIcon, SettingsIcon, LogOutIcon, PanelLeftIcon, SunIcon, MoonIcon } from './icons'
+import { HomeIcon, ScanIcon, ClipboardIcon, TagIcon, SettingsIcon, LogOutIcon, PanelLeftIcon, SunIcon, MoonIcon, PackageIcon } from './icons'
 import { useTheme } from '../context/ThemeContext'
 import { CyrixLogo } from './CyrixLogo'
 import { BlueStarLogo } from './BlueStarLogo'
@@ -59,6 +59,7 @@ export function Layout() {
     { to: '/', label: 'Home', icon: HomeIcon, show: true, activeText: 'text-brand-700', pillBg: 'bg-brand-50', accentBg: 'bg-brand-700' },
     { to: '/scan', label: 'Scan', icon: ScanIcon, show: true, activeText: 'text-purple-600', pillBg: 'bg-purple-50', accentBg: 'bg-purple-600' },
     { to: '/tagged', label: 'Tagged', icon: TagIcon, show: true, activeText: 'text-emerald-600', pillBg: 'bg-emerald-50', accentBg: 'bg-emerald-600' },
+    { to: '/items', label: 'Items', icon: PackageIcon, show: true, activeText: 'text-sky-600', pillBg: 'bg-sky-50', accentBg: 'bg-sky-600' },
     { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-yellow-600', pillBg: 'bg-yellow-50', accentBg: 'bg-yellow-600' },
     {
       to: '/admin/facilities',

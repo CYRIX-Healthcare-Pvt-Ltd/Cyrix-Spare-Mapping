@@ -38,6 +38,7 @@ export default function App() {
             <Route path="/equipment/:id" element={<EquipmentView />} />
             <Route path="/requests" element={<EditRequests />} />
             <Route path="/tagged" element={<TaggedEquipment />} />
+            <Route path="/items" element={<ItemMasters />} />
             <Route path="/account" element={<Account />} />
 
             <Route
@@ -56,14 +57,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/admin/items"
-              element={
-                <ProtectedRoute roles={['admin']}>
-                  <ItemMasters />
-                </ProtectedRoute>
-              }
-            />
+            {/* Kept so existing links and bookmarks still land somewhere. */}
+            <Route path="/admin/items" element={<Navigate to="/items" replace />} />
             <Route
               path="/admin/users"
               element={
