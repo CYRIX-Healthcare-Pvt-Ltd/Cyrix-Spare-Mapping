@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
-        name: 'Cyrix Blue Star — Equipment Tracker',
+        name: 'Cyrix Blue Star — Spare Tracker',
         short_name: 'Blue Star',
-        description: 'Scan a QR tag to view or record hospital equipment details.',
+        description: 'Scan a QR tag to view or record warehouse spare details.',
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',
