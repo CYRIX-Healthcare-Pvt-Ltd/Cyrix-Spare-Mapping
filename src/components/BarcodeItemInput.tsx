@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { QRScanner } from './QRScanner'
 import { ScanIcon, XIcon } from './icons'
+import { client } from '../lib/branding'
 
 /**
  * Captures Blue Star's item code for a spare -- scanned off the label with
@@ -34,7 +35,7 @@ export function BarcodeItemInput({
           className={`${baseClass} flex-1`}
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Scan or type the Blue Star item code"
+          placeholder={`Scan or type the ${client} item code`}
           required={required}
         />
         <button

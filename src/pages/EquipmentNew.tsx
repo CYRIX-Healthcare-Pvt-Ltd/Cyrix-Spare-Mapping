@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
+import { client } from '../lib/branding'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { fetchFieldSuggestions } from '../lib/fieldSuggestions'
 import { blueStarCodeFromForm, lookupBlueStarItem } from '../lib/blueStarItem'
@@ -111,8 +112,8 @@ export default function EquipmentNew() {
         toast: blueStarItem
           ? `Spare added at ${facility?.name ?? 'warehouse'}`
           : code
-            ? `Spare added — ${code} isn't in the Blue Star item master`
-            : `Spare added at ${facility?.name ?? 'warehouse'} — no Blue Star code`,
+            ? `Spare added — ${code} isn't in the ${client} item master`
+            : `Spare added at ${facility?.name ?? 'warehouse'} — no ${client} code`,
       },
     })
   }
@@ -161,7 +162,7 @@ export default function EquipmentNew() {
       <Link to="/scan" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
         <ChevronLeftIcon className="h-4 w-4" /> Back
       </Link>
-      <h1 className="mb-1 text-lg font-semibold text-slate-900 lg:text-xl">Tag new Blue Star spare</h1>
+      <h1 className="mb-1 text-lg font-semibold text-slate-900 lg:text-xl">Tag new spare</h1>
       <p className="mb-5 text-sm text-slate-500">
         Cyrix code: <span className="tabular-nums">{qr}</span>
       </p>

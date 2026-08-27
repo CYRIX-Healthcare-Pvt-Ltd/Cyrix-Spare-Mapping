@@ -20,6 +20,7 @@ import { ColumnChooserDialog } from '../../components/ColumnChooserDialog'
 import { downloadXlsx, type CellValue } from '../../lib/xlsx'
 import type { BlueStarItemRow, CyrixItemRow } from '../../types/app'
 import { SearchInput } from '../../components/SearchInput'
+import { CLIENT, client, clientSlug } from '../../lib/branding'
 import {
   fetchTagCounts,
   fetchMappingSummary,
@@ -505,10 +506,10 @@ export default function ItemMasters() {
 
     const stamp = new Date().toISOString().slice(0, 10)
     downloadXlsx(
-      tab === 'bluestar' ? `bluestar_item_master_${stamp}.xlsx` : `cyrix_item_master_${stamp}.xlsx`,
+      tab === 'bluestar' ? `${clientSlug}_item_master_${stamp}.xlsx` : `cyrix_item_master_${stamp}.xlsx`,
       exportFields.map((f) => f.header),
       rows,
-      tab === 'bluestar' ? 'Blue Star items' : 'Cyrix items'
+      tab === 'bluestar' ? `${CLIENT} items` : 'Cyrix items'
     )
     setExporting(false)
   }
@@ -572,14 +573,14 @@ export default function ItemMasters() {
     <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-none sm:px-6 lg:px-8 lg:py-8">
       <h1 className="mb-1 text-lg font-semibold text-slate-900">Item masters</h1>
       <p className="mb-4 text-sm text-slate-500">
-        Blue Star's catalogue is matched by the item code on the spare. Cyrix's is our own naming for the same parts.
+        The {client}'s catalogue is matched by the item code on the spare. Cyrix's is our own naming for the same parts.
         {!canEdit && ' Read-only — ask an admin to change anything here.'}
       </p>
 
       <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 p-1">
         {(
           [
-            { key: 'bluestar' as const, label: 'Blue Star item master', count: blueStarCount },
+            { key: 'bluestar' as const, label: `${CLIENT} item master`, count: blueStarCount },
             { key: 'cyrix' as const, label: 'Cyrix item master', count: cyrixCount },
           ]
         ).map((t) => (
@@ -852,9 +853,9 @@ export default function ItemMasters() {
       <BulkUploadModal<BlueStarImportRow>
         open={bulkOpen === 'bluestar'}
         onClose={() => setBulkOpen(null)}
-        title="Upload Blue Star item master"
-        description="Blue Star's catalogue — every column in the file is kept. Qty is what tagging progress is measured against; without it an item shows no status. Re-uploading updates items that already exist, matched on the item code."
-        templateName="bluestar_item_master_template"
+        title={`Upload ${client} item master`}
+        description={`The ${client}'s catalogue — every column in the file is kept. Qty is what tagging progress is measured against; without it an item shows no status. Re-uploading updates items that already exist, matched on the item code.`}
+        templateName={`${clientSlug}_item_master_template`}
         templateHeaders={['item_code', 'item_name', 'quantity']}
         templateSampleRows={[['BS-5501', 'ABC Sensor Assembly', '4']]}
         mappableFields={MAPPABLE_FIELDS.bluestar}
@@ -907,7 +908,7 @@ export default function ItemMasters() {
             ? `Delete all ${activeCount.toLocaleString('en-IN')} item${
                 activeCount === 1 ? '' : 's'
               } matching “${search.trim()}”?`
-            : `Delete the entire ${tab === 'bluestar' ? 'Blue Star' : 'Cyrix'} item master?`
+            : `Delete the entire ${tab === 'bluestar' ? client : 'Cyrix'} item master?`
         }
         message={`${activeCount.toLocaleString('en-IN')} item${activeCount === 1 ? '' : 's'} will be removed. ${
           tab === 'bluestar'

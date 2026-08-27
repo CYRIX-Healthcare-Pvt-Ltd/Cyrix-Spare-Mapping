@@ -4,7 +4,11 @@ import type { ReactNode } from 'react'
 
 export type Theme = 'light' | 'dark'
 
-const STORAGE_KEY = 'blue-star-theme'
+// Named after this app rather than after the customer: a storage key shows
+// up in devtools under Application, which is somewhere a person can look.
+// Renaming it costs each person their saved choice exactly once, and the
+// system preference is what they fall back to.
+const STORAGE_KEY = 'cyrix-spare-theme'
 
 /** Where the switch was pressed, so the new theme can spread out from it. */
 export interface ThemeOrigin {
@@ -19,9 +23,25 @@ interface ThemeValue {
 
 const ThemeContext = createContext<ThemeValue>({ theme: 'light', toggle: () => {} })
 
+// What the key used to be called. Renaming it is not enough on its own: the
+// old entry stays in everyone's browser, under the customer's name, until
+// something removes it. Reading it once on the way past also means nobody
+// loses the theme they had already chosen.
+const LEGACY_STORAGE_KEY = 'blue-star-theme'
+
 /** Whatever was chosen last, falling back to what the OS is already set to. */
 function initialTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY)
+  let stored = localStorage.getItem(STORAGE_KEY)
+
+  if (!stored) {
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (legacy) {
+      stored = legacy
+      localStorage.setItem(STORAGE_KEY, legacy)
+    }
+  }
+  localStorage.removeItem(LEGACY_STORAGE_KEY)
+
   if (stored === 'light' || stored === 'dark') return stored
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }

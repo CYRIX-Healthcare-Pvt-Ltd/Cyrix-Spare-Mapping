@@ -209,7 +209,7 @@ export function attributeKeysFor(
   headers: string[],
   mapping: FieldMapping
 ): Map<string, string> {
-  const signature = `${catalogue} ${headers.join('')} ${JSON.stringify(mapping)}`
+  const signature = `${catalogue}\u0000${headers.join('\u0001')}\u0000${JSON.stringify(mapping)}`
   if (cachedKeys?.signature === signature) return cachedKeys.keys
   const keys = attributeKeys(catalogue, extraHeaders(headers, mapping))
   cachedKeys = { signature, keys }

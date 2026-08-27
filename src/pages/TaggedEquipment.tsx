@@ -141,8 +141,8 @@ export default function TaggedEquipment() {
           <h1 className="text-lg font-semibold text-slate-900 lg:text-xl">Tagged spares</h1>
           <p className="mt-0.5 text-sm text-slate-500">
             {profile.role === 'engineer'
-              ? "Blue Star spares you've scanned and tagged."
-              : 'Blue Star spares tagged by your team, and you.'}
+              ? "Spares you've scanned and tagged."
+              : 'Spares tagged by your team, and you.'}
           </p>
         </div>
 
@@ -210,7 +210,7 @@ export default function TaggedEquipment() {
                     </th>
                   )}
                   {/* Reads left to right the way the spare is identified: where
-                      it is, what Blue Star calls it, what we call it, then the
+                      it is, what the client calls it, what we call it, then the
                       photo and who tagged it. Photos go last of the field
                       columns because a thumbnail is the widest thing in a row
                       and would otherwise split the codes apart. */}

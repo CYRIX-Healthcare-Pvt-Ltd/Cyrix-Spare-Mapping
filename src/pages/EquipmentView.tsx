@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
+import { client } from '../lib/branding'
 import { EquipmentForm } from '../components/EquipmentForm'
 import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon } from '../components/icons'
 import { formatDate } from '../lib/formatDate'
@@ -186,7 +187,7 @@ export default function EquipmentView() {
       // invisible: it keeps showing under Tagged while counting towards the
       // wrong item's progress, or towards none at all.
       if (linkError) {
-        setError(`Saved, but the Blue Star item could not be re-linked: ${linkError.message}`)
+        setError(`Saved, but the ${client} item could not be re-linked: ${linkError.message}`)
         await load()
         return
       }
