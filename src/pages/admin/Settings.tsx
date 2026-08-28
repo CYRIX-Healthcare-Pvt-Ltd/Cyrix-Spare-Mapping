@@ -18,7 +18,7 @@ export default function Settings() {
 
   useEffect(() => {
     supabase
-      .from('app_settings')
+      .from('spare_settings')
       .select('*')
       .then(({ data }) => {
         const next: Record<string, string> = {}
@@ -36,7 +36,7 @@ export default function Settings() {
     setSaved(false)
     await Promise.all(
       SETTINGS.map(({ key }) =>
-        supabase.from('app_settings').upsert({ key, value: values[key] ?? '', updated_by: profile?.id })
+        supabase.from('spare_settings').upsert({ key, value: values[key] ?? '', updated_by: profile?.id })
       )
     )
     setSaving(false)

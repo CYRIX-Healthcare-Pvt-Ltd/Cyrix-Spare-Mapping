@@ -173,7 +173,7 @@ export interface Database {
         Update: never
         Relationships: []
       }
-      app_settings: {
+      spare_settings: {
         Row: {
           key: string
           value: unknown
