@@ -5,7 +5,7 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/spare/((?!assets/|icons/|.*.[a-zA-Z0-9]+$).*)",
+      "source": "/spare/((?!assets/|icons/|.*\\.[a-zA-Z0-9]+$).*)",
       "destination": "/spare/index.html"
     }
   ],
