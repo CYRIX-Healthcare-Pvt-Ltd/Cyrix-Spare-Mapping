@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { HomeIcon, ScanIcon, ClipboardIcon, TagIcon, SettingsIcon, LogOutIcon, PanelLeftIcon, SunIcon, MoonIcon, PackageIcon } from './icons'
@@ -14,7 +14,6 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function Layout() {
   const { profile, signOut } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
   const [pendingCount, setPendingCount] = useState(0)
   const { theme, toggle } = useTheme()
@@ -73,7 +72,11 @@ export function Layout() {
 
   async function handleSignOut() {
     await signOut()
-    navigate('/login', { replace: true })
+    // The portal owns the session, so signing out here signs you out of
+    // every module. Leave the router entirely: navigate() would resolve
+    // this under the /spare basename and land you back inside the app it
+    // just signed you out of.
+    window.location.assign('/')
   }
 
   return (

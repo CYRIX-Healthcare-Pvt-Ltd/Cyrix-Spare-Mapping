@@ -3,7 +3,6 @@ import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
-import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Scan from './pages/Scan'
 import EquipmentNew from './pages/EquipmentNew'
@@ -23,8 +22,11 @@ export default function App() {
       <ThemeProvider>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<Login />} />
-
+          {/* No /login here any more: signing in belongs to the portal at
+              app.cyrix.in, and one module keeping its own login is how you
+              end up asked for a password twice. An old bookmark to it now
+              falls through to "*" and lands on the dashboard, which sends
+              you to the portal if you are not signed in. */}
           <Route
             element={
               <ProtectedRoute>
