@@ -122,7 +122,12 @@ export function Layout() {
               expanded ? 'opacity-100' : 'pointer-events-none opacity-0'
             }`}
           >
-            <CyrixLogo className="text-[9px]" subtitle={false} />
+            {/* Back to the portal's tiles. A plain anchor, not a router
+                Link: the portal sits above this app's /spare basename, so
+                <Link to="/"> would resolve to /spare/ and go nowhere. */}
+            <a href="/" aria-label="All Cyrix apps" title="All Cyrix apps">
+              <CyrixLogo className="text-[9px]" subtitle={false} />
+            </a>
           </span>
         </div>
 
@@ -237,7 +242,9 @@ export function Layout() {
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-surface/90 px-4 py-3 backdrop-blur lg:hidden">
         <div className="flex items-center gap-2">
-          <CyrixLogo className="text-[9px]" subtitle={false} />
+          <a href="/" aria-label="All Cyrix apps" title="All Cyrix apps">
+            <CyrixLogo className="text-[9px]" subtitle={false} />
+          </a>
         </div>
         <div className="flex items-center gap-3">
           <Link to="/account" className="flex items-center gap-2" aria-label="Your account">
