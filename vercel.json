@@ -2,13 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/((?!assets/|icons/|.*\\.[a-zA-Z0-9]+$).*)",
-      "destination": "/index.html"
+      "source": "/spare/((?!assets/|icons/|.*.[a-zA-Z0-9]+$).*)",
+      "destination": "/spare/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/assets/(.*)",
+      "source": "/spare/assets/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -17,13 +17,31 @@
       ]
     },
     {
-      "source": "/(index.html|sw.js|registerSW.js|manifest.webmanifest)",
+      "source": "/spare/(index.html|sw.js|registerSW.js|manifest.webmanifest)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "no-cache"
         }
       ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "cyrix-spare-mapping.vercel.app"
+        }
+      ],
+      "destination": "https://app.cyrix.in/spare/$1",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "destination": "/spare/",
+      "permanent": false
     }
   ]
 }

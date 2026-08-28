@@ -3,7 +3,20 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
+/**
+ * Served from app.cyrix.in/spare, not from the root. Vite writes the
+ * prefix into index.html, React Router strips it off every route, and
+ * the manifest tells an installed copy which corner of the origin it
+ * owns — all three have to agree.
+ *
+ * outDir matches base because base only rewrites URLs, it does not move
+ * files: building to plain dist/ ships a page asking for
+ * /spare/assets/… while the file sits at /assets/… and every bundle
+ * 404s with nothing in the console to explain it.
+ */
 export default defineConfig({
+  base: '/spare/',
+  build: { outDir: 'dist/spare', emptyOutDir: true },
   plugins: [
     react(),
     VitePWA({
@@ -17,12 +30,12 @@ export default defineConfig({
         background_color: '#000000',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
+        start_url: '/spare/',
+        scope: '/spare/',
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/spare/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/spare/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/spare/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

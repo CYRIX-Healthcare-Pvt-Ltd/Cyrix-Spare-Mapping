@@ -19,7 +19,7 @@ import ItemMasters from './pages/admin/ItemMasters'
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/spare">
       <ThemeProvider>
       <AuthProvider>
         <Routes>
