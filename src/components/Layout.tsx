@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient'
 import { HomeIcon, ScanIcon, ClipboardIcon, SettingsIcon, LogOutIcon, PanelLeftIcon, SunIcon, MoonIcon, PackageIcon, GridIcon } from './icons'
 import { useTheme } from '../context/ThemeContext'
 import { CyrixLogo } from './CyrixLogo'
+import Avatar from './Avatar'
 
 const ROLE_LABEL: Record<string, string> = {
   engineer: 'Engineer',
@@ -55,13 +56,6 @@ export function Layout() {
   }, [profile, location.pathname])
 
   if (!profile) return null
-
-  const initials = profile.full_name
-    .split(' ')
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
 
   // Each tab gets its own active color rather than one uniform brand tint,
   // so the row reads at a glance instead of just "on vs off": Scan matches
@@ -157,7 +151,7 @@ export function Layout() {
                 Link: the portal sits above this app's /spare basename, so
                 <Link to="/"> would resolve to /spare/ and go nowhere. */}
             <a href="/" aria-label="All Cyrix apps" title="All Cyrix apps">
-              <CyrixLogo height={18} subtitle={false} />
+              <CyrixLogo height={18} showSubtitle={false} />
             </a>
           </span>
         </div>
@@ -265,9 +259,11 @@ export function Layout() {
             title={expanded ? undefined : profile.full_name}
             className="flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-2 hover:bg-slate-100"
           >
-            <span className="grid h-6.5 w-6.5 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-700">
-              {initials}
-            </span>
+            <Avatar
+              name={profile.full_name}
+              src={profile.avatar}
+              className="h-6.5 w-6.5 text-[10px]"
+            />
             <span
               className={`min-w-0 transition-opacity duration-[var(--dur-fast)] ${expanded ? 'opacity-100' : 'opacity-0'}`}
             >
@@ -298,7 +294,7 @@ export function Layout() {
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-surface/90 px-4 py-3 backdrop-blur lg:hidden">
         <div className="flex items-center gap-2">
           <a href="/" aria-label="All Cyrix apps" title="All Cyrix apps">
-            <CyrixLogo height={18} subtitle={false} />
+            <CyrixLogo height={18} showSubtitle={false} />
           </a>
         </div>
         <div className="flex items-center gap-3">
@@ -307,9 +303,7 @@ export function Layout() {
               <p className="text-sm font-medium text-slate-900 hover:text-brand-700">{profile.full_name}</p>
               <p className="text-xs text-slate-500">{ROLE_LABEL[profile.role]}</p>
             </span>
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-              {initials}
-            </span>
+            <Avatar name={profile.full_name} src={profile.avatar} className="h-8 w-8 text-xs" />
           </Link>
           <button
             onClick={(e) => toggle({ x: e.clientX, y: e.clientY })}

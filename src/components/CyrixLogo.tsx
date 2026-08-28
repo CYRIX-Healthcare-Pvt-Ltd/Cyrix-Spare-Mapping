@@ -1,66 +1,64 @@
+import onLight from '../assets/cyrix-logo.png'
+import onDarkArt from '../assets/cyrix-logo-white.png'
+
 /**
- * The Cyrix Healthcare lockup, identical in every module.
+ * The Cyrix Healthcare lockup — the real artwork, not a drawing of it.
  *
- * This is BEMMP's drawing, ported verbatim: it is the one measured against
- * the printed artwork. Three apps each approximating the same wordmark in
- * their own HTML is how one company came to have three that are nearly but
- * not quite alike — the ® sat in a different place in each. The
- * coordinates are the lockup, so they are not adjusted here.
+ * Every module used to approximate this wordmark in its own SVG, which is
+ * how one company came to have four that were nearly but not quite alike.
+ * This is the supplied file, shipped as-is, so there is nothing left to
+ * drift.
  *
- * SVG text rather than an image: the dark half follows `currentColor` and
- * flips with the theme, and the red stays the brand red in both.
+ * Two files rather than one: the artwork is black type on a transparent
+ * ground and would vanish on a dark page. The dark-page copy is the same
+ * image with its *lightness* inverted and hue left alone — a plain invert
+ * would turn the red cyan and the blue orange, which is another company's
+ * logo. Both are in the markup and CSS picks one, so the swap happens in
+ * the same frame as the theme and never flashes the wrong one — which
+ * matters most here, where the theme arrives as a circular reveal.
  *
- * The old `className`/`subtitle` shape is kept so call sites do not have to
- * change; `className` sizes it through the wrapper as before, and `height`
- * is there for anywhere that wants an exact one.
+ * The lockup is three stacked bands, and the shorter ones are a crop of
+ * the same file rather than separate exports — `.cyrix-logo` clips, so
+ * asking for less shows less of one image.
  */
+
+/** Where each band's ink ends, in the artwork's own 300 x 115 grid. */
+const BAND = { wordmark: 67, entity: 92, full: 115 }
+
 export function CyrixLogo({
   className = '',
-  subtitle = true,
   height,
+  onDark = false,
+  showSubtitle = true,
+  showTagline = false,
 }: {
   className?: string
-  subtitle?: boolean
+  /**
+   * Rendered height in px. Omit it to let `className` set the height —
+   * which is how a header gets one size on a phone and another on a
+   * desktop, since an inline style would beat the class that does it.
+   */
   height?: number
+  /** The surface behind this is dark in *both* themes, so pin the white art. */
+  onDark?: boolean
+  showSubtitle?: boolean
+  showTagline?: boolean
 }) {
-  // The full lockup is 78 units tall; the wordmark alone is 52.
-  const box = subtitle ? 78 : 52
-  const h = height ?? (subtitle ? 34 : 21)
+  const band = showTagline ? BAND.full : showSubtitle ? BAND.entity : BAND.wordmark
 
   return (
-    <svg
-      viewBox={`0 0 300 ${box}`}
-      height={h}
-      className={`select-none text-slate-950 dark:text-slate-100 ${className}`}
+    <span
+      className={`cyrix-logo select-none ${className}`}
+      data-on={onDark ? 'dark' : undefined}
+      style={{
+        aspectRatio: `300 / ${band}`,
+        ...(height === undefined ? null : { height: `${height}px` }),
+      }}
       role="img"
       aria-label="Cyrix Health Care Pvt Ltd"
     >
-      <text
-        x="0" y="44"
-        fontSize="52" fontWeight="700" letterSpacing="1"
-        fill="currentColor"
-        fontFamily="inherit"
-      >
-        CYRI<tspan fill="#e30613">X</tspan>
-      </text>
-      <text
-        x="171" y="16"
-        fontSize="13" fontWeight="600"
-        fill="#e30613"
-        fontFamily="inherit"
-      >
-        ®
-      </text>
-      {subtitle && (
-        <text
-          x="1" y="66"
-          fontSize="13.5" fontWeight="500" letterSpacing="3.4"
-          fill="currentColor"
-          fontFamily="inherit"
-        >
-          HEALTH CARE PVT LTD
-        </text>
-      )}
-    </svg>
+      <img className="cyrix-logo-light" src={onLight} alt="" />
+      <img className="cyrix-logo-dark" src={onDarkArt} alt="" />
+    </span>
   )
 }

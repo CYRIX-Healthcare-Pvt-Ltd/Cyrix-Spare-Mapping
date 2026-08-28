@@ -11,6 +11,15 @@ export interface Profile {
   role: AppRole
   active: boolean
   facilityIds: string[]
+  /**
+   * The profile photo, as a data URL.
+   *
+   * Read from `employees`, not `profiles`: HR uploads it in KPI and that
+   * row is the master for every module. Copying it here would be a second
+   * picture of the same person that goes stale the day somebody changes
+   * theirs — and it is 5 KB of base64 a thousand times over.
+   */
+  avatar: string | null
 }
 
 interface AuthContextValue {
@@ -25,9 +34,13 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 async function loadProfile(userId: string): Promise<Profile | null> {
-  const [{ data: profileRow }, { data: facilityRows }] = await Promise.all([
+  const [{ data: profileRow }, { data: facilityRows }, { data: employeeRow }] = await Promise.all([
     supabase.from('profiles').select('id, ecode, full_name, role, active').eq('id', userId).single(),
     supabase.from('user_facilities').select('facility_id').eq('user_id', userId),
+    // maybeSingle, not single: an account can exist here without an
+    // employee record behind it, and a missing photo is a missing photo,
+    // not a failed sign-in.
+    supabase.from('employees').select('avatar').eq('auth_user_id', userId).maybeSingle(),
   ])
 
   if (!profileRow) return null
@@ -35,6 +48,7 @@ async function loadProfile(userId: string): Promise<Profile | null> {
   return {
     ...profileRow,
     facilityIds: (facilityRows ?? []).map((r) => r.facility_id),
+    avatar: employeeRow?.avatar ?? null,
   }
 }
 
