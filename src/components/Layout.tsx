@@ -203,6 +203,30 @@ export function Layout() {
               )}
             </NavLink>
           ))}
+
+          {/* The way out to the other Cyrix modules. The mark at the top of
+              the rail reaches the same place, but a clickable logo is a
+              convention you have to already know, and the rail is collapsed
+              to icons most of the time — so this says the word once it is
+              open. A plain anchor: the portal is above this app's /spare
+              basename and a router link would resolve back inside it. */}
+          <a
+            href="/"
+            title={expanded ? undefined : 'All Cyrix apps'}
+            aria-label="All Cyrix apps"
+            className="relative flex h-10 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+          >
+            <span className="relative grid w-4.5 shrink-0 place-items-center">
+              <GridIcon className="h-4.5 w-4.5 text-slate-400" />
+            </span>
+            <span
+              className={`truncate transition-opacity duration-[var(--dur-fast)] ${
+                expanded ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              Apps
+            </span>
+          </a>
         </nav>
 
         <div className="space-y-1 border-t border-slate-100 p-3">

@@ -8,7 +8,10 @@ export type Theme = 'light' | 'dark'
 // up in devtools under Application, which is somewhere a person can look.
 // Renaming it costs each person their saved choice exactly once, and the
 // system preference is what they fall back to.
-const STORAGE_KEY = 'cyrix-spare-theme'
+/* One key for every Cyrix module: all four are served from app.cyrix.in,
+   so they share an origin and therefore share this. A choice made here
+   holds when you click through to KPI or BEMMP. */
+const STORAGE_KEY = 'cyrix.theme'
 
 /** Where the switch was pressed, so the new theme can spread out from it. */
 export interface ThemeOrigin {
@@ -27,7 +30,7 @@ const ThemeContext = createContext<ThemeValue>({ theme: 'light', toggle: () => {
 // old entry stays in everyone's browser, under the customer's name, until
 // something removes it. Reading it once on the way past also means nobody
 // loses the theme they had already chosen.
-const LEGACY_STORAGE_KEY = 'blue-star-theme'
+const LEGACY_STORAGE_KEY = 'cyrix-spare-theme'
 
 /** Whatever was chosen last, falling back to what the OS is already set to. */
 function initialTheme(): Theme {
@@ -53,7 +56,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // The class goes on <html>, not <body>, so it also covers anything
     // portalled outside the app root and the browser's own form controls
     // (via color-scheme, set alongside it in index.css).
+    // Both: this app's Tailwind is darkMode:'class', while KPI and BEMMP
+    // select on the attribute. Writing both is a few bytes and means no
+    // module has to be restyled to share the choice.
     document.documentElement.classList.toggle('dark', theme === 'dark')
+    document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem(STORAGE_KEY, theme)
   }, [theme])
 
