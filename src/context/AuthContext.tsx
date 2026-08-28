@@ -34,7 +34,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 async function loadProfile(userId: string): Promise<Profile | null> {
-  const [{ data: profileRow }, { data: facilityRows }, { data: employeeRow }] = await Promise.all([
+  const [{ data: profileRow }, { data: facilityRows }, employee] = await Promise.all([
     supabase.from('profiles').select('id, ecode, full_name, role, active').eq('id', userId).single(),
     supabase.from('user_facilities').select('facility_id').eq('user_id', userId),
     // maybeSingle, not single: an account can exist here without an
@@ -44,6 +44,18 @@ async function loadProfile(userId: string): Promise<Profile | null> {
   ])
 
   if (!profileRow) return null
+
+  /*
+   * `employees` is KPI's table. It lives in the same Supabase project, so
+   * the query works, but `database.ts` describes *this* app's migrations
+   * and does not mention it — which makes the row `never` and this the one
+   * place a cast is the honest answer.
+   *
+   * Declared here rather than added to database.ts on purpose: that file
+   * is a record of what Spare owns, and a photo read across the boundary
+   * is not a table Spare owns.
+   */
+  const employeeRow = employee.data as { avatar: string | null } | null
 
   return {
     ...profileRow,
