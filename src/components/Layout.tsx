@@ -157,7 +157,7 @@ export function Layout() {
                 Link: the portal sits above this app's /spare basename, so
                 <Link to="/"> would resolve to /spare/ and go nowhere. */}
             <a href="/" aria-label="All Cyrix apps" title="All Cyrix apps">
-              <CyrixLogo className="text-[9px]" subtitle={false} />
+              <CyrixLogo height={18} subtitle={false} />
             </a>
           </span>
         </div>
@@ -298,7 +298,7 @@ export function Layout() {
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-surface/90 px-4 py-3 backdrop-blur lg:hidden">
         <div className="flex items-center gap-2">
           <a href="/" aria-label="All Cyrix apps" title="All Cyrix apps">
-            <CyrixLogo className="text-[9px]" subtitle={false} />
+            <CyrixLogo height={18} subtitle={false} />
           </a>
         </div>
         <div className="flex items-center gap-3">
