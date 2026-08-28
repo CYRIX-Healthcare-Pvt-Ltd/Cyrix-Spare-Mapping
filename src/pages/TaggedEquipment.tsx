@@ -1,3 +1,4 @@
+import { InventoryTabs } from '../components/InventoryTabs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -136,6 +137,7 @@ export default function TaggedEquipment() {
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-none sm:px-6 lg:px-8 lg:py-8">
+      <InventoryTabs />
       <div className="mb-5 sm:flex sm:items-end sm:justify-between sm:gap-4">
         <div>
           <h1 className="text-lg font-semibold text-slate-900 lg:text-xl">Tagged spares</h1>

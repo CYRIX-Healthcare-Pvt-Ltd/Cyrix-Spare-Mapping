@@ -340,3 +340,15 @@ export function EyeOffIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+/** Four panes: the way back to the portal's tiles. */
+export function GridIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+    </svg>
+  )
+}

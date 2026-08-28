@@ -1,3 +1,4 @@
+import { InventoryTabs } from '../../components/InventoryTabs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { supabase } from '../../lib/supabaseClient'
@@ -571,6 +572,7 @@ export default function ItemMasters() {
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-none sm:px-6 lg:px-8 lg:py-8">
+      <InventoryTabs />
       <h1 className="mb-1 text-lg font-semibold text-slate-900">Item masters</h1>
       <p className="mb-4 text-sm text-slate-500">
         The {client}'s catalogue is matched by the item code on the spare. Cyrix's is our own naming for the same parts.

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import type { ReactElement } from 'react'
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { HomeIcon, ScanIcon, ClipboardIcon, TagIcon, SettingsIcon, LogOutIcon, PanelLeftIcon, SunIcon, MoonIcon, PackageIcon } from './icons'
+import { HomeIcon, ScanIcon, ClipboardIcon, SettingsIcon, LogOutIcon, PanelLeftIcon, SunIcon, MoonIcon, PackageIcon, GridIcon } from './icons'
 import { useTheme } from '../context/ThemeContext'
 import { CyrixLogo } from './CyrixLogo'
 
@@ -10,6 +11,22 @@ const ROLE_LABEL: Record<string, string> = {
   engineer: 'Engineer',
   project_manager: 'Project Manager',
   admin: 'Admin',
+}
+
+interface NavItem {
+  to: string
+  /**
+   * Sibling routes this tab also covers. NavLink decides `isActive` from
+   * `to` alone, so a section reached by two paths goes dark on one of them
+   * without this.
+   */
+  also?: string[]
+  label: string
+  icon: (props: { className?: string }) => ReactElement
+  show: boolean
+  activeText: string
+  pillBg: string
+  accentBg: string
 }
 
 export function Layout() {
@@ -50,14 +67,25 @@ export function Layout() {
   // so the row reads at a glance instead of just "on vs off": Scan matches
   // the scanner's own purple laser theme, Tagged is the positive/done green,
   // Requests is a dark yellow, Admin uses the Cyrix brand red.
-  const navItems = [
+  // A tab stays lit on the sibling routes it covers; NavLink only knows `to`.
+  const alsoActive = (also?: string[]) =>
+    (also ?? []).some((p) => location.pathname.startsWith(p))
+
+  const navItems: NavItem[] = [
     // accentBg is spelled out rather than derived from activeText: Tailwind
     // only generates classes it can find literally in the source, so a name
     // built at runtime ("text-" swapped for "bg-") would never exist.
     { to: '/', label: 'Home', icon: HomeIcon, show: true, activeText: 'text-brand-700', pillBg: 'bg-brand-50', accentBg: 'bg-brand-700' },
     { to: '/scan', label: 'Scan', icon: ScanIcon, show: true, activeText: 'text-purple-600', pillBg: 'bg-purple-50', accentBg: 'bg-purple-600' },
-    { to: '/tagged', label: 'Tagged', icon: TagIcon, show: true, activeText: 'text-emerald-600', pillBg: 'bg-emerald-50', accentBg: 'bg-emerald-600' },
-    { to: '/items', label: 'Items', icon: PackageIcon, show: true, activeText: 'text-sky-600', pillBg: 'bg-sky-50', accentBg: 'bg-sky-600' },
+    // Tagged spares and the item masters are one section with two views.
+    // They ask the same question from opposite ends -- what is on this tag,
+    // and what does the catalogue call it -- so they were two taps apart for
+    // no reason, and on a phone they cost two of the five slots that fit.
+    // `also` keeps the tab lit on the sibling route, which `to` alone cannot.
+    {
+      to: '/tagged', also: ['/items'], label: 'Inventory', icon: PackageIcon, show: true,
+      activeText: 'text-emerald-600', pillBg: 'bg-emerald-50', accentBg: 'bg-emerald-600',
+    },
     { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-yellow-600', pillBg: 'bg-yellow-50', accentBg: 'bg-yellow-600' },
     {
       to: '/admin/facilities',
@@ -135,7 +163,7 @@ export function Layout() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden p-3">
-          {navItems.map(({ to, label, icon: Icon, activeText, pillBg, accentBg }) => (
+          {navItems.map(({ to, also, label, icon: Icon, activeText, pillBg, accentBg }) => (
             <NavLink
               key={to}
               to={to}
@@ -143,7 +171,7 @@ export function Layout() {
               title={expanded ? undefined : label}
               className={({ isActive }) =>
                 `relative flex h-10 items-center gap-3 overflow-hidden rounded-lg px-3 text-sm font-medium transition-colors ${
-                  isActive ? `${pillBg} ${activeText}` : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  (isActive || alsoActive(also)) ? `${pillBg} ${activeText}` : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`
               }
             >
@@ -153,11 +181,11 @@ export function Layout() {
                       page is legible from the edge of the screen. */}
                   <span
                     className={`absolute inset-y-1.5 left-0 w-0.5 rounded-full transition-opacity ${accentBg} ${
-                      isActive ? 'opacity-100' : 'opacity-0'
+                      (isActive || alsoActive(also)) ? 'opacity-100' : 'opacity-0'
                     }`}
                   />
                   <span className="relative grid w-4.5 shrink-0 place-items-center">
-                    <Icon className={`h-4.5 w-4.5 ${isActive ? activeText : 'text-slate-400'}`} />
+                    <Icon className={`h-4.5 w-4.5 ${(isActive || alsoActive(also)) ? activeText : 'text-slate-400'}`} />
                     {to === '/requests' && pendingCount > 0 && (
                       <span className="absolute -right-2 -top-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-red-600 px-0.5 text-[9px] font-bold leading-none text-white">
                         {pendingCount > 9 ? '9+' : pendingCount}
@@ -286,14 +314,14 @@ export function Layout() {
       </header>
 
       <nav className="sticky top-[57px] z-20 hidden border-b border-slate-200 bg-surface px-4 py-2 sm:flex sm:gap-1 lg:hidden">
-        {navItems.map(({ to, label, icon: Icon, activeText, pillBg }) => (
+        {navItems.map(({ to, also, label, icon: Icon, activeText, pillBg }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
               `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                isActive ? `${pillBg} ${activeText}` : 'text-slate-600 hover:bg-slate-100'
+                (isActive || alsoActive(also)) ? `${pillBg} ${activeText}` : 'text-slate-600 hover:bg-slate-100'
               }`
             }
           >
@@ -315,18 +343,18 @@ export function Layout() {
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-slate-200 bg-surface sm:hidden">
-        {navItems.map(({ to, label, icon: Icon, activeText, pillBg }) => (
+        {navItems.map(({ to, also, label, icon: Icon, activeText, pillBg }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
-            className="flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-slate-500"
+            className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-slate-500"
           >
             {({ isActive }) => (
               <>
                 <span
                   className={`relative grid h-8 w-11 place-items-center rounded-full transition-colors ${
-                    isActive ? pillBg : ''
+                    (isActive || alsoActive(also)) ? pillBg : ''
                   }`}
                 >
                   <Icon className={`h-5 w-5 ${activeText}`} />
@@ -336,11 +364,29 @@ export function Layout() {
                     </span>
                   )}
                 </span>
-                <span className={isActive ? activeText : 'text-slate-500'}>{label}</span>
+                <span className={`w-full truncate px-0.5 text-center ${(isActive || alsoActive(also)) ? activeText : "text-slate-500"}`}>{label}</span>
               </>
             )}
           </NavLink>
         ))}
+
+        {/* Last, so the tabs to its left keep the positions people already
+            know. A plain anchor: the portal is above this app's /spare
+            basename and a router link would resolve back inside it.
+
+            min-w-0 and a truncating label because this cell is the sixth or
+            seventh on a 375px screen — without it "Requests" grows the row
+            and pushes the whole bar sideways. */}
+        <a
+          href="/"
+          className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-slate-500"
+          aria-label="All Cyrix apps"
+        >
+          <span className="grid h-8 w-11 place-items-center rounded-full">
+            <GridIcon className="h-5 w-5" />
+          </span>
+          <span className="w-full truncate px-0.5 text-center">Apps</span>
+        </a>
       </nav>
     </div>
   )
