@@ -360,13 +360,25 @@ export function Layout() {
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-slate-200 bg-surface sm:hidden">
+      {/*
+        Six cells on a 375px screen is about nine characters each, so sharing
+        the width equally turned Inventory and Requests into "Invento…" and
+        "Reque…". The row scrolls instead and every cell takes the width its
+        own name needs.
+
+        The shadow paints the bar's colour below itself: pinch out and the
+        visual viewport grows past the layout viewport a fixed element is
+        pinned to, so the page reappears in the strip underneath.
+      */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-20 flex overflow-x-auto overscroll-x-contain border-t border-slate-200 bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_50vh_0_var(--color-surface)] sm:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {navItems.map(({ to, also, label, icon: Icon, activeText, pillBg }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
-            className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-slate-500"
+            className="flex min-w-[72px] flex-none flex-col items-center gap-1 px-1.5 py-2 text-xs font-medium text-slate-500"
           >
             {({ isActive }) => (
               <>
@@ -382,7 +394,7 @@ export function Layout() {
                     </span>
                   )}
                 </span>
-                <span className={`w-full truncate px-0.5 text-center ${(isActive || alsoActive(also)) ? activeText : "text-slate-500"}`}>{label}</span>
+                <span className={`whitespace-nowrap px-0.5 text-center ${(isActive || alsoActive(also)) ? activeText : "text-slate-500"}`}>{label}</span>
               </>
             )}
           </NavLink>
@@ -392,18 +404,25 @@ export function Layout() {
             know. A plain anchor: the portal is above this app's /spare
             basename and a router link would resolve back inside it.
 
-            min-w-0 and a truncating label because this cell is the sixth or
-            seventh on a 375px screen — without it "Requests" grows the row
-            and pushes the whole bar sideways. */}
+            Pinned to the right edge rather than scrolling away with them —
+            the way out of the app should not be something you have to go
+            looking for. Sticky rather than lifted out of the row, so it
+            stays the last of the same set of destinations for a keyboard
+            and a screen reader.
+
+            Raised, because it is: the tabs travel underneath it, and a
+            cast shadow to the left of the edge is what says so. The border
+            alone reads as a seam between two flat things, which is the one
+            thing this cell is not. */}
         <a
           href="/"
-          className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2 text-xs font-medium text-slate-500"
+          className="sticky right-0 flex min-w-[72px] flex-none flex-col items-center gap-1 border-l border-slate-200 bg-surface px-1.5 py-2 text-xs font-medium text-slate-500 shadow-[-7px_0_14px_-5px_rgb(0_0_0/0.28)]"
           aria-label="All Cyrix apps"
         >
           <span className="grid h-8 w-11 place-items-center rounded-full">
             <GridIcon className="h-5 w-5" />
           </span>
-          <span className="w-full truncate px-0.5 text-center">Apps</span>
+          <span className="whitespace-nowrap px-0.5 text-center">Apps</span>
         </a>
       </nav>
     </div>

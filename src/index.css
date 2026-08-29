@@ -358,17 +358,35 @@ button:not(:disabled):active {
   display: block;
   width: 100%;
 }
-.cyrix-logo-dark {
+/*
+ * One class deeper than it looks like it needs to be, and that is the
+ * point: `.cyrix-logo img` is a class plus a type, which outranks a lone
+ * class, so a bare `.cyrix-logo-dark { display: none }` never applied.
+ * Both copies stayed in the layout and the second was only clipped out of
+ * sight by the wrapper — invisible, but shipped and laid out.
+ *
+ * At two classes it ties with the theme rules below, which then win on
+ * order. Which is exactly what they should do.
+ */
+.cyrix-logo .cyrix-logo-dark {
   display: none;
 }
 
-:root[data-theme='dark'] .cyrix-logo-light { display: none; }
-:root[data-theme='dark'] .cyrix-logo-dark { display: block; }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) .cyrix-logo-light { display: none; }
-  :root:not([data-theme='light']) .cyrix-logo-dark { display: block; }
-}
+/*
+ * Keyed off `.dark`, the same switch the palette above uses — not off
+ * `prefers-color-scheme`.
+ *
+ * This app's whole palette flips on the class and on nothing else, so a
+ * media query here would answer a different question from the one the
+ * page answered: on a machine set to dark but showing this app in light,
+ * the page stayed white and the lockup turned white with it. An invisible
+ * logo, and only in the window before the theme context mounts, which is
+ * the hardest kind to notice.
+ */
+:root[data-theme='dark'] .cyrix-logo-light,
+.dark .cyrix-logo-light { display: none; }
+:root[data-theme='dark'] .cyrix-logo-dark,
+.dark .cyrix-logo-dark { display: block; }
 
 /*
  * Last, and on purpose: these carry the same specificity as the theme
