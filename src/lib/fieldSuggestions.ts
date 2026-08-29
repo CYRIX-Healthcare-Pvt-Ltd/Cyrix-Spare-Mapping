@@ -7,7 +7,13 @@ import { supabase } from './supabaseClient'
  * really the same equipment type across records).
  */
 export async function fetchFieldSuggestions(): Promise<Record<string, string[]>> {
-  const { data } = await supabase.from('equipment').select('custom_fields').limit(500)
+  // Live spares only: a retired one should not keep teaching its wording
+  // to the next person tagging something.
+  const { data } = await supabase
+    .from('equipment')
+    .select('custom_fields')
+    .is('deleted_at', null)
+    .limit(500)
 
   const sets: Record<string, Set<string>> = {}
   for (const row of data ?? []) {

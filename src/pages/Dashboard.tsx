@@ -19,7 +19,13 @@ export default function Dashboard() {
     // nothing that there was one, and the list they clicked into was empty.
     async function loadTaggedCount() {
       const creatorIds = await taggedCreatorIds(profile!)
-      let query = supabase.from('equipment').select('id', { count: 'exact', head: true })
+      // Retired spares are not tagged spares, and the tile is a door into
+      // a list that filters them out — a count that included them would
+      // send somebody to a shorter list than the number promised.
+      let query = supabase
+        .from('equipment')
+        .select('id', { count: 'exact', head: true })
+        .is('deleted_at', null)
       if (creatorIds) query = query.in('created_by', creatorIds)
       const { count } = await query
       setEquipmentCount(count ?? 0)

@@ -8,6 +8,24 @@ export type AppRole = 'engineer' | 'project_manager' | 'admin'
 export type FieldType = 'text' | 'number' | 'date' | 'dropdown' | 'textarea' | 'boolean' | 'image' | 'barcode'
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
+/**
+ * What a request asks for (0064).
+ *
+ * One queue, three outcomes, rather than three tables and three approval
+ * screens: `edit` carries a field diff, `remap` carries the new qr_value,
+ * and `delete` retires the spare.
+ */
+export type RequestKind = 'edit' | 'delete' | 'remap'
+
+/**
+ * What a history row records happening to a spare (0064 widened this).
+ *
+ * 'remapped' is the sticker being replaced — same unit, new code, and the
+ * old one kept in `changes` so the row can still be recognised as the one
+ * that used to carry it. 'deleted' is the spare being retired.
+ */
+export type EquipmentAction = 'created' | 'updated' | 'remapped' | 'deleted'
+
 export type CatalogueKey = 'bluestar' | 'cyrix'
 export type CatalogueColumnSource = 'core' | 'imported'
 
@@ -127,6 +145,16 @@ export interface Database {
           updated_by: string | null
           created_at: string
           updated_at: string
+          /**
+           * Set when a delete request is approved (0064).
+           *
+           * The row stays rather than going, because equipment_history and
+           * edit_requests both cascade from it — deleting would take the
+           * spare's history and the approval that retired it along too.
+           * Every list filters on this being null.
+           */
+          deleted_at: string | null
+          deleted_by: string | null
         }
         Insert: {
           qr_value: string
@@ -141,6 +169,14 @@ export interface Database {
           created_by?: string | null
         }
         Update: Partial<{
+          /**
+           * Changed only by a remap (0064) — a torn sticker replaced by a
+           * new one on the same unit. It was left out of this type while
+           * the code was the one thing about a spare that could not move;
+           * it can now, through that one flow, and stays unique across
+           * every row so a retired code is never reissued.
+           */
+          qr_value: string
           facility_id: string
           name: string
           location: string
@@ -150,6 +186,9 @@ export interface Database {
           cyrix_item_code: string | null
           cyrix_item_name: string | null
           updated_by: string | null
+          /** Retiring a spare directly, as a manager, without a request. */
+          deleted_at: string | null
+          deleted_by: string | null
         }>
         Relationships: []
       }
@@ -160,6 +199,7 @@ export interface Database {
           requested_by: string
           proposed_changes: Record<string, unknown>
           status: RequestStatus
+          kind: RequestKind
           reviewed_by: string | null
           reviewed_at: string | null
           review_note: string | null
@@ -169,6 +209,8 @@ export interface Database {
           equipment_id: string
           requested_by: string
           proposed_changes: Record<string, unknown>
+          /** Omitted means 'edit', which is what every request was before 0064. */
+          kind?: RequestKind
         }
         Update: never
         Relationships: []
@@ -188,7 +230,7 @@ export interface Database {
         Row: {
           id: string
           equipment_id: string
-          action: 'created' | 'updated'
+          action: EquipmentAction
           changes: Record<string, unknown>
           performed_by: string | null
           performed_at: string
@@ -196,7 +238,7 @@ export interface Database {
         }
         Insert: {
           equipment_id: string
-          action: 'created' | 'updated'
+          action: EquipmentAction
           changes?: Record<string, unknown>
           performed_by?: string | null
         }

@@ -47,7 +47,11 @@ export default function TaggedEquipment() {
 
     const creatorIds = await taggedCreatorIds(profile)
 
-    let query = supabase.from('equipment').select('*').order('created_at', { ascending: false })
+    let query = supabase
+      .from('equipment')
+      .select('*')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
     if (creatorIds) query = query.in('created_by', creatorIds)
 
     const [{ data: equipmentRows }, { data: fields }] = await Promise.all([
@@ -122,11 +126,30 @@ export default function TaggedEquipment() {
 
   async function performDelete() {
     const ids = confirmMode === 'all' ? visible.map((r) => r.id) : selected
-    if (ids.length === 0) return
+    if (ids.length === 0 || !profile) return
     setDeleting(true)
-    // equipment_history rows cascade on delete (migration 0006); edit_requests
-    // cascade too (0001), so removing the equipment row is enough.
-    await supabase.from('equipment').delete().in('id', ids)
+    /*
+     * Retired, not removed — the same thing an approved delete request
+     * does (0064), so "deleted" means one thing in this app rather than
+     * two. Removing the row would cascade away the spare's history and
+     * any request attached to it, which is the record of what happened
+     * to a physical asset.
+     *
+     * The rows leave every list either way; they are simply still there
+     * to be asked about.
+     */
+    await supabase
+      .from('equipment')
+      .update({ deleted_at: new Date().toISOString(), deleted_by: profile.id })
+      .in('id', ids)
+    await supabase.from('equipment_history').insert(
+      ids.map((equipment_id) => ({
+        equipment_id,
+        action: 'deleted' as const,
+        changes: { by: 'manager', direct: true },
+        performed_by: profile.id,
+      })),
+    )
     setDeleting(false)
     setConfirmMode(null)
     setSelected([])

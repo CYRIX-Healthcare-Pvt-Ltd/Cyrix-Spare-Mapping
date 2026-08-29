@@ -42,6 +42,27 @@ export function describeChanges(
 ): ChangeDetail[] {
   const out: ChangeDetail[] = []
 
+  /*
+   * A replaced sticker (0064). Both codes, because the old one is the only
+   * thing that connects this row to the label somebody threw away — a
+   * timeline showing only the new code cannot answer "what happened to
+   * QR-00412".
+   */
+  if ('qr_value' in changes) {
+    const raw = changes.qr_value
+    const to = isPair(raw) ? raw.to : raw
+    const from = isPair(raw) ? raw.from : current?.qr_value
+    out.push({
+      label: 'QR code',
+      value: from && from !== to ? `${String(from)} → ${String(to)}` : String(to ?? '—'),
+    })
+  }
+
+  // Why a spare was retired, when whoever asked for it said.
+  if (typeof changes.reason === 'string' && changes.reason.trim()) {
+    out.push({ label: 'Reason', value: changes.reason.trim() })
+  }
+
   if ('facility_id' in changes) {
     const raw = changes.facility_id
     const toId = isPair(raw) ? raw.to : raw

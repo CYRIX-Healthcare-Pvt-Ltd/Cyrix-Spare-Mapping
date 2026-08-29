@@ -22,6 +22,19 @@ const STATUS_STYLE: Record<string, string> = {
   rejected: 'bg-red-50 text-red-700',
 }
 
+/*
+ * Two of the three kinds get a badge; `edit` does not.
+ *
+ * The colours are the ones those actions already wear elsewhere -- red for
+ * retiring a spare, purple for the scanner and anything to do with codes --
+ * so the badge is recognised before it is read.
+ */
+const KIND_STYLE: Record<string, string> = {
+  delete: 'bg-red-50 text-red-700',
+  remap: 'bg-purple-50 text-purple-700',
+  edit: '',
+}
+
 export default function EditRequests() {
   const { profile } = useAuth()
   const [rows, setRows] = useState<DisplayRow[]>([])
@@ -186,21 +199,58 @@ export default function EditRequests() {
               <Link to={`/equipment/${r.equipment_id}`} className="font-medium text-slate-900 hover:underline">
                 {r.equipment?.name ?? 'Deleted spare'}
               </Link>
-              <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[r.status]}`}>
-                {r.status}
-              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {/* Only when it is not an edit. Labelling the ordinary case
+                    would put a badge on every row and make the two that
+                    change the record itself no easier to pick out. */}
+                {r.kind !== 'edit' && (
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${KIND_STYLE[r.kind]}`}>
+                    {r.kind === 'delete' ? 'delete' : 'new code'}
+                  </span>
+                )}
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[r.status]}`}>
+                  {r.status}
+                </span>
+              </div>
             </div>
             <p className="mb-2 text-xs text-slate-500">
               {r.facilityName} · requested by {r.requesterName}
               {r.requesterEcode && ` (${r.requesterEcode})`} ·{' '}
               {formatDate(r.created_at)}
             </p>
-            <ProposedChanges
-              changes={r.proposed_changes}
-              fieldDefs={fieldDefs}
-              facilities={facilities}
-              current={r.equipment ?? undefined}
-            />
+            {/*
+              A field diff is one kind of answer to "what is being asked
+              for". The other two are not diffs at all, so they say what
+              they are in a sentence rather than being forced through a
+              renderer built for changed fields.
+            */}
+            {r.kind === 'delete' ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                <p className="font-medium">Asks to delete this spare</p>
+                <p className="mt-0.5 text-xs text-red-700">
+                  {typeof r.proposed_changes.reason === 'string' && r.proposed_changes.reason
+                    ? r.proposed_changes.reason
+                    : 'No reason given.'}
+                </p>
+              </div>
+            ) : r.kind === 'remap' ? (
+              <div className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm text-purple-900">
+                <p className="font-medium">Asks to replace the QR code</p>
+                <p className="mt-0.5 font-mono text-xs text-purple-800">
+                  {r.equipment?.qr_value ?? '—'} → {String(r.proposed_changes.qr_value ?? '—')}
+                </p>
+                <p className="mt-1 text-xs text-purple-700">
+                  Same spare, same history. Only the code changes.
+                </p>
+              </div>
+            ) : (
+              <ProposedChanges
+                changes={r.proposed_changes}
+                fieldDefs={fieldDefs}
+                facilities={facilities}
+                current={r.equipment ?? undefined}
+              />
+            )}
             {r.review_note && <p className="mt-2 text-xs italic text-slate-500">Note: {r.review_note}</p>}
 
             {canReview && r.status === 'pending' && (

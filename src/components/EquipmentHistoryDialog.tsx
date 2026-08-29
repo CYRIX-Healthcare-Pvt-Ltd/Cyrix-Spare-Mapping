@@ -2,8 +2,33 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { pickTimeFormatter } from '../lib/formatDate'
 import { describeChanges } from '../lib/describeChanges'
-import { SpinnerIcon, XIcon, TagIcon, PencilIcon } from './icons'
+import { SpinnerIcon, XIcon, TagIcon, PencilIcon, ScanIcon, TrashIcon } from './icons'
 import type { EquipmentHistoryRow, FacilityRow, FieldDefinitionRow } from '../types/app'
+
+/*
+ * How each kind of event reads in the timeline.
+ *
+ * "Recoded" rather than "Remapped": remapping is what this app calls
+ * pointing a spare at a catalogue item, and reusing the word for the
+ * sticker changing would make the two impossible to tell apart in a log
+ * that carries both.
+ *
+ * Falling back to the edit styling for anything unrecognised, so a future
+ * action added in a migration shows up as an entry rather than a blank.
+ */
+const ACTION_WORD: Record<string, string> = {
+  created: 'Tagged',
+  updated: 'Edited',
+  remapped: 'Recoded',
+  deleted: 'Deleted',
+}
+
+const ACTION_STYLE: Record<string, string> = {
+  created: 'bg-emerald-50 text-emerald-600',
+  updated: 'bg-blue-50 text-blue-600',
+  remapped: 'bg-purple-50 text-purple-600',
+  deleted: 'bg-red-50 text-red-600',
+}
 
 interface HistoryEntry extends EquipmentHistoryRow {
   performerName: string | null
@@ -122,11 +147,12 @@ export function EquipmentHistoryDialog({
               <li key={h.id} className="flex gap-3">
                 <div className="relative flex w-7 shrink-0 flex-col items-center">
                   <span
-                    className={`z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full ${
-                      h.action === 'created' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
-                    }`}
+                    className={`z-10 grid h-7 w-7 shrink-0 place-items-center rounded-full ${ACTION_STYLE[h.action] ?? ACTION_STYLE.updated}`}
                   >
-                    {h.action === 'created' ? <TagIcon className="h-3.5 w-3.5" /> : <PencilIcon className="h-3.5 w-3.5" />}
+                    {h.action === 'created' ? <TagIcon className="h-3.5 w-3.5" />
+                      : h.action === 'remapped' ? <ScanIcon className="h-3.5 w-3.5" />
+                      : h.action === 'deleted' ? <TrashIcon className="h-3.5 w-3.5" />
+                      : <PencilIcon className="h-3.5 w-3.5" />}
                   </span>
                   {i < entries.length - 1 && <span className="w-px flex-1 bg-slate-200" />}
                 </div>
@@ -134,7 +160,7 @@ export function EquipmentHistoryDialog({
                   {/* Written as a sentence so the entry reads at a glance
                       rather than needing the labels decoded. */}
                   <p className="text-sm text-slate-900">
-                    <span className="font-semibold">{h.action === 'created' ? 'Tagged' : 'Edited'}</span>
+                    <span className="font-semibold">{ACTION_WORD[h.action] ?? 'Edited'}</span>
                     <span className="text-slate-500"> by </span>
                     <span className="font-medium">{who(h.performerName, h.performerEcode)}</span>
                   </p>

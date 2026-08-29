@@ -4,7 +4,9 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { client } from '../lib/branding'
 import { EquipmentForm } from '../components/EquipmentForm'
-import { ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon } from '../components/icons'
+import {
+  ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon, ScanIcon, TrashIcon,
+} from '../components/icons'
 import { formatDate } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
 import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
@@ -88,6 +90,21 @@ export default function EquipmentView() {
   const [error, setError] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
+
+  /*
+   * Replacing the code and retiring the spare live inside Edit, because
+   * that is where somebody already is when they discover the sticker has
+   * gone or the item has. Only one is open at a time — they are both
+   * things you do to the whole record, and two open panels asking for
+   * different confirmations is how the wrong one gets confirmed.
+   */
+  const [action, setAction] = useState<'remap' | 'delete' | null>(null)
+  const [newQr, setNewQr] = useState('')
+  const [reason, setReason] = useState('')
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  // A manager applies these; everyone else proposes them.
+  const canEditDirectly = profile?.role === 'project_manager' || profile?.role === 'admin'
 
   const load = useCallback(async () => {
     if (!id || !profile) return
@@ -252,6 +269,117 @@ export default function EquipmentView() {
     setSubmitting(false)
   }
 
+  /**
+   * Replace the sticker, keep the spare.
+   *
+   * A QR gets torn off or rubbed out, and a new one goes on. The unit has
+   * not changed — same item, same fields, same history — so this moves
+   * `qr_value` on the row that already exists rather than tagging a second
+   * record for one physical thing and orphaning the first. The old code
+   * goes into the history entry, which is the only way to recognise this
+   * afterwards as the spare that used to carry it.
+   */
+  async function submitRemap() {
+    if (!equipment || !profile) return
+    const next = newQr.trim()
+    if (!next) { setActionError('Scan or type the new code first.'); return }
+    if (next === equipment.qr_value) { setActionError('That is already this spare\'s code.'); return }
+
+    setSubmitting(true)
+    setActionError(null)
+
+    // Checked here for a sentence somebody can act on. The database has the
+    // last word either way -- qr_value is unique across every row.
+    const { data: clash } = await supabase
+      .from('equipment')
+      .select('id')
+      .eq('qr_value', next)
+      .maybeSingle()
+    if (clash && clash.id !== equipment.id) {
+      setActionError('That code is already on another spare.')
+      setSubmitting(false)
+      return
+    }
+
+    if (canEditDirectly) {
+      const { error: e } = await supabase
+        .from('equipment')
+        .update({ qr_value: next, updated_by: profile.id })
+        .eq('id', equipment.id)
+      if (e) { setActionError(e.message); setSubmitting(false); return }
+      await supabase.from('equipment_history').insert({
+        equipment_id: equipment.id,
+        action: 'remapped',
+        changes: { qr_value: { from: equipment.qr_value, to: next } },
+        performed_by: profile.id,
+      })
+      setAction(null)
+      setNewQr('')
+      await load()
+    } else {
+      const { error: e } = await supabase.from('edit_requests').insert({
+        equipment_id: equipment.id,
+        requested_by: profile.id,
+        kind: 'remap',
+        proposed_changes: { qr_value: next },
+      })
+      if (e) { setActionError(e.message); setSubmitting(false); return }
+      setAction(null)
+      setNewQr('')
+      setHasPendingRequest(true)
+      setEditing(false)
+    }
+    setSubmitting(false)
+  }
+
+  /**
+   * Retire the spare.
+   *
+   * Never a row deletion: `equipment_history` and `edit_requests` both
+   * cascade from `equipment`, so removing it would take the spare's whole
+   * history and the approval that authorised the removal along with it.
+   * The row stays, marked, and leaves every list.
+   */
+  async function submitDelete() {
+    if (!equipment || !profile) return
+    setSubmitting(true)
+    setActionError(null)
+
+    if (canEditDirectly) {
+      const { error: e } = await supabase
+        .from('equipment')
+        .update({
+          deleted_at: new Date().toISOString(),
+          deleted_by: profile.id,
+          updated_by: profile.id,
+        })
+        .eq('id', equipment.id)
+      if (e) { setActionError(e.message); setSubmitting(false); return }
+      await supabase.from('equipment_history').insert({
+        equipment_id: equipment.id,
+        action: 'deleted',
+        changes: reason.trim() ? { reason: reason.trim() } : {},
+        performed_by: profile.id,
+      })
+      setSubmitting(false)
+      navigate('/tagged')
+      return
+    }
+
+    const { error: e } = await supabase.from('edit_requests').insert({
+      equipment_id: equipment.id,
+      requested_by: profile.id,
+      kind: 'delete',
+      proposed_changes: reason.trim() ? { reason: reason.trim() } : {},
+    })
+    if (e) { setActionError(e.message); setSubmitting(false); return }
+    setAction(null)
+    setReason('')
+    setHasPendingRequest(true)
+    setEditing(false)
+    setSubmitting(false)
+  }
+
   if (loading) return null
 
   if (notFound || !equipment || !profile) {
@@ -264,8 +392,6 @@ export default function EquipmentView() {
       </div>
     )
   }
-
-  const canEditDirectly = profile.role === 'project_manager' || profile.role === 'admin'
 
   // Seconds are shown only when two entries would otherwise look identical.
   return (
@@ -308,12 +434,151 @@ export default function EquipmentView() {
             Cancel
           </button>
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+          {/*
+            The two things that change the record rather than its fields.
+            Set apart by a rule and named for what they are, because a
+            button that retires an asset should not sit in the same run as
+            the ones that correct a typo.
+          */}
+          <div className="mt-8 border-t border-slate-200 pt-5">
+            <h2 className="text-sm font-semibold text-slate-900">This spare</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {canEditDirectly
+                ? 'Applied straight away, and recorded in the history.'
+                : 'Both go to your manager for approval.'}
+            </p>
+
+            {action === null && (
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => { setAction('remap'); setActionError(null) }}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <ScanIcon className="h-4 w-4 text-purple-600" />
+                  Replace QR code
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAction('delete'); setActionError(null) }}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                  Delete this spare
+                </button>
+              </div>
+            )}
+
+            {action === 'remap' && (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-surface-muted p-4">
+                <p className="text-sm font-medium text-slate-900">Replace the QR code</p>
+                {/* Says what survives, because that is the whole question
+                    somebody has before doing this to a tagged asset. */}
+                <p className="mt-1 text-xs text-slate-500">
+                  For a sticker that has torn or worn off. The spare keeps its item,
+                  its fields and its history — only the code changes, and the old one
+                  stays in the history.
+                </p>
+                <label className="mt-3 block text-xs font-medium text-slate-600">
+                  Current code
+                  <p className="mt-1 font-mono text-sm text-slate-500">{equipment.qr_value}</p>
+                </label>
+                <label className="mt-3 block text-xs font-medium text-slate-600">
+                  New code
+                  <input
+                    value={newQr}
+                    onChange={(e) => setNewQr(e.target.value)}
+                    placeholder="Scan the new sticker, or type its code"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="mt-1 w-full rounded-lg border border-slate-300 bg-surface px-3 py-2 font-mono text-sm text-slate-900"
+                  />
+                </label>
+                {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={submitRemap}
+                    className="flex-1 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
+                  >
+                    {canEditDirectly ? 'Replace code' : 'Request replacement'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAction(null); setNewQr(''); setActionError(null) }}
+                    className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-slate-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {action === 'delete' && (
+              <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                <p className="text-sm font-medium text-red-800">Delete this spare</p>
+                <p className="mt-1 text-xs text-red-700">
+                  It leaves the tagged list and stops counting towards its item. The
+                  record and its history are kept, so what happened to it can still be
+                  answered later.
+                </p>
+                <label className="mt-3 block text-xs font-medium text-red-800">
+                  Reason (optional)
+                  <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    rows={2}
+                    placeholder="Tagged in error, item scrapped…"
+                    className="mt-1 w-full rounded-lg border border-red-200 bg-surface px-3 py-2 text-sm text-slate-900"
+                  />
+                </label>
+                {actionError && <p className="mt-2 text-sm text-red-700">{actionError}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={submitDelete}
+                    className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    {canEditDirectly ? 'Delete spare' : 'Request deletion'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAction(null); setReason(''); setActionError(null) }}
+                    className="rounded-lg px-3 py-2 text-sm text-red-700 hover:text-red-900"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       ) : (
         <>
+          {/*
+            A retired spare is still reachable — its code is still on a
+            sticker somewhere, and scanning it lands here. Saying so is the
+            whole reason the row was kept rather than deleted, so it is the
+            first thing on the page and nothing below it offers to edit.
+          */}
+          {equipment.deleted_at && (
+            <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm font-medium text-red-800">This spare was deleted</p>
+              <p className="mt-0.5 text-xs text-red-700">
+                {formatDate(equipment.deleted_at)}. It no longer appears in the tagged
+                list or counts towards its item. The record is kept so its history can
+                still be read.
+              </p>
+            </div>
+          )}
+
           <div className="mb-1 flex items-start justify-between gap-2">
             <h1 className="text-lg font-semibold text-slate-900">{equipment.name}</h1>
-            {(canEditDirectly || !hasPendingRequest) && (
+            {!equipment.deleted_at && (canEditDirectly || !hasPendingRequest) && (
               <button
                 onClick={() => setEditing(true)}
                 className="flex shrink-0 items-center gap-1 rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50"
