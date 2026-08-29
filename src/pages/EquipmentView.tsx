@@ -11,6 +11,7 @@ import { formatDate } from '../lib/formatDate'
 import { formatFieldValue } from '../lib/fieldFormat'
 import { EquipmentHistoryDialog } from '../components/EquipmentHistoryDialog'
 import { ImageLightbox } from '../components/ImageLightbox'
+import { QRScanner } from '../components/QRScanner'
 import { blueStarCodeFromForm, lookupBlueStarItem } from '../lib/blueStarItem'
 import { setTagCyrixMapping } from '../lib/mapping'
 import type {
@@ -100,6 +101,7 @@ export default function EquipmentView() {
    */
   const [action, setAction] = useState<'remap' | 'delete' | null>(null)
   const [newQr, setNewQr] = useState('')
+  const [scanning, setScanning] = useState(false)
   const [reason, setReason] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
 
@@ -279,10 +281,39 @@ export default function EquipmentView() {
    * goes into the history entry, which is the only way to recognise this
    * afterwards as the spare that used to carry it.
    */
+  /**
+   * A scanned code, checked before it is accepted into the field.
+   *
+   * Told here rather than on submit because the sticker is in front of
+   * you at this moment: hearing "that one is already on another spare"
+   * now means reaching for a different sticker, and hearing it two taps
+   * later means going back to find one.
+   */
+  async function handleScan(text: string) {
+    setScanning(false)
+    setActionError(null)
+    if (!equipment) return
+
+    if (text === equipment.qr_value) {
+      setActionError('That is the sticker already on this spare.')
+      return
+    }
+    const { data: clash } = await supabase
+      .from('equipment')
+      .select('id, name')
+      .eq('qr_value', text)
+      .maybeSingle()
+    if (clash) {
+      setActionError(`That code is already on another spare (${clash.name}).`)
+      return
+    }
+    setNewQr(text)
+  }
+
   async function submitRemap() {
     if (!equipment || !profile) return
     const next = newQr.trim()
-    if (!next) { setActionError('Scan or type the new code first.'); return }
+    if (!next) { setActionError('Scan the new sticker first.'); return }
     if (next === equipment.qr_value) { setActionError('That is already this spare\'s code.'); return }
 
     setSubmitting(true)
@@ -484,23 +515,41 @@ export default function EquipmentView() {
                   Current code
                   <p className="mt-1 font-mono text-sm text-slate-500">{equipment.qr_value}</p>
                 </label>
-                <label className="mt-3 block text-xs font-medium text-slate-600">
-                  New code
-                  <input
-                    value={newQr}
-                    onChange={(e) => setNewQr(e.target.value)}
-                    placeholder="Scan the new sticker, or type its code"
-                    autoCapitalize="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    className="mt-1 w-full rounded-lg border border-slate-300 bg-surface px-3 py-2 font-mono text-sm text-slate-900"
-                  />
-                </label>
+                {/*
+                  Scanned, never typed. A code is a random string off a
+                  printed sticker — `kobiybaamb` — so a text field invites
+                  a transcription error that silently points the spare at
+                  nothing, or worse, at something else.
+                */}
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-slate-600">New code</p>
+                  {newQr ? (
+                    <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                      <span className="min-w-0 break-all font-mono text-sm text-emerald-900">{newQr}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setNewQr(''); setScanning(true); setActionError(null) }}
+                        className="shrink-0 text-xs font-medium text-emerald-700 hover:underline"
+                      >
+                        Scan again
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setScanning(true); setActionError(null) }}
+                      className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-3 text-sm font-medium text-purple-700"
+                    >
+                      <ScanIcon className="h-4 w-4" />
+                      Scan the new sticker
+                    </button>
+                  )}
+                </div>
                 {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
                 <div className="mt-3 flex gap-2">
                   <button
                     type="button"
-                    disabled={submitting}
+                    disabled={submitting || !newQr}
                     onClick={submitRemap}
                     className="flex-1 rounded-lg bg-brand-700 px-3 py-2 text-sm font-medium text-on-brand disabled:opacity-60"
                   >
@@ -508,7 +557,7 @@ export default function EquipmentView() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setAction(null); setNewQr(''); setActionError(null) }}
+                    onClick={() => { setAction(null); setNewQr(''); setScanning(false); setActionError(null) }}
                     className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-slate-800"
                   >
                     Cancel
@@ -713,6 +762,35 @@ export default function EquipmentView() {
           title={equipment.name}
           onClose={() => setHistoryOpen(false)}
         />
+      )}
+
+      {/*
+        The same scanner the Scan tab uses, over the page rather than on
+        another route — leaving for /scan would lose which spare is being
+        recoded, and coming back would mean finding it again.
+
+        Unmounted rather than hidden when it closes, because that is what
+        releases the camera: QRScanner stops the stream in its cleanup.
+      */}
+      {scanning && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-canvas">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Scan the new sticker</p>
+              <p className="truncate text-xs text-slate-500">Replacing the code on {equipment.name}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setScanning(false)}
+              className="shrink-0 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <QRScanner onDecode={handleScan} />
+          </div>
+        </div>
       )}
     </div>
   )
