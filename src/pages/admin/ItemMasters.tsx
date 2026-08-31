@@ -35,7 +35,7 @@ import {
   CLIENT_SHEET_HEADERS,
   CLIENT_SHEET_SAMPLE,
   CLIENT_SHEET_ATTRIBUTE_KEYS,
-  isChoosable,
+  isHideable,
   attributeKeysFor,
   fetchCatalogueColumns,
   registerImportedColumns,
@@ -474,10 +474,11 @@ export default function ItemMasters() {
     }))
   }, [columns, tab])
 
-  // The built-in columns always render; only the file's own columns answer
-  // to the visibility the admin chose for them.
+  // Every column answers to the visibility the admin chose, except the item
+  // code -- a row nobody can identify is not a shorter table, it's a broken
+  // one. Migration 0033 holds the same line in the database.
   const visibleColumns = useMemo(
-    () => activeColumns.filter((c) => !isChoosable(c) || c.visible),
+    () => activeColumns.filter((c) => !isHideable(c) || c.visible),
     [activeColumns]
   )
 

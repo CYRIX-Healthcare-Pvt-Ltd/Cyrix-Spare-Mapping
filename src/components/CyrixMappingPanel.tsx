@@ -87,6 +87,11 @@ export function CyrixMappingPanel({
       onResolve({
         blueStarItemCode: bs?.item_code ?? null,
         blueStarItemName: bs?.item_name ?? null,
+        blueStarQuantity: bs?.quantity ?? null,
+        // Everything else their file carried. Most of a master file lands
+        // here rather than in a column of its own, so a form field that
+        // names its source is usually naming one of these.
+        blueStarAttributes: bs?.attributes ?? {},
         cyrixItemCode: detail?.item_code ?? cyrixCode,
         cyrixItemName: detail?.item_name ?? null,
         make: detail?.make ?? null,
@@ -109,6 +114,10 @@ export function CyrixMappingPanel({
     const code = blueStarCode.trim()
     if (!code) {
       setLookup({ state: 'idle' })
+      // Clearing the code clears what it filled in. A form left holding the
+      // last item's group and tax rate under a blank code is worse than an
+      // empty one -- it reads as fact.
+      reportRef.current(null, null)
       return
     }
 
@@ -120,6 +129,9 @@ export function CyrixMappingPanel({
 
       if (!item) {
         setLookup({ state: 'missing' })
+        // Same reasoning: a code that matches nothing must not leave the
+        // previous code's details standing.
+        reportRef.current(null, null)
         return
       }
       setLookup({ state: 'found', item })

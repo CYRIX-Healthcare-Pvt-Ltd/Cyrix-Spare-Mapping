@@ -37,16 +37,64 @@ export const CORE_COLUMNS: Record<CatalogueKey, { key: string; label: string }[]
 }
 
 /**
- * The built-in columns are not a preference.
+ * Whether the admin may reorder or remove this column.
  *
- * The item code and name identify the row, and Cyrix item, Qty, Tagged and
- * Status are the tagging progress this app exists to report -- switching one
- * off doesn't tidy the table, it removes the point of it. So the choice is
- * only ever over the columns a file brought with it. A check constraint in
- * migration 0028 holds the same line in the database.
+ * Only the file's own columns. A built-in column has a fixed place -- it is
+ * seeded at a known sort order and read from a real database column rather
+ * than from `attributes`, so there is nothing to remove it *from*.
  */
 export function isChoosable(column: { source: CatalogueColumnSource }): boolean {
   return column.source === 'imported'
+}
+
+/**
+ * Whether the admin may hide this column.
+ *
+ * Every column but the identity. 0028 pinned all six built-in columns on the
+ * reasoning that they are what the catalogue is; that holds for the item
+ * code, which is how a row is recognised, selected and deleted, and holds
+ * much less well for the rest. A warehouse that doesn't work in quantities
+ * was still made to look at a Qty column forever. So the code stays and the
+ * rest is the admin's call -- the same line migration 0033 draws in the
+ * database.
+ */
+export function isHideable(column: { key: string }): boolean {
+  return column.key !== 'item_code'
+}
+
+/**
+ * Columns that report tagging progress rather than describe the part.
+ *
+ * They are computed from the tags, not read from any file, which is why
+ * they can't fill in a form field: "2 of 4 tagged" is a fact about the
+ * catalogue's state, not about the spare in the engineer's hand.
+ */
+const COMPUTED_KEYS = new Set(['cyrix_item', 'tagged', 'status'])
+
+/** A client item master column a custom field can be autofilled from. */
+export interface AutofillSource {
+  key: string
+  label: string
+}
+
+/**
+ * What a custom field can name as its source, in the table's own order.
+ *
+ * The client's catalogue as it actually stands: the code, the name, the
+ * quantity, and every column their uploaded file turned out to carry. That
+ * last part is the point -- "Item Group(Material Group)", "HSN/SAC Code" and
+ * "Tax Rate" only exist because a file had them, so the list has to be read
+ * back from the file rather than written down here.
+ *
+ * Hidden columns are listed too. Whether a column belongs in the item master
+ * table and whether a form field should be filled from it are two different
+ * questions, and an admin who hides Tax Rate from a crowded table has not
+ * said anything about the tag form.
+ */
+export async function fetchAutofillSources(): Promise<AutofillSource[]> {
+  const columns = await fetchCatalogueColumns('bluestar')
+  const rows = columns.length > 0 ? columns.map((c) => ({ key: c.key, label: c.label })) : CORE_COLUMNS.bluestar
+  return rows.filter((c) => !COMPUTED_KEYS.has(c.key))
 }
 
 /**
@@ -324,20 +372,27 @@ export async function registerImportedColumns(
 /**
  * Writes the file columns' layout in one request, so it can't half-apply.
  *
- * They start at 1000 to stay after the built-in columns, which are seeded at
- * 10..90 and are not reorderable -- so ordering here is ordering among the
- * file's own columns, which all sit to the right of the app's.
+ * The file's columns start at 1000 to stay after the built-in ones, which
+ * are seeded at 10..90 and are not reorderable -- so ordering here is
+ * ordering among the file's own columns, which all sit to the right of the
+ * app's. Built-in rows still go through this call, because their visibility
+ * is now a choice too.
  */
 export async function saveColumnLayout(columns: CatalogueColumn[]): Promise<string | null> {
   if (columns.length === 0) return null
+  // Only the file's own columns are renumbered. A built-in column keeps the
+  // sort order it was seeded with -- it can be hidden, but it can't be
+  // dragged, and renumbering it here would file the app's own columns in
+  // behind the file's on the first save.
+  let position = 0
   const { error } = await supabase.from('catalogue_columns').upsert(
-    columns.map((c, i) => ({
+    columns.map((c) => ({
       catalogue: c.catalogue,
       key: c.key,
       label: c.label,
       source: c.source,
       visible: c.visible,
-      sort_order: 1000 + i * 10,
+      sort_order: isChoosable(c) ? 1000 + position++ * 10 : c.sort_order,
     })),
     { onConflict: 'catalogue,key' }
   )

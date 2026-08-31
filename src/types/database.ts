@@ -121,6 +121,16 @@ export interface Database {
           required: boolean
           display_order: number
           active: boolean
+          /**
+           * Which client item master column fills this field in (0033).
+           *
+           * 'item_code', 'item_name' and 'quantity' are real columns on
+           * bluestar_item_master; anything else is a key in its `attributes`
+           * bag, which is where every column an uploaded file happened to
+           * carry ends up. Null means fall back to reading the label, which
+           * is how every field defined before 0033 still behaves.
+           */
+          autofill_source: string | null
           created_at: string
           updated_at: string
         }
@@ -133,6 +143,7 @@ export interface Database {
           required?: boolean
           display_order?: number
           active?: boolean
+          autofill_source?: string | null
         }
         Update: Partial<{
           field_key: string
@@ -143,6 +154,7 @@ export interface Database {
           required: boolean
           display_order: number
           active: boolean
+          autofill_source: string | null
         }>
         Relationships: []
       }
