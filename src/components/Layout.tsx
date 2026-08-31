@@ -91,7 +91,12 @@ export function Layout() {
     },
     { to: '/requests', label: 'Requests', icon: ClipboardIcon, show: true, activeText: 'text-yellow-600', pillBg: 'bg-yellow-50', accentBg: 'bg-yellow-600' },
     {
-      to: '/admin/facilities',
+      // The custom fields are what an admin has here; warehouses and the
+      // rest are the software's setup and live on the shared
+      // Administration screen. Pointing this at facilities would have
+      // sent a plain admin to a page the route guard turns them away from.
+      to: '/admin/fields',
+      also: ['/admin/'],
       label: 'Admin',
       icon: SettingsIcon,
       show: profile.role === 'admin',

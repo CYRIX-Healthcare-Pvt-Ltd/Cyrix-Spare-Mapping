@@ -94,24 +94,20 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/*
+        An admin here maintains the custom fields — the list an engineer
+        fills in when tagging a spare, which changes with the work and is
+        genuinely Spare's own.
+
+        Warehouses, logins and settings are setting up the software rather
+        than running it, so they sit with every other module's setup on
+        the shared Administration screen, and appear here only for the
+        account that administers it.
+      */}
       {profile.role === 'admin' && (
         <div>
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Admin</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            <AdminLink
-              to="/admin/facilities"
-              icon={BuildingIcon}
-              label="Warehouses"
-              iconClass="text-blue-600"
-              hoverClass="hover:border-blue-300 hover:bg-blue-50"
-            />
-            <AdminLink
-              to="/items"
-              icon={PackageIcon}
-              label="Item masters"
-              iconClass="text-teal-600"
-              hoverClass="hover:border-teal-300 hover:bg-teal-50"
-            />
             <AdminLink
               to="/admin/fields"
               icon={ClipboardIcon}
@@ -120,19 +116,37 @@ export default function Dashboard() {
               hoverClass="hover:border-cyan-300 hover:bg-cyan-50"
             />
             <AdminLink
-              to="/admin/users"
-              icon={UsersIcon}
-              label="Users"
-              iconClass="text-lime-600"
-              hoverClass="hover:border-lime-300 hover:bg-lime-50"
+              to="/items"
+              icon={PackageIcon}
+              label="Item masters"
+              iconClass="text-teal-600"
+              hoverClass="hover:border-teal-300 hover:bg-teal-50"
             />
-            <AdminLink
-              to="/admin/settings"
-              icon={SettingsIcon}
-              label="Settings"
-              iconClass="text-indigo-600"
-              hoverClass="hover:border-indigo-300 hover:bg-indigo-50"
-            />
+            {profile.isSwAdmin && (
+              <>
+                <AdminLink
+                  to="/admin/facilities"
+                  icon={BuildingIcon}
+                  label="Warehouses"
+                  iconClass="text-blue-600"
+                  hoverClass="hover:border-blue-300 hover:bg-blue-50"
+                />
+                <AdminLink
+                  to="/admin/users"
+                  icon={UsersIcon}
+                  label="Users"
+                  iconClass="text-lime-600"
+                  hoverClass="hover:border-lime-300 hover:bg-lime-50"
+                />
+                <AdminLink
+                  to="/admin/settings"
+                  icon={SettingsIcon}
+                  label="Settings"
+                  iconClass="text-indigo-600"
+                  hoverClass="hover:border-indigo-300 hover:bg-indigo-50"
+                />
+              </>
+            )}
           </div>
         </div>
       )}

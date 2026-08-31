@@ -436,6 +436,12 @@ export interface Database {
         Returns: Database['public']['Tables']['equipment']['Row']
       }
       is_admin: { Args: Record<string, never>; Returns: boolean }
+      /**
+       * Administers the software, as opposed to administering Spare
+       * (migration 0068). Reads KPI's user_roles, which is why it is a
+       * definer function rather than a query this app could make.
+       */
+      is_sw_admin: { Args: Record<string, never>; Returns: boolean }
     }
   }
 }

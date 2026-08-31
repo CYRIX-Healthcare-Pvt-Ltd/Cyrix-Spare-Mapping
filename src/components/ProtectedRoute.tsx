@@ -22,7 +22,26 @@ function ToPortal() {
   )
 }
 
-export function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: AppRole[] }) {
+export function ProtectedRoute({
+  children,
+  roles,
+  /**
+   * Setting up the software, rather than running Spare.
+   *
+   * Warehouses, logins and settings are the same kind of thing as every
+   * other module's setup, and they belong on the shared Administration
+   * screen. A Spare admin keeps the custom fields, which is the list an
+   * engineer fills in when tagging and is genuinely Spare's own.
+   *
+   * A guard, not a hidden link: the pages are still routed, so hiding
+   * the tile alone would leave anybody with the URL walking straight in.
+   */
+  swAdminOnly,
+}: {
+  children: ReactNode
+  roles?: AppRole[]
+  swAdminOnly?: boolean
+}) {
   const { session, profile, loading } = useAuth()
 
   if (loading) {
@@ -75,6 +94,10 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
   }
 
   if (roles && !roles.includes(profile.role)) {
+    return <Navigate to="/" replace />
+  }
+
+  if (swAdminOnly && !profile.isSwAdmin) {
     return <Navigate to="/" replace />
   }
 

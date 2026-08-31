@@ -20,6 +20,16 @@ export interface Profile {
    * theirs — and it is 5 KB of base64 a thousand times over.
    */
   avatar: string | null
+  /**
+   * Administers the software itself, as opposed to administering Spare.
+   *
+   * `role` says `admin` for both, because it is synced from KPI's
+   * hr_admin and sw_admin (migration 0059). A Spare admin maintains the
+   * custom fields — Spare's own business. Warehouses, item masters,
+   * logins and settings are setup, and they live on the shared
+   * Administration screen with every other module's.
+   */
+  isSwAdmin: boolean
 }
 
 interface AuthContextValue {
@@ -34,13 +44,18 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 async function loadProfile(userId: string): Promise<Profile | null> {
-  const [{ data: profileRow }, { data: facilityRows }, employee] = await Promise.all([
+  const [{ data: profileRow }, { data: facilityRows }, employee, swAdmin] = await Promise.all([
     supabase.from('profiles').select('id, ecode, full_name, role, active').eq('id', userId).single(),
     supabase.from('user_facilities').select('facility_id').eq('user_id', userId),
     // maybeSingle, not single: an account can exist here without an
     // employee record behind it, and a missing photo is a missing photo,
     // not a failed sign-in.
     supabase.from('employees').select('avatar').eq('auth_user_id', userId).maybeSingle(),
+    // An RPC, because this reads KPI's user_roles and a Spare account has
+    // no business reading the rest of that table. Failing closed: an
+    // error leaves the setup screens hidden, which is the safe way round
+    // for a permission check.
+    supabase.rpc('is_sw_admin').then(r => r, () => ({ data: false })),
   ])
 
   if (!profileRow) return null
@@ -61,6 +76,7 @@ async function loadProfile(userId: string): Promise<Profile | null> {
     ...profileRow,
     facilityIds: (facilityRows ?? []).map((r) => r.facility_id),
     avatar: employeeRow?.avatar ?? null,
+    isSwAdmin: swAdmin.data === true,
   }
 }
 

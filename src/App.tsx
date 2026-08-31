@@ -43,10 +43,20 @@ export default function App() {
             <Route path="/items" element={<ItemMasters />} />
             <Route path="/account" element={<Account />} />
 
+            {/*
+              Warehouses, logins and settings are setting up the software,
+              not running Spare, so they sit with every other module's
+              setup on the shared Administration screen and are reachable
+              here only by the account that administers it.
+
+              Guarded rather than merely unlinked: the routes still exist,
+              so hiding the tile alone would leave anybody who knows the
+              URL walking straight in.
+            */}
             <Route
               path="/admin/facilities"
               element={
-                <ProtectedRoute roles={['admin']}>
+                <ProtectedRoute roles={['admin']} swAdminOnly>
                   <Facilities />
                 </ProtectedRoute>
               }
@@ -64,7 +74,7 @@ export default function App() {
             <Route
               path="/admin/users"
               element={
-                <ProtectedRoute roles={['admin']}>
+                <ProtectedRoute roles={['admin']} swAdminOnly>
                   <Users />
                 </ProtectedRoute>
               }
@@ -72,7 +82,7 @@ export default function App() {
             <Route
               path="/admin/settings"
               element={
-                <ProtectedRoute roles={['admin']}>
+                <ProtectedRoute roles={['admin']} swAdminOnly>
                   <Settings />
                 </ProtectedRoute>
               }
