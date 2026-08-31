@@ -33,7 +33,7 @@ export default function EquipmentNew() {
         fetchFieldSuggestions(),
       ])
       const scoped =
-        currentProfile.role === 'admin'
+        currentProfile.isSpareAdmin
           ? (allFacilities ?? [])
           : (allFacilities ?? []).filter((f) => currentProfile.facilityIds.includes(f.id))
       setFacilities(scoped)

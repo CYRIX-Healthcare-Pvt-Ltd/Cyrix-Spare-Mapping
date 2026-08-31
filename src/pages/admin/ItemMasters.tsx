@@ -299,7 +299,7 @@ export default function ItemMasters() {
   // permitted: the database grants SELECT to any signed-in user and restricts
   // INSERT, UPDATE and DELETE on both tables to is_admin(), so hiding a button
   // is a courtesy rather than the safeguard.
-  const canEdit = profile?.role === 'admin'
+  const canEdit = profile?.isSpareAdmin ?? false
   const [tab, setTab] = useState<Tab>('bluestar')
   const [blueStarRows, setBlueStarRows] = useState<BlueStarItemRow[]>([])
   const [cyrixRows, setCyrixRows] = useState<CyrixItemRow[]>([])

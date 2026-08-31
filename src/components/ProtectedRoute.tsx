@@ -37,10 +37,17 @@ export function ProtectedRoute({
    * the tile alone would leave anybody with the URL walking straight in.
    */
   swAdminOnly,
+  /**
+   * Administers Spare. A flag rather than a role since 0069, so it is a
+   * separate gate from `roles` — a manager who also administers should
+   * pass both, and as a fourth role they could only ever have been one.
+   */
+  adminOnly,
 }: {
   children: ReactNode
   roles?: AppRole[]
   swAdminOnly?: boolean
+  adminOnly?: boolean
 }) {
   const { session, profile, loading } = useAuth()
 
@@ -91,6 +98,10 @@ export function ProtectedRoute({
         </p>
       </div>
     )
+  }
+
+  if (adminOnly && !profile.isSpareAdmin) {
+    return <Navigate to="/" replace />
   }
 
   if (roles && !roles.includes(profile.role)) {

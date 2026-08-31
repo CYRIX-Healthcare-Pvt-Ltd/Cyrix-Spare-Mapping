@@ -56,7 +56,7 @@ export default function EditRequests() {
   const [tab, setTab] = useState<'requests' | 'changes'>('requests')
   const [search, setSearch] = useState('')
 
-  const canReview = profile?.role === 'project_manager' || profile?.role === 'admin'
+  const canReview = profile?.role === 'project_manager' || (profile?.isSpareAdmin ?? false)
 
   /*
    * Purchase reviews one kind and only one kind.
@@ -411,7 +411,7 @@ function RecentChanges({
       if (profile!.role === 'project_manager') {
         const { data: reports } = await supabase.from('profiles').select('id').eq('reports_to', profile!.id)
         creatorIds = [profile!.id, ...(reports ?? []).map((r) => r.id)]
-      } else if (profile!.role === 'admin') {
+      } else if (profile!.isSpareAdmin) {
         creatorIds = null
       }
 

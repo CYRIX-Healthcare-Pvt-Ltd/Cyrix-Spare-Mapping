@@ -13,10 +13,9 @@ const ROLE_LABEL: Record<AppRole, string> = {
   engineer: 'Engineer',
   project_manager: 'Project Manager',
   purchase: 'Purchase',
-  admin: 'Admin',
 }
 
-const VALID_ROLES: AppRole[] = ['engineer', 'project_manager', 'admin']
+const VALID_ROLES: AppRole[] = ['engineer', 'project_manager', 'purchase']
 
 interface UserRow extends ProfileRow {
   facilityIds: string[]
@@ -40,7 +39,7 @@ function parseUserRow(raw: Record<string, string>): { data: UserImportRow } | { 
   if (!roleRaw) return { error: 'role is required' }
   const roleKey = roleRaw.toLowerCase().replace(/[\s-]+/g, '_') as AppRole
   if (!VALID_ROLES.includes(roleKey)) {
-    return { error: `Invalid role "${roleRaw}" (use engineer, project_manager, or admin)` }
+    return { error: `Invalid role "${roleRaw}" (use engineer, project_manager, or purchase)` }
   }
 
   const facility_names = (raw.facility_names ?? '')

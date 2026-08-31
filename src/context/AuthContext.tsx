@@ -23,13 +23,21 @@ export interface Profile {
   /**
    * Administers the software itself, as opposed to administering Spare.
    *
-   * `role` says `admin` for both, because it is synced from KPI's
-   * hr_admin and sw_admin (migration 0059). A Spare admin maintains the
-   * custom fields — Spare's own business. Warehouses, item masters,
-   * logins and settings are setup, and they live on the shared
-   * Administration screen with every other module's.
+   * A Spare admin maintains the custom fields — Spare's own business.
+   * Warehouses, item masters, logins and settings are setup, and they
+   * live on the shared Administration screen with every other module's.
    */
   isSwAdmin: boolean
+  /**
+   * Administers Spare: the custom fields, and anything a project manager
+   * can approve.
+   *
+   * A flag rather than a role since migration 0069 — administering is
+   * something people also do, so it combines with any of the three jobs
+   * instead of replacing one. A manager who maintains the fields was
+   * previously unsayable.
+   */
+  isSpareAdmin: boolean
 }
 
 interface AuthContextValue {
@@ -45,7 +53,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 async function loadProfile(userId: string): Promise<Profile | null> {
   const [{ data: profileRow }, { data: facilityRows }, employee, swAdmin] = await Promise.all([
-    supabase.from('profiles').select('id, ecode, full_name, role, active').eq('id', userId).single(),
+    supabase.from('profiles').select('id, ecode, full_name, role, is_spare_admin, active').eq('id', userId).single(),
     supabase.from('user_facilities').select('facility_id').eq('user_id', userId),
     // maybeSingle, not single: an account can exist here without an
     // employee record behind it, and a missing photo is a missing photo,
@@ -77,6 +85,7 @@ async function loadProfile(userId: string): Promise<Profile | null> {
     facilityIds: (facilityRows ?? []).map((r) => r.facility_id),
     avatar: employeeRow?.avatar ?? null,
     isSwAdmin: swAdmin.data === true,
+    isSpareAdmin: profileRow.is_spare_admin === true,
   }
 }
 

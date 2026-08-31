@@ -13,8 +13,10 @@ import type { AppRole } from '../types/database'
  * engineer who had tagged nothing was told there was one spare, and clicking
  * through showed them an empty list.
  */
-export async function taggedCreatorIds(profile: { id: string; role: AppRole }): Promise<string[] | null> {
-  if (profile.role === 'admin') return null
+export async function taggedCreatorIds(
+  profile: { id: string; role: AppRole; isSpareAdmin: boolean },
+): Promise<string[] | null> {
+  if (profile.isSpareAdmin) return null
 
   if (profile.role === 'project_manager') {
     const { data: reports } = await supabase.from('profiles').select('id').eq('reports_to', profile.id)

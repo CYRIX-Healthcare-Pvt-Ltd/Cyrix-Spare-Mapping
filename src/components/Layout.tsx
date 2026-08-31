@@ -99,7 +99,7 @@ export function Layout() {
       also: ['/admin/'],
       label: 'Admin',
       icon: SettingsIcon,
-      show: profile.role === 'admin',
+      show: profile.isSpareAdmin,
       activeText: 'text-red-600',
       pillBg: 'bg-red-50',
       accentBg: 'bg-red-600',

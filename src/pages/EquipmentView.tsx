@@ -107,7 +107,7 @@ export default function EquipmentView() {
   const [actionError, setActionError] = useState<string | null>(null)
 
   // A manager applies these; everyone else proposes them.
-  const canEditDirectly = profile?.role === 'project_manager' || profile?.role === 'admin'
+  const canEditDirectly = profile?.role === 'project_manager' || (profile?.isSpareAdmin ?? false)
 
   /*
    * Deciding what a spare *is* — which Cyrix item it maps to — is a
@@ -163,7 +163,7 @@ export default function EquipmentView() {
     setTaggedBy(tagger ?? null)
     setUpdatedBy(updater ?? null)
     setAllFacilities(
-      profile.role === 'admin' ? (facilities ?? []) : (facilities ?? []).filter((f) => profile.facilityIds.includes(f.id))
+      profile.isSpareAdmin ? (facilities ?? []) : (facilities ?? []).filter((f) => profile.facilityIds.includes(f.id))
     )
     setFieldDefs(fields ?? [])
     setHasPendingRequest((pending ?? []).length > 0)

@@ -12,7 +12,7 @@
  * permission: not warehouses, not field edits, not deletions. See
  * can_approve_mapping().
  */
-export type AppRole = 'engineer' | 'project_manager' | 'purchase' | 'admin'
+export type AppRole = 'engineer' | 'project_manager' | 'purchase'
 export type FieldType = 'text' | 'number' | 'date' | 'dropdown' | 'textarea' | 'boolean' | 'image' | 'barcode'
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
@@ -49,6 +49,12 @@ export interface Database {
           ecode: string
           full_name: string
           role: AppRole
+          /**
+           * Administers Spare, on top of whatever job `role` says
+           * (migration 0069). It was the fourth value of the role enum,
+           * which made granting somebody the keys take their job away.
+           */
+          is_spare_admin: boolean
           active: boolean
           reports_to: string | null
           created_at: string
@@ -66,6 +72,7 @@ export interface Database {
           ecode: string
           full_name: string
           role: AppRole
+          is_spare_admin: boolean
           active: boolean
           reports_to: string | null
         }>

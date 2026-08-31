@@ -104,7 +104,7 @@ export default function Dashboard() {
         the shared Administration screen, and appear here only for the
         account that administers it.
       */}
-      {profile.role === 'admin' && (
+      {profile.isSpareAdmin && (
         <div>
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Admin</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

@@ -56,7 +56,7 @@ export default function App() {
             <Route
               path="/admin/facilities"
               element={
-                <ProtectedRoute roles={['admin']} swAdminOnly>
+                <ProtectedRoute adminOnly swAdminOnly>
                   <Facilities />
                 </ProtectedRoute>
               }
@@ -64,7 +64,7 @@ export default function App() {
             <Route
               path="/admin/fields"
               element={
-                <ProtectedRoute roles={['admin']}>
+                <ProtectedRoute adminOnly>
                   <Fields />
                 </ProtectedRoute>
               }
@@ -74,7 +74,7 @@ export default function App() {
             <Route
               path="/admin/users"
               element={
-                <ProtectedRoute roles={['admin']} swAdminOnly>
+                <ProtectedRoute adminOnly swAdminOnly>
                   <Users />
                 </ProtectedRoute>
               }
@@ -82,7 +82,7 @@ export default function App() {
             <Route
               path="/admin/settings"
               element={
-                <ProtectedRoute roles={['admin']} swAdminOnly>
+                <ProtectedRoute adminOnly swAdminOnly>
                   <Settings />
                 </ProtectedRoute>
               }

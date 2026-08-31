@@ -38,11 +38,11 @@ export default function TaggedEquipment() {
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number; title: string } | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profile?.isSpareAdmin ?? false
 
   const load = useCallback(async () => {
     if (!profile) return
-    const attribution = profile.role === 'project_manager' || profile.role === 'admin'
+    const attribution = profile.role === 'project_manager' || profile.isSpareAdmin
     setShowAttribution(attribution)
 
     const creatorIds = await taggedCreatorIds(profile)
