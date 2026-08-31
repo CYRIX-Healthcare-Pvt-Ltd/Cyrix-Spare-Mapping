@@ -27,31 +27,49 @@ export function EquipmentForm({
   onSubmit: (values: EquipmentFormValues) => void
   onCreateFacility?: (input: { name: string; district: string | null; city: string | null }) => Promise<FacilityRow>
 }) {
-  const [values, setValues] = useState<EquipmentFormValues>(initialValues)
-  const [autofilled, setAutofilled] = useState<string[]>([])
+  // The values and which of them a scan supplied are one piece of state, not
+  // two. Deciding what a newly resolved item may overwrite needs both at
+  // once, and splitting them would mean reading one while setting the other.
+  const [state, setState] = useState<{ values: EquipmentFormValues; autofilled: string[] }>({
+    values: initialValues,
+    autofilled: [],
+  })
+  const { values, autofilled } = state
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     onSubmit(values)
   }
 
-  // A resolved item fills in whatever it can. Only empty fields are touched,
-  // so anything already typed survives, and every field stays editable
-  // afterwards -- the code is optional and may not resolve.
+  // A resolved item fills in whatever it can, and every field it fills stays
+  // an ordinary editable input afterwards -- the file is a starting point,
+  // not an answer. Scanning a second code refills its own values and clears
+  // the ones the new item has nothing for, so the form never ends up showing
+  // half of one spare and half of another. Anything the tagger typed
+  // themselves is left alone either way.
   function handleItemResolved(item: ResolvedItem) {
-    setValues((v) => {
-      const patch = buildAutofill(fieldDefs, v.custom_fields, item)
-      const keys = Object.keys(patch)
-      if (keys.length === 0) return v
-      setAutofilled((prev) => [...new Set([...prev, ...keys])])
-      return { ...v, custom_fields: { ...v.custom_fields, ...patch } }
+    setState((s) => {
+      const { patch, cleared } = buildAutofill(fieldDefs, s.values.custom_fields, item, s.autofilled)
+      if (Object.keys(patch).length === 0 && cleared.length === 0) return s
+
+      const custom_fields = { ...s.values.custom_fields, ...patch }
+      for (const key of cleared) custom_fields[key] = ''
+      const kept = s.autofilled.filter((k) => !cleared.includes(k))
+
+      return {
+        values: { ...s.values, custom_fields },
+        autofilled: [...new Set([...kept, ...Object.keys(patch)])],
+      }
     })
   }
 
   function handleFieldChange(key: string, val: unknown) {
-    // Once the engineer edits a field themselves it's no longer "autofilled".
-    setAutofilled((prev) => prev.filter((k) => k !== key))
-    setValues((v) => ({ ...v, custom_fields: { ...v.custom_fields, [key]: val } }))
+    // Once the engineer edits a field themselves it's no longer "autofilled",
+    // and nothing a later scan resolves is allowed to overwrite it.
+    setState((s) => ({
+      values: { ...s.values, custom_fields: { ...s.values.custom_fields, [key]: val } },
+      autofilled: s.autofilled.filter((k) => k !== key),
+    }))
   }
 
   return (
@@ -64,7 +82,7 @@ export function EquipmentForm({
           <FacilityPicker
             facilities={facilities}
             value={values.facility_id}
-            onChange={(facility_id) => setValues((v) => ({ ...v, facility_id }))}
+            onChange={(facility_id) => setState((s) => ({ ...s, values: { ...s.values, facility_id } }))}
             onCreateFacility={onCreateFacility}
           />
 
@@ -84,10 +102,13 @@ export function EquipmentForm({
                   : null
               }
               onCyrixSelectionChange={(selection) =>
-                setValues((v) => ({
-                  ...v,
-                  cyrix_item_code: selection?.code ?? null,
-                  cyrix_item_name: selection?.name ?? null,
+                setState((s) => ({
+                  ...s,
+                  values: {
+                    ...s.values,
+                    cyrix_item_code: selection?.code ?? null,
+                    cyrix_item_name: selection?.name ?? null,
+                  },
                 }))
               }
               onChange={handleFieldChange}

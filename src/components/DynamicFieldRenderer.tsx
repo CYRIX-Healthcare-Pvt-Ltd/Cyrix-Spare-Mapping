@@ -18,7 +18,7 @@ export function DynamicFieldRenderer({
   fields: FieldDefinitionRow[]
   values: Record<string, unknown>
   suggestions?: Record<string, string[]>
-  /** Keys of fields filled from a scanned item, marked so the tagger can see what to check. */
+  /** Keys of fields filled from the client item master, marked so the tagger can see what to check. */
   autofilled?: string[]
   cyrixSelection: CyrixSelection | null
   onCyrixSelectionChange: (selection: CyrixSelection | null) => void
@@ -62,10 +62,17 @@ export function DynamicFieldRenderer({
           fullWidth={
             panelAfter?.id === field.id || field.field_type === 'image' || field.field_type === 'textarea'
           }
+          // Said rather than shown as a lock: a value that came off the
+          // client's file is a starting point the tagger is expected to read
+          // and correct, not a fact the form is asserting. The input below
+          // stays an ordinary editable one, and typing in it drops the badge.
           badge={
             autofilled?.includes(field.field_key) ? (
-              <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                From scan
+              <span
+                title="Filled from the client item master — edit it if the spare in front of you says otherwise."
+                className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
+              >
+                From client master · editable
               </span>
             ) : undefined
           }
