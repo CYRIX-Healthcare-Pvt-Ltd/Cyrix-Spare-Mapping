@@ -32,11 +32,24 @@ comment on column public.field_definitions.autofill_source is
 -- The identity stays pinned -- rows are selected, deleted and linked by
 -- item_code, and a table whose rows cannot be told apart is not a tidier
 -- table. Everything else is now the admin's call.
+--
+-- Written to be safely re-runnable. This file may well be applied by hand
+-- against a database whose migration history does not line up with this
+-- directory's, and then replayed later by `supabase db push` -- so a second
+-- run has to be a no-op rather than an error. `add constraint` has no
+-- `if not exists`, hence the drop of the new name as well as the old.
 alter table public.catalogue_columns
   drop constraint if exists catalogue_columns_core_always_visible;
+
+alter table public.catalogue_columns
+  drop constraint if exists catalogue_columns_identity_always_visible;
 
 alter table public.catalogue_columns
   add constraint catalogue_columns_identity_always_visible
   check (key <> 'item_code' or visible);
 
+-- PostgREST caches the schema, and a column it has not seen is reported to
+-- the client as "Could not find the 'autofill_source' column of
+-- 'field_definitions' in the schema cache" -- which reads like the migration
+-- failed rather than like the cache is behind. This is what stops that.
 notify pgrst, 'reload schema';
