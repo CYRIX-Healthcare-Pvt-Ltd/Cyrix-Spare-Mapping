@@ -63,6 +63,11 @@ export function BarcodeItemInput({
           </div>
           <div className="flex flex-1 items-center">
             <QRScanner
+              // The one scanner that must take a code Cyrix did not issue:
+              // this reads the client's own label off the part. The CYR/
+              // check belongs to the sticker that identifies a spare, not
+              // to the catalogue number printed on it by somebody else.
+              anyCode
               onDecode={(text) => {
                 onChange(text)
                 setScanning(false)

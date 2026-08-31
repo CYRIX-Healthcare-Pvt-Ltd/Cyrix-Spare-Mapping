@@ -14,14 +14,44 @@
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, NavLink } from 'react-router-dom'
+import { Html5Qrcode } from 'html5-qrcode'
 import '@fontsource-variable/inter'
 import './index.css'
 import { QRScanner } from './components/QRScanner'
+import { BarcodeItemInput } from './components/BarcodeItemInput'
 import {
   HomeIcon, ScanIcon, PackageIcon, ClipboardIcon, SettingsIcon, GridIcon,
 } from './components/icons'
 import { CyrixLogo } from './components/CyrixLogo'
 import Avatar from './components/Avatar'
+
+/*
+ * A stand-in for the camera, switched on with ?fakecam.
+ *
+ * There is no camera here, so the real start() rejects and the scanner
+ * goes straight to its error state — which means the decode path, where
+ * the CYR/ check and the hold-steady timer both live, could not be
+ * reached locally at all. This lets start() succeed and hands its decode
+ * callback out on `window.__scan`, so a code can be held up to it:
+ *
+ *   __scan('CYR/0000001')   // taken, once it has been held long enough
+ *   __scan('4901234567894') // turned away as somebody else's
+ *
+ * Only where the text comes from is faked. The hold, the check, the
+ * message and the render are all the real component.
+ */
+declare global {
+  interface Window {
+    __scan?: (text: string) => void
+  }
+}
+
+if (new URLSearchParams(location.search).has('fakecam')) {
+  Html5Qrcode.prototype.start = function (_camera, _config, onSuccess) {
+    window.__scan = (text) => onSuccess?.(text, null as never)
+    return Promise.resolve(null)
+  }
+}
 
 const navItems = [
   { to: '/', label: 'Home', icon: HomeIcon, activeText: 'text-brand-700', pillBg: 'bg-brand-50' },
@@ -104,6 +134,26 @@ function RemapPanel() {
   )
 }
 
+/*
+ * The other scanner, the one that must NOT check for CYR/.
+ *
+ * This field reads the client's own catalogue number off the part, so the
+ * code it is pointed at is somebody else's by definition. It sits here
+ * next to the remap scanner because the two want opposite answers from
+ * the same component, and that is exactly the pair a change to either can
+ * quietly break.
+ */
+function BarcodePanel() {
+  const [value, setValue] = useState<unknown>('')
+  return (
+    <div className="border-t border-slate-200 px-4 pt-5" data-testid="barcode-panel">
+      <h2 className="text-sm font-semibold text-slate-900">Client item code</h2>
+      <p className="mt-0.5 mb-3 text-xs text-slate-500">Any code goes — this one is not a Cyrix sticker.</p>
+      <BarcodeItemInput value={value} onChange={setValue} baseClass="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    </div>
+  )
+}
+
 function Harness() {
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
@@ -114,6 +164,7 @@ function Harness() {
 
       <main className="flex-1 pb-20 sm:pb-6 lg:pb-10">
         <RemapPanel />
+        <BarcodePanel />
         <div className="space-y-3 p-4">
           {['Spares tagged', 'Pending approvals', 'Warehouses'].map((t) => (
             <div key={t} className="rounded-xl border border-slate-200 bg-surface p-5">

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CheckIcon, AlertIcon, ImageIcon, SpinnerIcon, RefreshIcon } from './icons'
+import { isCyrixQr, NOT_OUR_QR } from '../lib/qrCode'
 
 type ScanState = 'starting' | 'scanning' | 'success' | 'camera-error'
 
@@ -11,7 +12,10 @@ const FILE_READER_ID = 'qr-reader-file-region'
 // A code has to be read continuously for this long before it's accepted --
 // otherwise the camera sweeping past an unrelated code while the user is
 // still aiming at the right one gets grabbed by mistake.
-const CONFIRM_MS = 1000
+//
+// The camera samples at 10fps, so the wait a person feels is this plus up
+// to another frame.
+const CONFIRM_MS = 700
 
 const CORNER_CLASSES = [
   'top-0 left-0 border-t-4 border-l-4 rounded-tl-lg',
@@ -20,13 +24,30 @@ const CORNER_CLASSES = [
   'bottom-0 right-0 border-b-4 border-r-4 rounded-br-lg',
 ]
 
-export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
+export function QRScanner({
+  onDecode,
+  anyCode = false,
+}: {
+  onDecode: (text: string) => void
+  /**
+   * Take whatever code is in frame, rather than only a Cyrix sticker.
+   *
+   * Off by default, so a new caller gets the check without having to know
+   * to ask for it. The one place it is turned on is the barcode field,
+   * which exists to read the client's own label off the part -- there, a
+   * code that is not ours is the entire point.
+   */
+  anyCode?: boolean
+}) {
   const [state, setState] = useState<ScanState>('starting')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [resultText, setResultText] = useState<string | null>(null)
   const [holding, setHolding] = useState(false)
   const decodedRef = useRef(false)
   const pendingRef = useRef<{ text: string; since: number } | null>(null)
+  // The last code turned away, so it is only announced once rather than on
+  // every frame it stays in view.
+  const rejectedRef = useRef<string | null>(null)
   const holdingTimeoutRef = useRef<number | null>(null)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -44,23 +65,48 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
         (decodedText) => {
           if (decodedRef.current) return
 
+          const ours = anyCode || isCyrixQr(decodedText)
+
           // A code is in frame right now -- show "Hold steady" while we
           // confirm it, and clear that hint if the code drops out of frame
           // for a bit (rather than on every single missed scan attempt,
           // which fires constantly and would just flicker the hint).
-          setHolding(true)
-          if (holdingTimeoutRef.current) window.clearTimeout(holdingTimeoutRef.current)
-          holdingTimeoutRef.current = window.setTimeout(() => setHolding(false), 350)
+          //
+          // Only for a code that would be taken, though: "Got it" over a
+          // label we are about to turn away reads as a promise, and the
+          // green corners would go on to be contradicted by an error.
+          if (ours) {
+            setHolding(true)
+            if (holdingTimeoutRef.current) window.clearTimeout(holdingTimeoutRef.current)
+            holdingTimeoutRef.current = window.setTimeout(() => setHolding(false), 350)
+          }
 
           const now = Date.now()
-          if (pendingRef.current?.text === decodedText) {
-            if (now - pendingRef.current.since < CONFIRM_MS) return
-            decodedRef.current = true
-            setResultText(decodedText)
-            setState('success')
-          } else {
+          if (pendingRef.current?.text !== decodedText) {
             pendingRef.current = { text: decodedText, since: now }
+            return
           }
+          if (now - pendingRef.current.since < CONFIRM_MS) return
+
+          // Held still long enough to be sure of what it says. Somebody
+          // else's code is turned away here and the camera left running,
+          // so the answer is to move it onto the right sticker rather
+          // than to start again. Waiting for the same hold as an accepted
+          // code is deliberate: a stray QR caught for one frame while the
+          // user aims should not throw a warning up.
+          if (!ours) {
+            if (rejectedRef.current !== decodedText) {
+              rejectedRef.current = decodedText
+              setErrorMsg(NOT_OUR_QR)
+            }
+            return
+          }
+
+          rejectedRef.current = null
+          setErrorMsg(null)
+          decodedRef.current = true
+          setResultText(decodedText)
+          setState('success')
         },
         () => {
           /* fires continuously while no code is in frame — expected, ignore */
@@ -77,7 +123,7 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
         scanner.stop().catch(() => {})
       }
     }
-  }, [onDecode])
+  }, [onDecode, anyCode])
 
   const handleFile = useCallback(async (file: File) => {
     setErrorMsg(null)
@@ -91,6 +137,14 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
     const fileScanner = new Html5Qrcode(FILE_READER_ID, { verbose: false })
     try {
       const text = await fileScanner.scanFile(file, false)
+      // The same rule as the camera: a photo of somebody else's code is
+      // still somebody else's code.
+      if (!anyCode && !isCyrixQr(text)) {
+        rejectedRef.current = text
+        setErrorMsg(NOT_OUR_QR)
+        return
+      }
+      rejectedRef.current = null
       decodedRef.current = true
       setResultText(text)
       setState('success')
@@ -99,7 +153,7 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
     } finally {
       fileScanner.clear()
     }
-  }, [])
+  }, [anyCode])
 
   async function handleContinue() {
     if (!resultText) return
@@ -118,6 +172,10 @@ export function QRScanner({ onDecode }: { onDecode: (text: string) => void }) {
   function handleRetake() {
     decodedRef.current = false
     pendingRef.current = null
+    // Only a rejection is cleared: a camera failure is still true, and its
+    // message is the only thing explaining the black frame behind it.
+    if (rejectedRef.current) setErrorMsg(null)
+    rejectedRef.current = null
     setHolding(false)
     setResultText(null)
     setState((s) => (s === 'success' ? 'scanning' : s))
