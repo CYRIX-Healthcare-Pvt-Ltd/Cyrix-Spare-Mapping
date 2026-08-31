@@ -65,6 +65,50 @@ export function normalizeKey(header: string): string {
   return key || 'column'
 }
 
+/**
+ * The headers the client's own export actually carries, in its own order.
+ *
+ * Only two of them are columns this app keeps: the code and the name. The
+ * other four ride along in `attributes`, the same as any column a file
+ * turns out to have — which is exactly why they are named here. A column
+ * discovered during an import arrives hidden, on the assumption that a
+ * master file has thirty of them and nobody wants thirty columns in a
+ * table. These four are not extras found in the file, they *are* the
+ * file, so they are shown as soon as they land rather than waiting to be
+ * hunted down in the column chooser.
+ *
+ * Their spelling is the client's, punctuation and all. normalizeKey takes
+ * care of the rest: "Item Group(Material Group)" and "ITEM GROUP
+ * (MATERIAL GROUP)" reduce to the same key, so a revision of the file
+ * that tidies its own headers does not start a second column.
+ */
+export const CLIENT_SHEET_HEADERS = [
+  'Item Code',
+  'Item Name',
+  'Item Group(Material Group)',
+  'Item Group -Description',
+  'HSN/SAC Code',
+  'Tax Rate',
+]
+
+/** One row of it, so the template shows the shape each column comes in. */
+export const CLIENT_SHEET_SAMPLE = [
+  '1E-006015-50001',
+  'BRAVO HANDHELD NETWORK ANALYSER',
+  '1EMED001',
+  'DIAGNOSTIC IMAGING',
+  '90181300',
+  '5',
+]
+
+/**
+ * The ones that become attribute columns — everything above except the
+ * code and the name, which have real columns of their own.
+ */
+export const CLIENT_SHEET_ATTRIBUTE_KEYS = new Set(
+  CLIENT_SHEET_HEADERS.map(normalizeKey).filter((k) => k !== 'item_code' && k !== 'item_name')
+)
+
 /* ------------------------------------------------------- header detection --- */
 
 export interface MappableField {
@@ -251,10 +295,15 @@ export async function fetchCatalogueColumns(catalogue: CatalogueKey): Promise<Ca
  * `ignoreDuplicates` is the other half of that: a re-upload must not reset
  * visibility or ordering the admin has since chosen, so a column that is
  * already known is left exactly as it is.
+ *
+ * A caller can ask for a column to arrive shown instead — used for the
+ * columns the client's file is known to carry, which are the file rather
+ * than surprises found inside it. Only on the first upload: after that
+ * `ignoreDuplicates` keeps whatever the admin decided.
  */
 export async function registerImportedColumns(
   catalogue: CatalogueKey,
-  columns: { key: string; label: string }[]
+  columns: { key: string; label: string; visible?: boolean }[]
 ): Promise<void> {
   if (columns.length === 0) return
   await supabase.from('catalogue_columns').upsert(
@@ -263,7 +312,7 @@ export async function registerImportedColumns(
       key: c.key,
       label: c.label,
       source: 'imported' as CatalogueColumnSource,
-      visible: false,
+      visible: c.visible ?? false,
       // Newly discovered columns sort after everything already placed, so an
       // upload never reshuffles a layout someone has arranged.
       sort_order: 1000 + i,

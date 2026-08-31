@@ -32,6 +32,9 @@ import {
 import {
   CORE_COLUMNS,
   MAPPABLE_FIELDS,
+  CLIENT_SHEET_HEADERS,
+  CLIENT_SHEET_SAMPLE,
+  CLIENT_SHEET_ATTRIBUTE_KEYS,
   isChoosable,
   attributeKeysFor,
   fetchCatalogueColumns,
@@ -287,7 +290,15 @@ async function rememberColumns(catalogue: CatalogueKey, ctx: ImportContext) {
   const keys = attributeKeysFor(catalogue, ctx.headers, ctx.mapping)
   await registerImportedColumns(
     catalogue,
-    [...keys].map(([header, key]) => ({ key, label: header }))
+    [...keys].map(([header, key]) => ({
+      key,
+      label: header,
+      // The client's own columns are what the file is, not extras found
+      // inside it, so they show the moment they arrive. Uploading the
+      // file and seeing four of its six columns missing reads as an
+      // import that half-worked.
+      visible: catalogue === 'bluestar' && CLIENT_SHEET_ATTRIBUTE_KEYS.has(key),
+    }))
   )
 }
 
@@ -858,8 +869,14 @@ export default function ItemMasters() {
         title={`Upload ${client} item master`}
         description={`The ${client}'s catalogue — every column in the file is kept. Qty is what tagging progress is measured against; without it an item shows no status. Re-uploading updates items that already exist, matched on the item code.`}
         templateName={`${clientSlug}_item_master_template`}
-        templateHeaders={['item_code', 'item_name', 'quantity']}
-        templateSampleRows={[['BS-5501', 'ABC Sensor Assembly', '4']]}
+        // The client's own export, header for header, so their file can be
+        // uploaded as it comes rather than rearranged to suit us. Qty is
+        // added on the end because tagging progress is measured against it
+        // and their sheet does not carry one -- last, so their six columns
+        // still line up first, and blank in the sample because it is the
+        // one column they have to supply themselves.
+        templateHeaders={[...CLIENT_SHEET_HEADERS, 'Qty']}
+        templateSampleRows={[[...CLIENT_SHEET_SAMPLE, '']]}
         mappableFields={MAPPABLE_FIELDS.bluestar}
         parseRow={(raw, _line, ctx) => parseBlueStarRow(raw, ctx)}
         submitRows={submitBlueStarRows}
