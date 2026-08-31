@@ -5,7 +5,12 @@ import { downloadXlsx } from '../lib/xlsx'
 import { detectMapping, extraHeaders, type FieldMapping, type MappableField } from '../lib/catalogueColumns'
 
 export interface RowOutcome {
-  status: 'ok' | 'error'
+  /**
+   * 'skipped' is for a line that neither saved nor failed -- another line
+   * of the same file spoke for it. Calling that an error paints the whole
+   * result list red over a file that imported perfectly well.
+   */
+  status: 'ok' | 'error' | 'skipped'
   message: string
 }
 
@@ -136,11 +141,15 @@ export function BulkUploadModal<T>({
 
   async function handleImport() {
     if (!parsed) return
-    const validIndices: number[] = []
+    // Row index -> its place in the submitted list. A Map rather than an
+    // indexOf over an array of indices: that is a scan per row, and these
+    // catalogues run to tens of thousands of rows, so it was a quadratic
+    // walk that locks the tab up at the moment the import finishes.
+    const placeInSubmission = new Map<number, number>()
     const validRows: T[] = []
     parsed.forEach((r, i) => {
       if (r.data !== undefined) {
-        validIndices.push(i)
+        placeInSubmission.set(i, validRows.length)
         validRows.push(r.data)
       }
     })
@@ -154,8 +163,8 @@ export function BulkUploadModal<T>({
     setResults(
       parsed.map((r, i) => {
         if (r.error) return { line: r.line, status: 'error', message: r.error }
-        const pos = validIndices.indexOf(i)
-        const outcome = rowResults[pos]
+        const pos = placeInSubmission.get(i)
+        const outcome = pos === undefined ? undefined : rowResults[pos]
         return outcome ? { line: r.line, ...outcome } : { line: r.line, status: 'error', message: 'Not submitted' }
       })
     )
@@ -314,9 +323,15 @@ export function BulkUploadModal<T>({
                     {r.status === 'ok' ? (
                       <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                     ) : (
-                      <AlertIcon className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                      <AlertIcon
+                        className={`mt-0.5 h-4 w-4 shrink-0 ${r.status === 'skipped' ? 'text-amber-500' : 'text-red-500'}`}
+                      />
                     )}
-                    <span className={r.status === 'ok' ? 'text-slate-700' : 'text-red-600'}>
+                    <span
+                      className={
+                        r.status === 'ok' ? 'text-slate-700' : r.status === 'skipped' ? 'text-amber-700' : 'text-red-600'
+                      }
+                    >
                       Line {r.line}: {r.message}
                     </span>
                   </li>

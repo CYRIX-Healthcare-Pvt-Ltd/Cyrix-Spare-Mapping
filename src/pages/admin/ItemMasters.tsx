@@ -279,10 +279,73 @@ function cyrixCell(key: string, row: CyrixItemRow): ReactNode {
 const PAGE_SIZE = 100
 const CHUNK_SIZE = 500
 
-function fillOutcomes(outcomes: RowOutcome[], start: number, length: number, errorMessage?: string) {
-  for (let i = 0; i < length; i++) {
-    outcomes[start + i] = errorMessage ? { status: 'error', message: errorMessage } : { status: 'ok', message: 'Saved' }
+/**
+ * Collapses lines that carry the same item code.
+ *
+ * A master file routinely names a part more than once -- the same code
+ * with a corrected description, or two exports stitched together. Postgres
+ * refuses to let one statement touch the same row twice ("ON CONFLICT DO
+ * UPDATE command cannot affect row a second time"), and a chunk is one
+ * statement, so a single repeated code failed the five hundred lines
+ * around it and the upload appeared to do nothing at all.
+ *
+ * The last line wins, which is the rule re-uploading a file already
+ * follows: later overwrites earlier. The lines it displaced are reported
+ * as displaced rather than as saved, so the result list does not claim
+ * values were stored from a line they were not.
+ */
+function dedupeByCode<T extends { item_code: string }>(rows: T[]): { unique: T[]; place: (number | null)[] } {
+  const positionOf = new Map<string, number>()
+  const wonBy = new Map<string, number>()
+  const unique: T[] = []
+
+  rows.forEach((row, i) => {
+    const at = positionOf.get(row.item_code)
+    if (at === undefined) {
+      positionOf.set(row.item_code, unique.length)
+      unique.push(row)
+    } else {
+      unique[at] = row
+    }
+    wonBy.set(row.item_code, i)
+  })
+
+  // Per line: where its values ended up, or null when a later line won.
+  const place = rows.map((row, i) => (wonBy.get(row.item_code) === i ? positionOf.get(row.item_code)! : null))
+  return { unique, place }
+}
+
+/**
+ * Upserts a catalogue in chunks and reports one outcome per line given.
+ *
+ * Chunked so a catalogue of tens of thousands does not go over the request
+ * size limit in one shot, and upserted rather than inserted because master
+ * files get re-uploaded as they are revised -- a row that already exists
+ * should be updated, not rejected as a duplicate.
+ */
+async function upsertCatalogue<T extends { item_code: string }>(
+  rows: T[],
+  send: (chunk: T[]) => PromiseLike<{ error: { message: string } | null }>,
+  onProgress: (done: number, total: number) => void
+): Promise<RowOutcome[]> {
+  const { unique, place } = dedupeByCode(rows)
+  const failure: (string | undefined)[] = new Array(unique.length)
+
+  for (let start = 0; start < unique.length; start += CHUNK_SIZE) {
+    const chunk = unique.slice(start, start + CHUNK_SIZE)
+    const { error } = await send(chunk)
+    for (let i = 0; i < chunk.length; i++) failure[start + i] = error?.message
+    onProgress(Math.min(start + CHUNK_SIZE, unique.length), unique.length)
   }
+
+  return rows.map((row, i) => {
+    const at = place[i]
+    if (at === null) {
+      return { status: 'skipped', message: `Repeated item code — ${row.item_code} was saved from a later line` }
+    }
+    const message = failure[at]
+    return message ? { status: 'error', message } : { status: 'ok', message: 'Saved' }
+  })
 }
 
 /** Registers whatever extra columns the file turned out to carry. */
@@ -418,23 +481,17 @@ export default function ItemMasters() {
     [activeColumns]
   )
 
-  // Master files get re-uploaded as they're revised, so a row that already
-  // exists should be updated rather than rejected as a duplicate -- hence
-  // upsert on item_code rather than a plain insert. Chunked so a very large
-  // catalogue doesn't go over the request size limit in one shot.
   async function submitCyrixRows(
     rows: CyrixImportRow[],
     onProgress: (done: number, total: number) => void,
     ctx: ImportContext
   ): Promise<RowOutcome[]> {
     await rememberColumns('cyrix', ctx)
-    const outcomes: RowOutcome[] = new Array(rows.length)
-    for (let start = 0; start < rows.length; start += CHUNK_SIZE) {
-      const chunk = rows.slice(start, start + CHUNK_SIZE)
-      const { error } = await supabase.from('cyrix_item_master').upsert(chunk, { onConflict: 'item_code' })
-      fillOutcomes(outcomes, start, chunk.length, error?.message)
-      onProgress(Math.min(start + CHUNK_SIZE, rows.length), rows.length)
-    }
+    const outcomes = await upsertCatalogue(
+      rows,
+      (chunk) => supabase.from('cyrix_item_master').upsert(chunk, { onConflict: 'item_code' }),
+      onProgress
+    )
     await loadColumns()
     return outcomes
   }
@@ -445,13 +502,11 @@ export default function ItemMasters() {
     ctx: ImportContext
   ): Promise<RowOutcome[]> {
     await rememberColumns('bluestar', ctx)
-    const outcomes: RowOutcome[] = new Array(rows.length)
-    for (let start = 0; start < rows.length; start += CHUNK_SIZE) {
-      const chunk = rows.slice(start, start + CHUNK_SIZE)
-      const { error } = await supabase.from('bluestar_item_master').upsert(chunk, { onConflict: 'item_code' })
-      fillOutcomes(outcomes, start, chunk.length, error?.message)
-      onProgress(Math.min(start + CHUNK_SIZE, rows.length), rows.length)
-    }
+    const outcomes = await upsertCatalogue(
+      rows,
+      (chunk) => supabase.from('bluestar_item_master').upsert(chunk, { onConflict: 'item_code' }),
+      onProgress
+    )
     await loadColumns()
     return outcomes
   }
