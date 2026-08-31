@@ -12,6 +12,7 @@ import type { AppRole } from '../../types/database'
 const ROLE_LABEL: Record<AppRole, string> = {
   engineer: 'Engineer',
   project_manager: 'Project Manager',
+  purchase: 'Purchase',
   admin: 'Admin',
 }
 

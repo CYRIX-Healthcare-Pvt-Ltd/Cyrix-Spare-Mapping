@@ -11,6 +11,7 @@ import Avatar from './Avatar'
 const ROLE_LABEL: Record<string, string> = {
   engineer: 'Engineer',
   project_manager: 'Project Manager',
+  purchase: 'Purchase',
   admin: 'Admin',
 }
 
@@ -44,14 +45,22 @@ export function Layout() {
   // a request elsewhere in the app is reflected here without a full reload.
   useEffect(() => {
     if (!profile) return
+    /*
+     * The badge counts what this person can actually do something about.
+     *
+     * An engineer sees their own open requests — waiting on somebody
+     * else. A manager or admin sees everything waiting on them. Purchase
+     * sees only the mapping requests: they are the queue purchase clears,
+     * and a badge reading 3 when two of them cannot be actioned is a
+     * number that sends somebody looking for work that is not theirs.
+     */
+    const base = supabase.from('edit_requests').select('id', { count: 'exact', head: true })
     const query =
       profile.role === 'engineer'
-        ? supabase
-            .from('edit_requests')
-            .select('id', { count: 'exact', head: true })
-            .eq('requested_by', profile.id)
-            .eq('status', 'pending')
-        : supabase.from('edit_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+        ? base.eq('requested_by', profile.id).eq('status', 'pending')
+        : profile.role === 'purchase'
+          ? base.eq('status', 'pending').eq('kind', 'mapping')
+          : base.eq('status', 'pending')
     query.then(({ count }) => setPendingCount(count ?? 0))
   }, [profile, location.pathname])
 

@@ -20,6 +20,7 @@ import type {
   FieldDefinitionRow,
   EquipmentFormValues,
 } from '../types/app'
+import type { RequestKind } from '../types/database'
 
 
 type PerformEdit = (values: EquipmentFormValues) => Promise<void>
@@ -107,6 +108,17 @@ export default function EquipmentView() {
 
   // A manager applies these; everyone else proposes them.
   const canEditDirectly = profile?.role === 'project_manager' || profile?.role === 'admin'
+
+  /*
+   * Deciding what a spare *is* — which Cyrix item it maps to — is a
+   * narrower permission than editing it, and purchase holds that one and
+   * nothing else. Separate from canEditDirectly on purpose: folding
+   * purchase into it would have handed them warehouses, field edits and
+   * deletions as a side effect of a naming decision. `can_approve_mapping()`
+   * in the database is the same list, and is the half that actually
+   * enforces it.
+   */
+  const canMapDirectly = canEditDirectly || profile?.role === 'purchase'
 
   const load = useCallback(async () => {
     if (!id || !profile) return
@@ -230,13 +242,24 @@ export default function EquipmentView() {
   async function performRequestEdit(values: EquipmentFormValues) {
     if (!equipment || !profile) return
 
-    // The Cyrix link is deliberately outside the approval flow: re-mapping is
-    // always allowed, and it is audited in its own history rather than gated.
-    // Only the spare's own fields need a manager's approval, so the mapping is
-    // applied now and the rest is proposed below.
+    /*
+     * The Cyrix item used to be applied here and now, on the grounds that
+     * a mapping is always allowed and audited rather than gated. It is
+     * the one field on a tag that decides what the part costs and what it
+     * is ordered against, and it was the only field with no second pair of
+     * eyes on it — so it goes to the queue too, cleared by a manager,
+     * purchase or an admin.
+     *
+     * Purchase and above still apply it at once: deciding what a spare is
+     * is the job, and asking somebody to approve their own decision is
+     * not a control.
+     */
     const desiredCyrix = values.cyrix_item_code
-    if (desiredCyrix !== undefined && desiredCyrix !== equipment.cyrix_item_code) {
-      const { error: mapError } = await setTagCyrixMapping(equipment.id, desiredCyrix)
+    const mappingChanged =
+      desiredCyrix !== undefined && desiredCyrix !== equipment.cyrix_item_code
+
+    if (mappingChanged && canMapDirectly) {
+      const { error: mapError } = await setTagCyrixMapping(equipment.id, desiredCyrix!)
       if (mapError) {
         setError(mapError)
         return
@@ -244,17 +267,40 @@ export default function EquipmentView() {
     }
 
     const diff = buildDiff(toFormValues(equipment), values)
-    if (Object.keys(diff).length === 0) {
+
+    // Two requests, not one with both in it: they are cleared by
+    // different people. A manager can approve a warehouse correction
+    // without being asked to rule on what the part is, and purchase can
+    // rule on the part without inheriting the rest.
+    const pending: Array<{
+      equipment_id: string
+      requested_by: string
+      kind: RequestKind
+      proposed_changes: Record<string, unknown>
+    }> = []
+    const asks = { equipment_id: equipment.id, requested_by: profile.id }
+
+    if (Object.keys(diff).length > 0) {
+      pending.push({ ...asks, kind: 'edit', proposed_changes: diff })
+    }
+    if (mappingChanged && !canMapDirectly) {
+      pending.push({
+        ...asks,
+        kind: 'mapping',
+        proposed_changes: {
+          cyrix_item_code: desiredCyrix ?? null,
+          cyrix_item_name: values.cyrix_item_name ?? null,
+        },
+      })
+    }
+
+    if (pending.length === 0) {
       setEditing(false)
       await load()
       return
     }
 
-    const { error: insertError } = await supabase.from('edit_requests').insert({
-      equipment_id: equipment.id,
-      requested_by: profile.id,
-      proposed_changes: diff,
-    })
+    const { error: insertError } = await supabase.from('edit_requests').insert(pending)
 
     if (insertError) {
       setError(insertError.message)
@@ -262,6 +308,7 @@ export default function EquipmentView() {
     }
     setEditing(false)
     setHasPendingRequest(true)
+    await load()
   }
 
   async function submit(values: EquipmentFormValues, perform: PerformEdit) {
@@ -452,8 +499,9 @@ export default function EquipmentView() {
           </div>
           {!canEditDirectly && (
             <p className="mt-2 text-xs text-slate-500">
-              Changes to the spare's fields go to your manager for approval. The Cyrix item link is applied straight
-              away and recorded in the mapping history.
+              {canMapDirectly
+                ? 'Changes to the spare’s fields go to a manager for approval. The Cyrix item is yours to decide and is applied straight away.'
+                : 'Changes go for approval — the spare’s fields to a manager, and the Cyrix item to a manager or purchase. Both are recorded against your name.'}
             </p>
           )}
 

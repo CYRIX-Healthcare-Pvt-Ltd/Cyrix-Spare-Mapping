@@ -32,7 +32,15 @@ const STATUS_STYLE: Record<string, string> = {
 const KIND_STYLE: Record<string, string> = {
   delete: 'bg-red-50 text-red-700',
   remap: 'bg-purple-50 text-purple-700',
+  mapping: 'bg-emerald-50 text-emerald-700',
   edit: '',
+}
+
+/** What the badge says. `edit` has none — see the comment at its use. */
+const KIND_LABEL: Record<string, string> = {
+  delete: 'delete',
+  remap: 'new code',
+  mapping: 'cyrix item',
 }
 
 export default function EditRequests() {
@@ -49,6 +57,20 @@ export default function EditRequests() {
   const [search, setSearch] = useState('')
 
   const canReview = profile?.role === 'project_manager' || profile?.role === 'admin'
+
+  /*
+   * Purchase reviews one kind and only one kind.
+   *
+   * `canReview` still gates the queue itself — purchase sees it because
+   * deciding what a spare is belongs to them. But the Approve and Reject
+   * buttons appear per row, so a purchase account looking at a deletion
+   * request sees it without being offered a verdict on it. The database
+   * refuses either way; this is so nobody is offered a button that will
+   * fail.
+   */
+  const canReviewKind = (kind: string) =>
+    canReview || (profile?.role === 'purchase' && kind === 'mapping')
+  const seesQueue = canReview || profile?.role === 'purchase'
 
   const pendingCount = rows.filter((r) => r.status === 'pending').length
 
@@ -67,7 +89,7 @@ export default function EditRequests() {
     if (!profile) return
     setLoading(true)
 
-    const query = canReview
+    const query = seesQueue
       ? supabase.from('edit_requests').select('*').order('created_at', { ascending: false }).limit(100)
       : supabase
           .from('edit_requests')
@@ -112,7 +134,7 @@ export default function EditRequests() {
       })
     )
     setLoading(false)
-  }, [profile, canReview])
+  }, [profile, seesQueue])
 
   useEffect(() => {
     load()
@@ -141,7 +163,7 @@ export default function EditRequests() {
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-4xl sm:px-6 lg:px-8 lg:py-8">
       <h1 className="mb-4 text-lg font-semibold text-slate-900 lg:text-xl">
-        {canReview ? 'Edit requests' : 'Your edit requests'}
+        {seesQueue ? 'Requests' : 'Your requests'}
       </h1>
 
       {/* Tabs and search stack on a phone but share a row once there's width
@@ -205,7 +227,7 @@ export default function EditRequests() {
                     change the record itself no easier to pick out. */}
                 {r.kind !== 'edit' && (
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${KIND_STYLE[r.kind]}`}>
-                    {r.kind === 'delete' ? 'delete' : 'new code'}
+                    {KIND_LABEL[r.kind] ?? r.kind}
                   </span>
                 )}
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[r.status]}`}>
@@ -233,6 +255,25 @@ export default function EditRequests() {
                     : 'No reason given.'}
                 </p>
               </div>
+            ) : r.kind === 'mapping' ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                <p className="font-medium">Asks to change the Cyrix item</p>
+                <p className="mt-0.5 font-mono text-xs text-emerald-800">
+                  {r.equipment?.cyrix_item_code ?? 'not set'}
+                  {' → '}
+                  {String(r.proposed_changes.cyrix_item_code ?? 'not set')}
+                </p>
+                {typeof r.proposed_changes.cyrix_item_name === 'string' && (
+                  <p className="mt-0.5 text-xs text-emerald-800">
+                    {r.proposed_changes.cyrix_item_name}
+                  </p>
+                )}
+                {/* Says who can clear it, because this is the one kind
+                    whose reviewers are not the usual ones. */}
+                <p className="mt-1 text-xs text-emerald-700">
+                  A manager or purchase can approve this.
+                </p>
+              </div>
             ) : r.kind === 'remap' ? (
               <div className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm text-purple-900">
                 <p className="font-medium">Asks to replace the QR code</p>
@@ -253,7 +294,7 @@ export default function EditRequests() {
             )}
             {r.review_note && <p className="mt-2 text-xs italic text-slate-500">Note: {r.review_note}</p>}
 
-            {canReview && r.status === 'pending' && (
+            {canReviewKind(r.kind) && r.status === 'pending' && (
               <div className="mt-3">
                 {rejectingId === r.id ? (
                   <div className="space-y-2">

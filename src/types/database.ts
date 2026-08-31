@@ -4,18 +4,29 @@
 //   npx supabase gen types typescript --linked > src/types/database.ts
 // (you may need to re-apply the `AppRole` / domain helper types below afterwards).
 
-export type AppRole = 'engineer' | 'project_manager' | 'admin'
+/**
+ * What somebody may do inside Spare (`user_role` in the database).
+ *
+ * `purchase` was added in migration 0065. It decides which Cyrix item a
+ * spare is — and clears that decision for others — and holds no other
+ * permission: not warehouses, not field edits, not deletions. See
+ * can_approve_mapping().
+ */
+export type AppRole = 'engineer' | 'project_manager' | 'purchase' | 'admin'
 export type FieldType = 'text' | 'number' | 'date' | 'dropdown' | 'textarea' | 'boolean' | 'image' | 'barcode'
 export type RequestStatus = 'pending' | 'approved' | 'rejected'
 
 /**
  * What a request asks for (0064).
  *
- * One queue, three outcomes, rather than three tables and three approval
- * screens: `edit` carries a field diff, `remap` carries the new qr_value,
- * and `delete` retires the spare.
+ * One queue rather than a table and an approval screen per outcome:
+ * `edit` carries a field diff, `remap` carries the new qr_value, `delete`
+ * retires the spare, and `mapping` carries which Cyrix item it is.
+ *
+ * `mapping` is the one cleared by a different set of people — a manager,
+ * purchase, or an admin. See can_approve_mapping() in migration 0066.
  */
-export type RequestKind = 'edit' | 'delete' | 'remap'
+export type RequestKind = 'edit' | 'delete' | 'remap' | 'mapping'
 
 /**
  * What a history row records happening to a spare (0064 widened this).
