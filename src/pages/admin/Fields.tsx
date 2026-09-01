@@ -20,65 +20,12 @@ const TYPE_LABEL: Record<FieldType, string> = {
   barcode: 'Item code / scan',
 }
 
-/**
- * Whether this kind of field can be filled from the item master at all.
- *
- * A photo has to be taken on the spot, and the code field is the input that
- * finds the item in the first place -- filling it from what it resolved to
- * would only ever write back what is already in it.
- */
-function canAutofill(type: FieldType): boolean {
-  return type !== 'image' && type !== 'barcode'
-}
-
 function slugify(label: string) {
   return label
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
-}
-
-/**
- * Which client item master column fills this field in when a code is scanned.
- *
- * The engineer scans one code and the rest of what the client's file knows
- * about that part should already be in the form. Which column is which was
- * previously guessed from the field's label, which works for "Make" and
- * "Model" and never had a chance with "Item Group(Material Group)" or
- * "HSN/SAC Code". Naming it outright is the difference between a form that
- * fills in two fields and one that fills in all of them.
- *
- * "Work it out from the label" stays available, and stays the default, so
- * nothing already set up changes behaviour on the day this ships.
- */
-function AutofillSourcePicker({
-  value,
-  onChange,
-  sources,
-  className,
-}: {
-  value: string
-  onChange: (value: string) => void
-  sources: AutofillSource[]
-  className: string
-}) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-medium text-slate-500">Fill from the {client} item master</label>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
-        <option value="">Work it out from the label</option>
-        {sources.map((source) => (
-          <option key={source.key} value={source.key}>
-            {source.label}
-          </option>
-        ))}
-      </select>
-      <p className="mt-1 text-xs text-slate-400">
-        Filled in when the item code is scanned, and editable afterwards — the engineer can always correct it.
-      </p>
-    </div>
-  )
 }
 
 export default function Fields() {
@@ -89,7 +36,6 @@ export default function Fields() {
   const [options, setOptions] = useState('')
   const [imageMaxCount, setImageMaxCount] = useState(3)
   const [required, setRequired] = useState(false)
-  const [autofillSource, setAutofillSource] = useState('')
   const [sources, setSources] = useState<AutofillSource[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -102,7 +48,6 @@ export default function Fields() {
   const [editOptions, setEditOptions] = useState('')
   const [editImageMax, setEditImageMax] = useState(3)
   const [editRequired, setEditRequired] = useState(false)
-  const [editAutofillSource, setEditAutofillSource] = useState('')
   const [editError, setEditError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -161,7 +106,6 @@ export default function Fields() {
       image_max_count: fieldType === 'image' ? imageMaxCount : null,
       required,
       display_order: nextOrder,
-      autofill_source: canAutofill(fieldType) && autofillSource ? autofillSource : null,
     })
 
     setSubmitting(false)
@@ -174,7 +118,6 @@ export default function Fields() {
     setImageMaxCount(3)
     setRequired(false)
     setFieldType('text')
-    setAutofillSource('')
     load()
   }
 
@@ -213,7 +156,6 @@ export default function Fields() {
     setEditOptions(f.options.join(', '))
     setEditImageMax(f.image_max_count ?? 3)
     setEditRequired(f.required)
-    setEditAutofillSource(f.autofill_source ?? '')
     setEditError(null)
   }
 
@@ -230,7 +172,6 @@ export default function Fields() {
         options: editType === 'dropdown' ? editOptions.split(',').map((o) => o.trim()).filter(Boolean) : [],
         image_max_count: editType === 'image' ? editImageMax : null,
         required: editRequired,
-        autofill_source: canAutofill(editType) && editAutofillSource ? editAutofillSource : null,
       })
       .eq('id', id)
 
@@ -289,14 +230,6 @@ export default function Fields() {
                       className={inputClass}
                     />
                   </div>
-                )}
-                {canAutofill(editType) && (
-                  <AutofillSourcePicker
-                    value={editAutofillSource}
-                    onChange={setEditAutofillSource}
-                    sources={sources}
-                    className={inputClass}
-                  />
                 )}
                 <label className="flex items-center gap-2 text-sm text-slate-700">
                   <input
@@ -431,14 +364,6 @@ export default function Fields() {
               className={inputClass}
             />
           </div>
-        )}
-        {canAutofill(fieldType) && (
-          <AutofillSourcePicker
-            value={autofillSource}
-            onChange={setAutofillSource}
-            sources={sources}
-            className={inputClass}
-          />
         )}
         <label className="flex items-center gap-2 text-sm text-slate-700">
           <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
