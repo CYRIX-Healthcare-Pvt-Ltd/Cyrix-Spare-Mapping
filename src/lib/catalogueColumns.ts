@@ -75,6 +75,14 @@ const COMPUTED_KEYS = new Set(['cyrix_item', 'tagged', 'status'])
 export interface AutofillSource {
   key: string
   label: string
+  /**
+   * Whether this column is shown in the item master table. Carried along
+   * because it is also the best available answer to "should the tag form
+   * start out asking for this?" -- a file with thirty columns has already
+   * been triaged once, and repeating that triage from scratch on the form
+   * would be asking the same question twice.
+   */
+  visible: boolean
 }
 
 /**
@@ -93,7 +101,10 @@ export interface AutofillSource {
  */
 export async function fetchAutofillSources(): Promise<AutofillSource[]> {
   const columns = await fetchCatalogueColumns('bluestar')
-  const rows = columns.length > 0 ? columns.map((c) => ({ key: c.key, label: c.label })) : CORE_COLUMNS.bluestar
+  const rows: AutofillSource[] =
+    columns.length > 0
+      ? columns.map((c) => ({ key: c.key, label: c.label, visible: c.visible }))
+      : CORE_COLUMNS.bluestar.map((c) => ({ key: c.key, label: c.label, visible: true }))
   return rows.filter((c) => !COMPUTED_KEYS.has(c.key))
 }
 

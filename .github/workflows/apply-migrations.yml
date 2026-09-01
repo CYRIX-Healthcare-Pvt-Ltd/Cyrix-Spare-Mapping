@@ -1,0 +1,47 @@
+# Applies new migrations to the production database when they land on main.
+#
+# Vercel already redeploys the app on merge, so the code has always gone live
+# on its own -- the database did not. That gap is what shipped a form asking
+# for a column production had never been told about, and it will happen again
+# on the next migration unless something applies them.
+#
+# `supabase db push` only runs migrations the target has not recorded, so a
+# re-run is a no-op rather than a replay.
+name: Apply migrations
+
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+  # Available by hand too, for the first run and for catching up after a
+  # migration that was applied out of band.
+  workflow_dispatch:
+
+# One at a time. Two pushes in quick succession would otherwise race to
+# migrate the same database.
+concurrency:
+  group: apply-migrations
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Push migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$PROJECT_REF"
+          # What is about to run, named in the log, so a failed deploy says
+          # which migration failed rather than just that one did.
+          supabase migration list --linked
+          supabase db push --linked
