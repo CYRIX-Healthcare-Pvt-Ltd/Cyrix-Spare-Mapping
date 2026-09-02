@@ -43,11 +43,18 @@ import Avatar from './components/Avatar'
 declare global {
   interface Window {
     __scan?: (text: string) => void
+    /** So a test can make start() fail the way a phone camera does. */
+    __Html5Qrcode?: typeof Html5Qrcode
+    /** Every constraint start() was called with, oldest first. */
+    __startCalls?: unknown[]
   }
 }
 
 if (new URLSearchParams(location.search).has('fakecam')) {
-  Html5Qrcode.prototype.start = function (_camera, _config, onSuccess) {
+  window.__Html5Qrcode = Html5Qrcode
+  window.__startCalls = []
+  Html5Qrcode.prototype.start = function (camera, _config, onSuccess) {
+    window.__startCalls!.push(camera)
     window.__scan = (text) => onSuccess?.(text, null as never)
     return Promise.resolve(null)
   }

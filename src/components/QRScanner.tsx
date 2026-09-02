@@ -62,74 +62,86 @@ export function QRScanner({
     decodedRef.current = false
     pendingRef.current = null
 
-    scanner
-      .start(
-        {
-          facingMode: 'environment',
-          // Ask for the most the camera will give.
-          //
-          // Left to itself the browser hands back 640x480, and at that
-          // size a 12mm sticker is the width of a fingernail in the
-          // frame. A QR needs two or three camera pixels per module to
-          // decode; a 12mm code carrying a CYR/ number is about 25
-          // modules across, so half a millimetre each, and 640 pixels
-          // spread over an arm's length of desk is nowhere near it.
-          // 1080p is three times the detail across the same view and is
-          // the single thing that makes a small sticker readable.
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        (decodedText) => {
-          if (decodedRef.current) return
+    /*
+     * Asking for detail must never cost the camera.
+     *
+     * A 12mm sticker needs more than the 640x480 a browser hands back on
+     * its own -- a QR wants two or three camera pixels per module, and
+     * that code is about 25 modules across. But asking for it broke the
+     * camera outright on a phone: `ideal` is meant to be a preference the
+     * browser may ignore, and on some Android cameras a large one is
+     * refused rather than rounded down.
+     *
+     * So it is an attempt, not a requirement. 720p is asked for, and if
+     * the camera will not have it the plain request follows -- the one
+     * that worked before any of this. Better beats none.
+     *
+     * 720p rather than 1080p: it is most of the gain for a fraction of
+     * the work, and the frame is decoded ten times a second on a phone
+     * that is also holding the torch steady.
+     */
+    const onDecoded = (decodedText: string) => {
+      if (decodedRef.current) return
 
-          const ours = anyCode || isCyrixQr(decodedText)
+      const ours = anyCode || isCyrixQr(decodedText)
 
-          // A code is in frame right now -- show "Hold steady" while we
-          // confirm it, and clear that hint if the code drops out of frame
-          // for a bit (rather than on every single missed scan attempt,
-          // which fires constantly and would just flicker the hint).
-          //
-          // Only for a code that would be taken, though: "Got it" over a
-          // label we are about to turn away reads as a promise, and the
-          // green corners would go on to be contradicted by an error.
-          if (ours) {
-            setHolding(true)
-            if (holdingTimeoutRef.current) window.clearTimeout(holdingTimeoutRef.current)
-            holdingTimeoutRef.current = window.setTimeout(() => setHolding(false), 350)
-          }
+      // A code is in frame right now -- show "Hold steady" while we
+      // confirm it, and clear that hint if the code drops out of frame
+      // for a bit (rather than on every single missed scan attempt,
+      // which fires constantly and would just flicker the hint).
+      //
+      // Only for a code that would be taken, though: "Got it" over a
+      // label we are about to turn away reads as a promise, and the
+      // green corners would go on to be contradicted by an error.
+      if (ours) {
+        setHolding(true)
+        if (holdingTimeoutRef.current) window.clearTimeout(holdingTimeoutRef.current)
+        holdingTimeoutRef.current = window.setTimeout(() => setHolding(false), 350)
+      }
 
-          const now = Date.now()
-          if (pendingRef.current?.text !== decodedText) {
-            pendingRef.current = { text: decodedText, since: now }
-            return
-          }
-          if (now - pendingRef.current.since < CONFIRM_MS) return
+      const now = Date.now()
+      if (pendingRef.current?.text !== decodedText) {
+        pendingRef.current = { text: decodedText, since: now }
+        return
+      }
+      if (now - pendingRef.current.since < CONFIRM_MS) return
 
-          // Held still long enough to be sure of what it says. Somebody
-          // else's code is turned away here and the camera left running,
-          // so the answer is to move it onto the right sticker rather
-          // than to start again. Waiting for the same hold as an accepted
-          // code is deliberate: a stray QR caught for one frame while the
-          // user aims should not throw a warning up.
-          if (!ours) {
-            if (rejectedRef.current !== decodedText) {
-              rejectedRef.current = decodedText
-              setErrorMsg(NOT_OUR_QR)
-            }
-            return
-          }
-
-          rejectedRef.current = null
-          setErrorMsg(null)
-          decodedRef.current = true
-          setResultText(decodedText)
-          setState('success')
-        },
-        () => {
-          /* fires continuously while no code is in frame — expected, ignore */
+      // Held still long enough to be sure of what it says. Somebody
+      // else's code is turned away here and the camera left running,
+      // so the answer is to move it onto the right sticker rather
+      // than to start again. Waiting for the same hold as an accepted
+      // code is deliberate: a stray QR caught for one frame while the
+      // user aims should not throw a warning up.
+      if (!ours) {
+        if (rejectedRef.current !== decodedText) {
+          rejectedRef.current = decodedText
+          setErrorMsg(NOT_OUR_QR)
         }
-      )
+        return
+      }
+
+      rejectedRef.current = null
+      setErrorMsg(null)
+      decodedRef.current = true
+      setResultText(decodedText)
+      setState('success')
+    }
+
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } }
+    const attempt = (video: MediaTrackConstraints) =>
+      scanner.start(video, config, onDecoded, () => {
+        /* fires continuously while no code is in frame — expected, ignore */
+      })
+
+    attempt({ facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } })
+      // The plain request is the one that worked before any of this, so
+      // it is what a refusal falls back to rather than an error screen.
+      // stop() first because a half-started scanner refuses to start
+      // again, and the failure may have left it holding the device.
+      .catch(async () => {
+        if (scanner.isScanning) await scanner.stop().catch(() => {})
+        return attempt({ facingMode: 'environment' })
+      })
       .then(() => {
         setState((s) => (s === 'starting' ? 'scanning' : s))
 
