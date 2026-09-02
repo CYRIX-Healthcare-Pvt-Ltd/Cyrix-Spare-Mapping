@@ -39,6 +39,21 @@ export function QRScanner({
    */
   anyCode?: boolean
 }) {
+  /*
+   * What this scanner is pointed at, which decides every word on it.
+   *
+   * The same component reads two different things off two different
+   * labels, and calling both of them "the QR code" was wrong half the
+   * time: the client's item code is a printed barcode on their own
+   * sticker, and somebody holding one in front of a screen asking for a
+   * QR code reasonably concludes they have the wrong screen.
+   *
+   * anyCode already draws exactly this line -- it is on for the client's
+   * label and off for a Cyrix sticker -- so the wording follows it rather
+   * than becoming a second prop that could disagree with the first.
+   */
+  const readsBarcode = anyCode
+  const codeWord = readsBarcode ? 'barcode' : 'QR code'
   const [state, setState] = useState<ScanState>('starting')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [resultText, setResultText] = useState<string | null>(null)
@@ -62,24 +77,6 @@ export function QRScanner({
     decodedRef.current = false
     pendingRef.current = null
 
-    /*
-     * Asking for detail must never cost the camera.
-     *
-     * A 12mm sticker needs more than the 640x480 a browser hands back on
-     * its own -- a QR wants two or three camera pixels per module, and
-     * that code is about 25 modules across. But asking for it broke the
-     * camera outright on a phone: `ideal` is meant to be a preference the
-     * browser may ignore, and on some Android cameras a large one is
-     * refused rather than rounded down.
-     *
-     * So it is an attempt, not a requirement. 720p is asked for, and if
-     * the camera will not have it the plain request follows -- the one
-     * that worked before any of this. Better beats none.
-     *
-     * 720p rather than 1080p: it is most of the gain for a fraction of
-     * the work, and the frame is decoded ten times a second on a phone
-     * that is also holding the torch steady.
-     */
     const onDecoded = (decodedText: string) => {
       if (decodedRef.current) return
 
@@ -146,7 +143,11 @@ export function QRScanner({
     scanner
       .start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        // A barcode is wide and short, and squeezing one into a square
+        // box means holding the phone far enough back that the bars stop
+        // resolving. The scan region is shaped like the thing being
+        // scanned.
+        { fps: 10, qrbox: readsBarcode ? { width: 280, height: 140 } : { width: 250, height: 250 } },
         onDecoded,
         () => {
           /* fires continuously while no code is in frame — expected, ignore */
@@ -196,8 +197,8 @@ export function QRScanner({
             : name === 'NotReadableError'
               ? 'Another app is using the camera. Close it and reload.'
               : name === 'NotFoundError' || name === 'OverconstrainedError'
-                ? 'No camera this browser will open. Try another browser, or upload a QR photo instead.'
-                : 'Camera unavailable. Allow camera access, or upload a QR photo instead.'
+                ? `No camera this browser will open. Try another browser, or upload a photo of the ${codeWord} instead.`
+                : `Camera unavailable. Allow camera access, or upload a photo of the ${codeWord} instead.`
         setErrorMsg(name && !advice.startsWith('Camera unavailable') ? advice : `${advice}${name ? ` (${name})` : ''}`)
         setState('camera-error')
       })
@@ -207,7 +208,7 @@ export function QRScanner({
         scanner.stop().catch(() => {})
       }
     }
-  }, [onDecode, anyCode])
+  }, [onDecode, anyCode, readsBarcode, codeWord])
 
   const handleFile = useCallback(async (file: File) => {
     setErrorMsg(null)
@@ -233,11 +234,11 @@ export function QRScanner({
       setResultText(text)
       setState('success')
     } catch {
-      setErrorMsg('No QR code found in that photo. Try a clearer, closer shot.')
+      setErrorMsg(`No ${codeWord} found in that photo. Try a clearer, closer shot.`)
     } finally {
       fileScanner.clear()
     }
-  }, [anyCode])
+  }, [anyCode, codeWord])
 
   async function handleContinue() {
     if (!resultText) return
@@ -271,7 +272,14 @@ export function QRScanner({
         <div id={READER_ID} className="h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
 
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute inset-8 overflow-hidden rounded-xl">
+          {/* The drawn frame matches the scan region, so aiming inside it
+              means what it looks like it means: square for a QR, wide and
+              short for a barcode. */}
+          <div
+            className={`absolute overflow-hidden rounded-xl ${
+              readsBarcode ? 'inset-x-6 inset-y-[30%]' : 'inset-8'
+            }`}
+          >
             {CORNER_CLASSES.map((cls) => (
               <span
                 key={cls}
@@ -372,7 +380,7 @@ export function QRScanner({
           )}
 
           <p className={`text-center text-sm ${holding ? 'font-medium text-emerald-600' : 'text-slate-500'}`}>
-            {holding ? 'Got it — hold steady…' : 'Line the QR code up inside the frame — it scans automatically.'}
+            {holding ? 'Got it — hold steady…' : `Line the ${codeWord} up inside the frame — it scans automatically.`}
           </p>
 
           {errorMsg && (
@@ -386,7 +394,7 @@ export function QRScanner({
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            <ImageIcon className="h-4 w-4" /> Upload a QR photo instead
+            <ImageIcon className="h-4 w-4" /> Upload a photo instead
           </button>
         </>
       )}

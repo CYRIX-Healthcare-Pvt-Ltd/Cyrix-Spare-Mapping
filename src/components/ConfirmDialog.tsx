@@ -5,6 +5,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel = 'Delete',
+  cancelLabel = 'Cancel',
   confirmText,
   danger = true,
   busy = false,
@@ -15,6 +16,13 @@ export function ConfirmDialog({
   title: string
   message: string
   confirmLabel?: string
+  /**
+   * What the way out says. "Cancel" is right when the dialog asks
+   * whether to do something; when it asks whether to leave, cancelling
+   * is the thing being offered and naming it "Keep editing" is what
+   * makes the pair readable in either order.
+   */
+  cancelLabel?: string
   /**
    * Word the person has to type before the action unlocks.
    *
@@ -72,7 +80,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Cancel
+            {cancelLabel}
           </button>
           <button
             type="button"

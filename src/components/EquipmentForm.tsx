@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { DynamicFieldRenderer } from './DynamicFieldRenderer'
 import { SpinnerIcon } from './icons'
@@ -28,6 +28,7 @@ export function EquipmentForm({
   disabled,
   suggestions,
   onSubmit,
+  onDirtyChange,
 }: {
   fieldDefs: FieldDefinitionRow[]
   initialValues: EquipmentFormValues
@@ -36,6 +37,14 @@ export function EquipmentForm({
   disabled?: boolean
   suggestions?: Record<string, string[]>
   onSubmit: (values: EquipmentFormValues) => void
+  /**
+   * Whether anything has been entered that leaving would throw away.
+   *
+   * Reported upward because the way out of this form -- Back, Cancel --
+   * is drawn by whoever rendered it, and only the form knows whether
+   * there is anything to lose.
+   */
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   // The values and which of them a scan supplied are one piece of state, not
   // two. Deciding what a newly resolved item may overwrite needs both at
@@ -45,6 +54,24 @@ export function EquipmentForm({
     autofilled: [],
   })
   const { values, autofilled } = state
+
+  // Compared against what the form opened with rather than tracked by a
+  // flag: typing a character and deleting it again leaves nothing to
+  // lose, and a flag would still be claiming there was. Autofill counts
+  // -- a scan that filled six fields is work, even though nobody typed.
+  const dirty = JSON.stringify(values) !== JSON.stringify(initialValues)
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+
+  // Refreshing or closing the tab is the browser's to guard, and it only
+  // offers when a page says it has something outstanding.
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()

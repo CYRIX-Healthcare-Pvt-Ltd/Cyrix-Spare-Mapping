@@ -7,6 +7,7 @@ import { EquipmentForm } from '../components/EquipmentForm'
 import { fetchFieldSuggestions } from '../lib/fieldSuggestions'
 import { blueStarCodeFromForm, lookupBlueStarItem } from '../lib/blueStarItem'
 import { ChevronLeftIcon, AlertIcon } from '../components/icons'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import type { FieldDefinitionRow, EquipmentFormValues } from '../types/app'
 
 export default function EquipmentNew() {
@@ -20,6 +21,8 @@ export default function EquipmentNew() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [dirty, setDirty] = useState(false)
+  const [confirmLeave, setConfirmLeave] = useState(false)
 
   useEffect(() => {
     if (!profile) return
@@ -143,9 +146,17 @@ export default function EquipmentNew() {
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-6 sm:max-w-3xl sm:px-6 lg:max-w-4xl lg:py-8">
-      <Link to="/scan" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+      {/* A button, not a link, because leaving has to be able to ask
+          first. Scanning a sticker and filling six fields is a couple of
+          minutes of work, and Back sat one mis-tap away from all of it
+          with nothing in between. */}
+      <button
+        type="button"
+        onClick={() => (dirty ? setConfirmLeave(true) : navigate('/scan'))}
+        className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
+      >
         <ChevronLeftIcon className="h-4 w-4" /> Back
-      </Link>
+      </button>
       <h1 className="mb-1 text-lg font-semibold text-slate-900 lg:text-xl">Tag new spare</h1>
       <p className="mb-5 text-sm text-slate-500">
         Cyrix code: <span className="tabular-nums">{qr}</span>
@@ -165,12 +176,25 @@ export default function EquipmentNew() {
           submitting={submitting}
           suggestions={suggestions}
           onSubmit={handleSubmit}
+          onDirtyChange={setDirty}
         />
       </div>
 
       {error && (
         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
+
+      {/* Staying is the safe answer, so it is the one the dialog leads
+          with; leaving is the destructive one and is styled as such. */}
+      <ConfirmDialog
+        open={confirmLeave}
+        title="Leave without saving?"
+        message={`Nothing about ${qr} has been saved yet. What you have filled in is lost, and the sticker stays untagged.`}
+        confirmLabel="Discard and leave"
+        cancelLabel="Keep editing"
+        onConfirm={() => navigate('/scan')}
+        onCancel={() => setConfirmLeave(false)}
+      />
     </div>
   )
 }

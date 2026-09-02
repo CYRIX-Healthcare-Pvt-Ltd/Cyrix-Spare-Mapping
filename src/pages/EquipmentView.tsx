@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { client } from '../lib/branding'
 import { EquipmentForm } from '../components/EquipmentForm'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import {
   ChevronLeftIcon, PencilIcon, ClipboardIcon, HistoryIcon, ScanIcon, TrashIcon,
 } from '../components/icons'
@@ -82,6 +83,8 @@ export default function EquipmentView() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [confirmLeave, setConfirmLeave] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<{ images: string[]; index: number } | null>(null)
@@ -486,6 +489,7 @@ export default function EquipmentView() {
               submitLabel={canEditDirectly ? 'Save changes' : 'Submit request'}
               submitting={submitting}
               onSubmit={(values) => submit(values, canEditDirectly ? performDirectUpdate : performRequestEdit)}
+              onDirtyChange={setDirty}
             />
           </div>
           {!canEditDirectly && (
@@ -496,14 +500,30 @@ export default function EquipmentView() {
             </p>
           )}
 
+          {/* Asks first when there is something to lose. Cancel sits
+              directly under the save button, which is exactly where a
+              thumb goes wrong. */}
           <button
             type="button"
-            onClick={() => setEditing(false)}
+            onClick={() => (dirty ? setConfirmLeave(true) : setEditing(false))}
             className="mt-3 w-full text-center text-sm text-slate-500 hover:text-slate-800"
           >
             Cancel
           </button>
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+          <ConfirmDialog
+            open={confirmLeave}
+            title="Discard your changes?"
+            message="Nothing has been saved. What you have changed on this spare is lost and it goes back to how it was."
+            confirmLabel="Discard changes"
+            cancelLabel="Keep editing"
+            onConfirm={() => {
+              setConfirmLeave(false)
+              setEditing(false)
+            }}
+            onCancel={() => setConfirmLeave(false)}
+          />
 
           {/*
             The two things that change the record rather than its fields.
