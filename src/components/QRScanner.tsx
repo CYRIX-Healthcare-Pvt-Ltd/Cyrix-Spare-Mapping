@@ -133,15 +133,21 @@ export function QRScanner({
         /* fires continuously while no code is in frame — expected, ignore */
       })
 
+    // Each request is looser than the one before, and the last asks for
+    // nothing at all but a camera. `facingMode: 'environment'` is not a
+    // preference to every browser -- some treat it as a requirement and
+    // refuse outright when they cannot satisfy it, which on a device
+    // whose back camera is not enumerated the way they expect means no
+    // camera rather than the front one.
+    const retry = async (video: MediaTrackConstraints) => {
+      if (scanner.isScanning) await scanner.stop().catch(() => {})
+      return attempt(video)
+    }
+
     attempt({ facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } })
-      // The plain request is the one that worked before any of this, so
-      // it is what a refusal falls back to rather than an error screen.
-      // stop() first because a half-started scanner refuses to start
-      // again, and the failure may have left it holding the device.
-      .catch(async () => {
-        if (scanner.isScanning) await scanner.stop().catch(() => {})
-        return attempt({ facingMode: 'environment' })
-      })
+      .catch(() => retry({ facingMode: 'environment' }))
+      .catch(() => retry({ facingMode: { ideal: 'environment' } }))
+      .catch(() => retry({}))
       .then(() => {
         setState((s) => (s === 'starting' ? 'scanning' : s))
 
@@ -169,8 +175,26 @@ export function QRScanner({
           /* no capabilities to read -- nothing to offer, which is fine */
         }
       })
-      .catch(() => {
-        setErrorMsg('Camera unavailable. Allow camera access, or upload a QR photo instead.')
+      .catch((e: unknown) => {
+        // Say which failure it was. "Camera unavailable" covers a denied
+        // permission, a camera another app is holding, and a device with
+        // none at all -- three different things to do about it, and the
+        // one message sent somebody looking in the wrong place.
+        const name =
+          typeof e === 'object' && e !== null && 'name' in e
+            ? String((e as { name: unknown }).name)
+            : typeof e === 'string'
+              ? e
+              : ''
+        const advice =
+          name === 'NotAllowedError' || /permission|denied/i.test(name)
+            ? 'Camera permission is blocked for this site. Tap the padlock in the address bar → Permissions → Camera → Allow, then reload.'
+            : name === 'NotReadableError'
+              ? 'Another app is using the camera. Close it and reload.'
+              : name === 'NotFoundError' || name === 'OverconstrainedError'
+                ? 'No camera this browser will open. Try another browser, or upload a QR photo instead.'
+                : 'Camera unavailable. Allow camera access, or upload a QR photo instead.'
+        setErrorMsg(name && !advice.startsWith('Camera unavailable') ? advice : `${advice}${name ? ` (${name})` : ''}`)
         setState('camera-error')
       })
 
