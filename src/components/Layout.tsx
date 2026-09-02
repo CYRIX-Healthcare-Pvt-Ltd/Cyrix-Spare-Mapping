@@ -56,11 +56,18 @@ export function Layout() {
      */
     const base = supabase.from('edit_requests').select('id', { count: 'exact', head: true })
     const query =
-      profile.role === 'engineer'
-        ? base.eq('requested_by', profile.id).eq('status', 'pending')
-        : profile.role === 'purchase'
-          ? base.eq('status', 'pending').eq('kind', 'mapping')
-          : base.eq('status', 'pending')
+      // Admin is tested first, and before the role at all. Migration 0069
+      // moved administering Spare off the role enum onto a flag and set
+      // those people's role to 'engineer', so an admin reading their role
+      // alone falls into the engineer branch and is counted only their own
+      // requests -- a queue of other people's approvals, showing nothing.
+      profile.isSpareAdmin
+        ? base.eq('status', 'pending')
+        : profile.role === 'engineer'
+          ? base.eq('requested_by', profile.id).eq('status', 'pending')
+          : profile.role === 'purchase'
+            ? base.eq('status', 'pending').eq('kind', 'mapping')
+            : base.eq('status', 'pending')
     query.then(({ count }) => setPendingCount(count ?? 0))
   }, [profile, location.pathname])
 

@@ -95,7 +95,17 @@ export default function EquipmentNew() {
     await supabase.from('equipment_history').insert({
       equipment_id: data.id,
       action: 'created',
-      changes: { custom_fields: values.custom_fields },
+      changes: {
+        custom_fields: values.custom_fields,
+        // Which Cyrix item it was tagged as, recorded from the start.
+        // Without it the first entry listed every field the engineer
+        // filled in and stayed silent about the one decision the whole
+        // flow exists to make, so a later change read as coming from
+        // nowhere.
+        ...(values.cyrix_item_code
+          ? { cyrix_item_code: values.cyrix_item_code, cyrix_item_name: values.cyrix_item_name }
+          : {}),
+      },
       performed_by: profile.id,
     })
 

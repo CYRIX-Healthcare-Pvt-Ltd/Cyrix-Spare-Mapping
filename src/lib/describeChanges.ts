@@ -63,6 +63,36 @@ export function describeChanges(
     out.push({ label: 'Reason', value: changes.reason.trim() })
   }
 
+  /*
+   * Which Cyrix item this unit was decided to be.
+   *
+   * The single most asked question of this history, and it was the one
+   * thing not rendered: the row carried it, nothing looked for it, so an
+   * approved mapping showed as "Edited" with an empty body.
+   *
+   * Code and name are stored as two keys and shown as one line -- they
+   * are one fact, and "I-108619 → not set" over "Micro Controller → not
+   * set" is the same sentence twice. The name is only decoration on the
+   * code, so the code decides whether anything is shown at all.
+   */
+  if ('cyrix_item_code' in changes) {
+    const rawCode = changes.cyrix_item_code
+    const rawName = changes.cyrix_item_name
+    const toCode = isPair(rawCode) ? rawCode.to : rawCode
+    const fromCode = isPair(rawCode) ? rawCode.from : current?.cyrix_item_code
+    const toName = isPair(rawName) ? rawName.to : rawName
+    const fromName = isPair(rawName) ? rawName.from : current?.cyrix_item_name
+
+    // "not set" rather than an em dash: unlinking is a decision somebody
+    // made, and a dash reads as a value that failed to load.
+    const show = (code: unknown, name: unknown) =>
+      !code ? 'not set' : name ? `${String(code)} · ${String(name)}` : String(code)
+
+    const to = show(toCode, toName)
+    const from = fromCode ? show(fromCode, fromName) : null
+    out.push({ label: 'Cyrix item', value: from && from !== to ? `${from} → ${to}` : to })
+  }
+
   if ('facility_id' in changes) {
     const raw = changes.facility_id
     const toId = isPair(raw) ? raw.to : raw

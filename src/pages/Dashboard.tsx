@@ -32,8 +32,11 @@ export default function Dashboard() {
     }
     loadTaggedCount()
 
+    // isSpareAdmin first: 0069 set an admin's role to 'engineer', so
+    // reading the role alone counts them only their own requests and the
+    // tile reads zero while a queue waits for them.
     const requestsQuery =
-      profile.role === 'engineer'
+      profile.role === 'engineer' && !profile.isSpareAdmin
         ? supabase
             .from('edit_requests')
             .select('id', { count: 'exact', head: true })
