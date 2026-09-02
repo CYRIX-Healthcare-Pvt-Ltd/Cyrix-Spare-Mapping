@@ -385,6 +385,15 @@ interface ChangeRow extends EquipmentHistoryRow {
   facilityName: string
   performerName: string | null
   performerEcode: string | null
+  /**
+   * Who let it through, when it went through approval.
+   *
+   * Null for a change somebody made on their own authority -- a manager
+   * or purchase editing directly needed nobody's permission, and naming
+   * them twice would read as though they had approved themselves.
+   */
+  approverName: string | null
+  approverEcode: string | null
 }
 
 /**
@@ -446,7 +455,12 @@ function RecentChanges({
       if (cancelled) return
 
       const list = historyRows ?? []
-      const performerIds = [...new Set(list.map((h) => h.performed_by).filter((v): v is string => !!v))]
+      // Both people in one lookup. They are often the same person and
+      // almost always drawn from the same handful, so two queries would be
+      // two round trips to read one table twice.
+      const performerIds = [
+        ...new Set(list.flatMap((h) => [h.performed_by, h.approved_by]).filter((v): v is string => !!v)),
+      ]
       const { data: performers } = performerIds.length
         ? await supabase.from('profiles').select('id, full_name, ecode').in('id', performerIds)
         : { data: [] }
@@ -465,6 +479,8 @@ function RecentChanges({
             facilityName: eq?.facility_id ? (facilityById.get(eq.facility_id) ?? '') : '',
             performerName: h.performed_by ? (performerById.get(h.performed_by)?.full_name ?? null) : null,
             performerEcode: h.performed_by ? (performerById.get(h.performed_by)?.ecode ?? null) : null,
+            approverName: h.approved_by ? (performerById.get(h.approved_by)?.full_name ?? null) : null,
+            approverEcode: h.approved_by ? (performerById.get(h.approved_by)?.ecode ?? null) : null,
           }
         })
       )
@@ -481,9 +497,18 @@ function RecentChanges({
     const q = search.trim().toLowerCase()
     if (!q) return rows
     return rows.filter((r) =>
-      [r.equipmentName, r.facilityName, r.performerName, r.performerEcode, JSON.stringify(r.changes)].some((v) =>
-        v?.toLowerCase().includes(q)
-      )
+      // The approver is searchable too: "what did Nafal approve" is the
+      // question this list exists to answer, and it cannot answer it if
+      // his name is only ever printed and never matched.
+      [
+        r.equipmentName,
+        r.facilityName,
+        r.performerName,
+        r.performerEcode,
+        r.approverName,
+        r.approverEcode,
+        JSON.stringify(r.changes),
+      ].some((v) => v?.toLowerCase().includes(q))
     )
   })()
 
@@ -534,6 +559,27 @@ function RecentChanges({
                   {' · '}
                   {formatTime(r.performed_at)}
                 </span>
+
+                {/*
+                  Who allowed it, on its own line and in the approving
+                  green, because it answers a different question from who
+                  made the change and gets asked long afterwards.
+
+                  Absent on a change nobody had to approve -- a manager or
+                  purchase acting on their own authority -- rather than
+                  shown empty, which would read as an approval that went
+                  missing.
+                */}
+                {r.approverName && (
+                  <span className="mb-2 flex items-center gap-1.5 text-xs text-emerald-700">
+                    <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                    Approved by{' '}
+                    <span className="font-medium">
+                      {r.approverName}
+                      {r.approverEcode ? ` (${r.approverEcode})` : ''}
+                    </span>
+                  </span>
+                )}
                 {details.length > 0 && (
                   <span className="block space-y-0.5 text-xs text-slate-600">
                     {details.map((d, i) => (
