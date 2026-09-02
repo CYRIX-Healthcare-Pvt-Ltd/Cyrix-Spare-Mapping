@@ -27,7 +27,10 @@ type PerformEdit = (values: EquipmentFormValues) => Promise<void>
 
 function toFormValues(eq: EquipmentRow): EquipmentFormValues {
   return {
-    facility_id: eq.facility_id,
+    // Carried, not asked for: an older spare keeps the warehouse it was
+    // filed against instead of being unfiled by a form that no longer
+    // mentions one.
+    facility_id: eq.facility_id ?? '',
     custom_fields: eq.custom_fields,
     // The Cyrix item this particular unit was mapped to. Undefined rather than
     // null when there is none: nothing to unlink, nothing to change.
@@ -82,7 +85,6 @@ export default function EquipmentView() {
   const [facility, setFacility] = useState<FacilityRow | null>(null)
   const [taggedBy, setTaggedBy] = useState<{ full_name: string; ecode: string } | null>(null)
   const [updatedBy, setUpdatedBy] = useState<{ full_name: string; ecode: string } | null>(null)
-  const [allFacilities, setAllFacilities] = useState<FacilityRow[]>([])
   const [fieldDefs, setFieldDefs] = useState<FieldDefinitionRow[]>([])
   const [hasPendingRequest, setHasPendingRequest] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -134,15 +136,18 @@ export default function EquipmentView() {
 
     const [
       { data: fac },
-      { data: facilities },
       { data: fields },
       { data: pending },
       { data: tagger },
       { data: updater },
     ] =
       await Promise.all([
-        supabase.from('facilities').select('*').eq('id', eq.facility_id).maybeSingle(),
-        supabase.from('facilities').select('*').eq('active', true).order('name'),
+        // Only the one this spare is filed against, and only so the header
+        // can name it. The full list went with the picker: the edit form
+        // no longer offers to move a spare between warehouses.
+        eq.facility_id
+          ? supabase.from('facilities').select('*').eq('id', eq.facility_id).maybeSingle()
+          : Promise.resolve({ data: null }),
         supabase.from('field_definitions').select('*').eq('active', true).order('display_order'),
         supabase
           .from('edit_requests')
@@ -162,9 +167,6 @@ export default function EquipmentView() {
     setFacility(fac ?? null)
     setTaggedBy(tagger ?? null)
     setUpdatedBy(updater ?? null)
-    setAllFacilities(
-      profile.isSpareAdmin ? (facilities ?? []) : (facilities ?? []).filter((f) => profile.facilityIds.includes(f.id))
-    )
     setFieldDefs(fields ?? [])
     setHasPendingRequest((pending ?? []).length > 0)
 
@@ -489,7 +491,6 @@ export default function EquipmentView() {
           </h1>
           <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-surface sm:p-6 sm:shadow-sm lg:p-8">
             <EquipmentForm
-              facilities={allFacilities}
               fieldDefs={fieldDefs}
               initialValues={toFormValues(equipment)}
               submitLabel={canEditDirectly ? 'Save changes' : 'Submit request'}
@@ -685,7 +686,10 @@ export default function EquipmentView() {
               </button>
             )}
           </div>
-          <p className="mb-4 text-sm text-slate-500">{facility?.name ?? 'Unknown warehouse'}</p>
+          {/* Only when there is one. A spare tagged since the warehouse
+              stopped being asked for has none, and "Unknown warehouse"
+              under every new spare reads as something gone wrong. */}
+          {facility && <p className="mb-4 text-sm text-slate-500">{facility.name}</p>}
 
           {hasPendingRequest && !canEditDirectly && (
             <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">

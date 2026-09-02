@@ -127,7 +127,12 @@ export default function EditRequests() {
         return {
           ...r,
           equipment,
-          facilityName: equipment ? (facilityMap.get(equipment.facility_id) ?? 'Unknown facility') : '',
+          // Blank when the spare names no warehouse. Since 0073 most do
+          // not, and "Unknown facility" against every one of them reads
+          // as a lookup that failed rather than a question nobody asked.
+          facilityName: equipment?.facility_id
+            ? (facilityMap.get(equipment.facility_id) ?? 'Unknown facility')
+            : '',
           requesterName: profileMap.get(r.requested_by)?.full_name ?? 'Unknown',
           requesterEcode: profileMap.get(r.requested_by)?.ecode ?? '',
         }
@@ -457,7 +462,7 @@ function RecentChanges({
           return {
             ...h,
             equipmentName: eq?.name ?? 'Deleted spare',
-            facilityName: eq ? (facilityById.get(eq.facility_id) ?? '') : '',
+            facilityName: eq?.facility_id ? (facilityById.get(eq.facility_id) ?? '') : '',
             performerName: h.performed_by ? (performerById.get(h.performed_by)?.full_name ?? null) : null,
             performerEcode: h.performed_by ? (performerById.get(h.performed_by)?.ecode ?? null) : null,
           }

@@ -1,13 +1,26 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { DynamicFieldRenderer } from './DynamicFieldRenderer'
-import { FacilityPicker } from './FacilityPicker'
 import { SpinnerIcon } from './icons'
 import { buildAutofill, type ResolvedItem } from '../lib/itemAutofill'
-import type { EquipmentFormValues, FacilityRow, FieldDefinitionRow } from '../types/app'
+import type { EquipmentFormValues, FieldDefinitionRow } from '../types/app'
 
+/**
+ * No warehouse picker.
+ *
+ * It used to lead this form and was the only question on it that could
+ * not be turned off, because equipment.facility_id was NOT NULL. What
+ * identifies a spare is the code on it -- the client's item code says
+ * what the part is, the Cyrix QR says which unit this one is -- and
+ * neither needs a site chosen first. Migration 0073 made the column
+ * nullable; what is asked for here is now entirely the admin's to decide
+ * on the custom fields screen.
+ *
+ * `facility_id` is still carried through form values, so a spare filed
+ * against a warehouse before today keeps it through an edit rather than
+ * being quietly unfiled by a form that stopped mentioning it.
+ */
 export function EquipmentForm({
-  facilities,
   fieldDefs,
   initialValues,
   submitLabel,
@@ -15,9 +28,7 @@ export function EquipmentForm({
   disabled,
   suggestions,
   onSubmit,
-  onCreateFacility,
 }: {
-  facilities: FacilityRow[]
   fieldDefs: FieldDefinitionRow[]
   initialValues: EquipmentFormValues
   submitLabel: string
@@ -25,7 +36,6 @@ export function EquipmentForm({
   disabled?: boolean
   suggestions?: Record<string, string[]>
   onSubmit: (values: EquipmentFormValues) => void
-  onCreateFacility?: (input: { name: string; district: string | null; city: string | null }) => Promise<FacilityRow>
 }) {
   // The values and which of them a scan supplied are one piece of state, not
   // two. Deciding what a newly resolved item may overwrite needs both at
@@ -75,17 +85,10 @@ export function EquipmentForm({
   return (
     <fieldset disabled={disabled} className="min-w-0 space-y-4">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* One grid for the warehouse picker and every custom field, so short
-            controls pair up two-across once there's room. Stays a single
-            column below `lg`, where two inputs side by side would be cramped. */}
+        {/* One grid for every custom field, so short controls pair up
+            two-across once there's room. Stays a single column below `lg`,
+            where two inputs side by side would be cramped. */}
         <div className="grid gap-4 lg:grid-cols-2 lg:gap-x-6">
-          <FacilityPicker
-            facilities={facilities}
-            value={values.facility_id}
-            onChange={(facility_id) => setState((s) => ({ ...s, values: { ...s.values, facility_id } }))}
-            onCreateFacility={onCreateFacility}
-          />
-
           {fieldDefs.length === 0 ? (
             <p className="rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-400 lg:col-span-2">
               No custom fields set up yet — an admin can add some in Admin → Custom fields.

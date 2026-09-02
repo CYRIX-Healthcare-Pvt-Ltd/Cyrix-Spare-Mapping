@@ -7,15 +7,14 @@ import { EquipmentForm } from '../components/EquipmentForm'
 import { fetchFieldSuggestions } from '../lib/fieldSuggestions'
 import { blueStarCodeFromForm, lookupBlueStarItem } from '../lib/blueStarItem'
 import { ChevronLeftIcon, AlertIcon } from '../components/icons'
-import type { FacilityRow, FieldDefinitionRow, EquipmentFormValues } from '../types/app'
+import type { FieldDefinitionRow, EquipmentFormValues } from '../types/app'
 
 export default function EquipmentNew() {
-  const { profile, refreshProfile } = useAuth()
+  const { profile } = useAuth()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const qr = searchParams.get('qr')
 
-  const [facilities, setFacilities] = useState<FacilityRow[]>([])
   const [fieldDefs, setFieldDefs] = useState<FieldDefinitionRow[]>([])
   const [suggestions, setSuggestions] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
@@ -24,19 +23,15 @@ export default function EquipmentNew() {
 
   useEffect(() => {
     if (!profile) return
-    const currentProfile = profile
 
+    // Warehouses are no longer loaded: the form does not ask for one, so
+    // fetching every active site and scoping it to this person's grants
+    // was two round trips answering a question nobody is put any more.
     async function load() {
-      const [{ data: allFacilities }, { data: fields }, fieldSuggestions] = await Promise.all([
-        supabase.from('facilities').select('*').eq('active', true).order('name'),
+      const [{ data: fields }, fieldSuggestions] = await Promise.all([
         supabase.from('field_definitions').select('*').eq('active', true).order('display_order'),
         fetchFieldSuggestions(),
       ])
-      const scoped =
-        currentProfile.isSpareAdmin
-          ? (allFacilities ?? [])
-          : (allFacilities ?? []).filter((f) => currentProfile.facilityIds.includes(f.id))
-      setFacilities(scoped)
       setFieldDefs(fields ?? [])
       setSuggestions(fieldSuggestions)
       setLoading(false)
@@ -49,13 +44,11 @@ export default function EquipmentNew() {
     setSubmitting(true)
     setError(null)
 
-    // No hardcoded "name" field is collected anymore -- the warehouse already
-    // identifies where the spare is, so a free-typed location is redundant.
-    // This label is just so the record has something to be identified by in
-    // lists; admins can add a "Name" custom field if they want engineers
-    // choosing their own label.
-    const facility = facilities.find((f) => f.id === values.facility_id)
-    const autoName = facility ? `${facility.name} · ${qr}` : qr
+    // Something for the record to be known by in a list. It used to lead
+    // with the warehouse, which the form no longer asks for; the QR is
+    // what identifies the unit anyway, and the item name lands in
+    // custom_fields where the tagged list reads it from.
+    const autoName = qr
 
     // The catalogue is Blue Star's reference data: this points the tag at an
     // item that is already in it, and never adds one. A code that matches
@@ -74,7 +67,10 @@ export default function EquipmentNew() {
       .from('equipment')
       .insert({
         qr_value: qr,
-        facility_id: values.facility_id,
+        // Null unless an older spare is already carrying one: the form no
+        // longer asks, and 0073 made the column nullable so it need not
+        // invent a warehouse to satisfy a constraint.
+        facility_id: values.facility_id || null,
         name: autoName,
         location: '',
         custom_fields: values.custom_fields,
@@ -101,7 +97,7 @@ export default function EquipmentNew() {
     await supabase.from('equipment_history').insert({
       equipment_id: data.id,
       action: 'created',
-      changes: { facility_id: values.facility_id, custom_fields: values.custom_fields },
+      changes: { custom_fields: values.custom_fields },
       performed_by: profile.id,
     })
 
@@ -110,38 +106,18 @@ export default function EquipmentNew() {
       replace: true,
       state: {
         toast: blueStarItem
-          ? `Spare added at ${facility?.name ?? 'warehouse'}`
+          ? 'Spare added'
           : code
             ? `Spare added — ${code} isn't in the ${client} item master`
-            : `Spare added at ${facility?.name ?? 'warehouse'} — no ${client} code`,
+            : `Spare added — no ${client} code`,
       },
     })
   }
 
-  async function handleCreateFacility(input: { name: string; district: string | null; city: string | null }): Promise<FacilityRow> {
-    if (!profile) throw new Error('Not signed in.')
-
-    // Just the name: an admin fills in the district and city from
-    // Admin -> Warehouses. Nothing is captured from the device.
-    const { data, error: insertError } = await supabase
-      .from('facilities')
-      .insert({
-        name: input.name,
-        district: input.district,
-        city: input.city,
-        created_by: profile.id,
-      })
-      .select('*')
-      .single()
-
-    if (insertError || !data) throw new Error(insertError?.message ?? 'Could not add this warehouse.')
-
-    await supabase.from('user_facilities').insert({ user_id: profile.id, facility_id: data.id })
-    await refreshProfile()
-
-    setFacilities((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
-    return data
-  }
+  // Creating a warehouse from inside the tag form went with the picker
+  // that offered it. It existed because an engineer standing somewhere
+  // unlisted could not otherwise save at all; nothing blocks them now,
+  // and adding a warehouse is an admin's job on the Spare setup screen.
 
   if (!qr) {
     return (
@@ -167,20 +143,13 @@ export default function EquipmentNew() {
         Cyrix code: <span className="tabular-nums">{qr}</span>
       </p>
 
-      {facilities.length === 0 && (
-        <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          You aren't assigned to any warehouse yet — search below to add the one you're at now.
-        </p>
-      )}
-
       {/* Card framing only from `sm` up: on a phone the form already fills the
           screen, and a border round it would just be a line inside a line. */}
       <div className="sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-surface sm:p-6 sm:shadow-sm lg:p-8">
         <EquipmentForm
-          facilities={facilities}
           fieldDefs={fieldDefs}
           initialValues={{
-            facility_id: facilities.length === 1 ? facilities[0].id : '',
+            facility_id: '',
             custom_fields: {},
             cyrix_item_code: undefined,
             cyrix_item_name: null,
@@ -189,7 +158,6 @@ export default function EquipmentNew() {
           submitting={submitting}
           suggestions={suggestions}
           onSubmit={handleSubmit}
-          onCreateFacility={handleCreateFacility}
         />
       </div>
 

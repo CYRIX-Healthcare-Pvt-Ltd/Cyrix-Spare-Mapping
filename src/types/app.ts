@@ -11,9 +11,11 @@ export type CyrixItemRow = Database['public']['Tables']['cyrix_item_master']['Ro
 export type BlueStarItemRow = Database['public']['Tables']['bluestar_item_master']['Row']
 export type MappingHistoryRow = Database['public']['Tables']['bluestar_item_mapping_history']['Row']
 
-// Facility is the only field the app itself requires (it drives access
-// control). Everything else an engineer fills in is admin-defined custom
-// fields -- name/location/photos are no longer separate hardcoded inputs.
+// Nothing here is hardcoded any more. The warehouse was the last field
+// the app itself insisted on, and 0073 released it: what an engineer is
+// asked for is entirely the admin's to decide on the custom fields
+// screen. `facility_id` stays so a spare filed against a warehouse before
+// then keeps it through an edit rather than being quietly unfiled.
 export interface EquipmentFormValues {
   facility_id: string
   custom_fields: Record<string, unknown>

@@ -162,7 +162,16 @@ export interface Database {
         Row: {
           id: string
           qr_value: string
-          facility_id: string
+          /**
+           * Where the spare sits, if anybody said (migration 0073).
+           *
+           * It was NOT NULL, which made the warehouse the one question on
+           * the tag form that could not be turned off. What identifies a
+           * spare is the code on it, so the form stopped asking and the
+           * column stopped insisting. Spares tagged before that still
+           * carry theirs.
+           */
+          facility_id: string | null
           name: string
           location: string
           images: string[]
@@ -188,7 +197,7 @@ export interface Database {
         }
         Insert: {
           qr_value: string
-          facility_id: string
+          facility_id?: string | null
           name: string
           location: string
           images?: string[]
@@ -207,7 +216,7 @@ export interface Database {
            * every row so a retired code is never reissued.
            */
           qr_value: string
-          facility_id: string
+          facility_id: string | null
           name: string
           location: string
           images: string[]

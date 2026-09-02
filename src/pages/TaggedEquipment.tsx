@@ -61,7 +61,9 @@ export default function TaggedEquipment() {
     const list = equipmentRows ?? []
     setFieldDefs(fields ?? [])
 
-    const facilityIds = [...new Set(list.map((e) => e.facility_id))]
+    // Spares tagged since 0073 name no warehouse, so the nulls are dropped
+    // rather than sent to the database as an `in` list of nothing.
+    const facilityIds = [...new Set(list.map((e) => e.facility_id).filter((id): id is string => !!id))]
     const creatorIdsSeen = [...new Set(list.map((e) => e.created_by).filter((id): id is string => !!id))]
 
     const [{ data: facilityRows }, { data: profileRows }] = await Promise.all([
@@ -80,9 +82,12 @@ export default function TaggedEquipment() {
       list.map((e) => {
         return {
           ...e,
-          facilityName: facilityMap.get(e.facility_id)?.name ?? 'Unknown warehouse',
-          facilityDistrict: facilityMap.get(e.facility_id)?.district ?? null,
-          facilityCity: facilityMap.get(e.facility_id)?.city ?? null,
+          // Blank rather than "Unknown warehouse" when none was named:
+          // most spares have none now, and the column should read as
+          // empty, not as a lookup that went wrong.
+          facilityName: e.facility_id ? (facilityMap.get(e.facility_id)?.name ?? 'Unknown warehouse') : '',
+          facilityDistrict: e.facility_id ? (facilityMap.get(e.facility_id)?.district ?? null) : null,
+          facilityCity: e.facility_id ? (facilityMap.get(e.facility_id)?.city ?? null) : null,
           taggerName: e.created_by ? (profileMap.get(e.created_by)?.full_name ?? null) : null,
           taggerEcode: e.created_by ? (profileMap.get(e.created_by)?.ecode ?? null) : null,
         }
