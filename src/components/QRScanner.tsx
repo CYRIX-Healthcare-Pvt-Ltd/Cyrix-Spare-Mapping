@@ -51,6 +51,10 @@ export function QRScanner({
   const holdingTimeoutRef = useRef<number | null>(null)
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // What the camera can actually do, read once it is running. Null when it
+  // has no zoom to offer, which is most laptops and some phones.
+  const [zoomRange, setZoomRange] = useState<{ min: number; max: number; step: number } | null>(null)
+  const [zoom, setZoom] = useState(1)
 
   useEffect(() => {
     const scanner = new Html5Qrcode(READER_ID, { verbose: false })
@@ -60,7 +64,21 @@ export function QRScanner({
 
     scanner
       .start(
-        { facingMode: 'environment' },
+        {
+          facingMode: 'environment',
+          // Ask for the most the camera will give.
+          //
+          // Left to itself the browser hands back 640x480, and at that
+          // size a 12mm sticker is the width of a fingernail in the
+          // frame. A QR needs two or three camera pixels per module to
+          // decode; a 12mm code carrying a CYR/ number is about 25
+          // modules across, so half a millimetre each, and 640 pixels
+          // spread over an arm's length of desk is nowhere near it.
+          // 1080p is three times the detail across the same view and is
+          // the single thing that makes a small sticker readable.
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
           if (decodedRef.current) return
@@ -112,7 +130,33 @@ export function QRScanner({
           /* fires continuously while no code is in frame — expected, ignore */
         }
       )
-      .then(() => setState((s) => (s === 'starting' ? 'scanning' : s)))
+      .then(() => {
+        setState((s) => (s === 'starting' ? 'scanning' : s))
+
+        // Zoom is not applied on its own. Zooming in narrows the view,
+        // which makes a code harder to find and easier to lose, so it is
+        // offered rather than imposed -- the person holding the phone can
+        // see whether the sticker is too small and is the one to decide.
+        //
+        // `zoom` is not in the DOM's MediaTrackCapabilities: it is a
+        // separate spec that most phone browsers implement and most
+        // laptops do not, hence the cast and the null.
+        try {
+          const caps = scanner.getRunningTrackCapabilities() as MediaTrackCapabilities & {
+            zoom?: { min: number; max: number; step: number }
+          }
+          if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+            setZoomRange({
+              min: caps.zoom.min,
+              max: Math.min(caps.zoom.max, 5),
+              step: caps.zoom.step || 0.1,
+            })
+            setZoom(caps.zoom.min)
+          }
+        } catch {
+          /* no capabilities to read -- nothing to offer, which is fine */
+        }
+      })
       .catch(() => {
         setErrorMsg('Camera unavailable. Allow camera access, or upload a QR photo instead.')
         setState('camera-error')
@@ -253,6 +297,40 @@ export function QRScanner({
         </div>
       ) : (
         <>
+          {/* Only when the camera has zoom to give -- a slider that moves
+              nothing is worse than no slider. For a 12mm sticker the thing
+              standing in the way is usually not size but focus: a phone
+              cannot focus closer than about 10cm, and inside that the
+              picture goes soft however large the code looks. Zooming in
+              from a distance the lens can hold is the way round it. */}
+          {zoomRange && state === 'scanning' && (
+            <label className="flex w-full max-w-xs items-center gap-3 text-xs text-slate-500">
+              <span className="shrink-0">Zoom</span>
+              <input
+                type="range"
+                min={zoomRange.min}
+                max={zoomRange.max}
+                step={zoomRange.step}
+                value={zoom}
+                onChange={(e) => {
+                  const next = Number(e.target.value)
+                  setZoom(next)
+                  // `zoom` is not part of the DOM's constraint type, so the
+                  // shape has to be laundered through unknown to be passed.
+                  scannerRef.current
+                    ?.applyVideoConstraints({ advanced: [{ zoom: next }] } as unknown as MediaTrackConstraints)
+                    .catch(() => {
+                      /* the camera refused it; the slider snapping back would
+                         be more confusing than a zoom that did not move */
+                    })
+                }}
+                className="h-1 flex-1 cursor-pointer accent-purple-500"
+                aria-label="Camera zoom"
+              />
+              <span className="w-9 shrink-0 text-right tabular-nums">{zoom.toFixed(1)}×</span>
+            </label>
+          )}
+
           <p className={`text-center text-sm ${holding ? 'font-medium text-emerald-600' : 'text-slate-500'}`}>
             {holding ? 'Got it — hold steady…' : 'Line the QR code up inside the frame — it scans automatically.'}
           </p>
