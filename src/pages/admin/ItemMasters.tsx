@@ -380,6 +380,14 @@ export default function ItemMasters() {
   const [blueStarCount, setBlueStarCount] = useState(0)
   const [cyrixCount, setCyrixCount] = useState(0)
   const [search, setSearch] = useState('')
+  /**
+   * Which tagging status the client list is narrowed to.
+   *
+   * 'all' reads the table directly rather than the view, so the ordinary
+   * case does not pay for a count over every spare it is not going to
+   * use.
+   */
+  const [status, setStatus] = useState<'all' | TaggingStatus>('all')
   const [loading, setLoading] = useState(true)
   const [bulkOpen, setBulkOpen] = useState<Tab | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<PendingDelete | null>(null)
@@ -411,7 +419,7 @@ export default function ItemMasters() {
   // previous one is meaningless -- and page 3 of a 2-page result renders empty.
   useEffect(() => {
     setPage(0)
-  }, [search, tab])
+  }, [search, tab, status])
 
   // Ticks refer to rows; a new tab, search or page is a different set of rows,
   // so carrying the ticks across would arm a delete against things nobody can
@@ -426,10 +434,25 @@ export default function ItemMasters() {
     const from = page * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
-    // Search and paging both run server-side: these catalogues run to tens of
-    // thousands of rows, so filtering or slicing a fully-downloaded list in
-    // the browser isn't viable.
-    let blueStarQuery = supabase.from('bluestar_item_master').select('*', { count: 'exact' }).order('item_code').range(from, to)
+    // Search, paging and the tagging filter all run server-side: these
+    // catalogues run to tens of thousands of rows, so filtering or slicing a
+    // fully-downloaded list in the browser isn't viable. The status is read
+    // from a view (0074) rather than worked out here for the same reason --
+    // filtering the hundred rows that happen to be on screen would report a
+    // count for the page instead of for the catalogue.
+    //
+    // Written as a branch rather than a ternary inside from(): the client
+    // types each table separately, and a union of two names collapses the
+    // row type to `never`.
+    let blueStarQuery =
+      status === 'all'
+        ? supabase.from('bluestar_item_master').select('*', { count: 'exact' }).order('item_code').range(from, to)
+        : supabase
+            .from('bluestar_item_tagging')
+            .select('*', { count: 'exact' })
+            .eq('tagging_status', status)
+            .order('item_code')
+            .range(from, to)
     let cyrixQuery = supabase.from('cyrix_item_master').select('*', { count: 'exact' }).order('item_code').range(from, to)
     if (term) {
       const pattern = `%${term}%`
@@ -451,7 +474,7 @@ export default function ItemMasters() {
     setBlueStarCount(blueStarTotal ?? 0)
     setCyrixCount(cyrixTotal ?? 0)
     setLoading(false)
-  }, [search, page])
+  }, [search, page, status])
 
   useEffect(() => {
     const t = setTimeout(load, 250)
@@ -677,6 +700,28 @@ export default function ItemMasters() {
           placeholder={tab === 'bluestar' ? 'Search code or name…' : 'Search code, name, identifier, make, or model…'}
           className="min-w-0 basis-full sm:w-72 sm:basis-auto lg:w-96"
         />
+
+        {/* Only on the client side: the Cyrix catalogue is our own naming
+            for parts and has no tagging progress to be at a stage of. */}
+        {tab === 'bluestar' && (
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as 'all' | TaggingStatus)}
+            aria-label="Filter by tagging status"
+            className={`shrink-0 rounded-lg border px-3 py-2 text-sm font-medium ${
+              status === 'all'
+                ? 'border-slate-300 bg-surface text-slate-700'
+                : 'border-brand-300 bg-brand-50 text-brand-800'
+            }`}
+          >
+            <option value="all">All statuses</option>
+            <option value="pending">{STATUS_STYLE.pending.label}</option>
+            <option value="partial">{STATUS_STYLE.partial.label}</option>
+            <option value="complete">{STATUS_STYLE.complete.label}</option>
+            <option value="unknown">{STATUS_STYLE.unknown.label}</option>
+          </select>
+        )}
+
         <span className="hidden flex-1 sm:block" />
         {canEdit && (
           <>

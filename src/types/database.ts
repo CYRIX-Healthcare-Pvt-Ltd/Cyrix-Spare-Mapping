@@ -414,8 +414,71 @@ export interface Database {
         Update: never
         Relationships: []
       }
+      /**
+       * KPI's employee records, read here for one thing: the profile photo.
+       *
+       * Spare has no employees table of its own -- the four modules share a
+       * database, and a person's photo belongs to the person rather than to
+       * whichever module is showing them. Read-only from here.
+       *
+       * Declared because it has to be. `Views` used to be
+       * `Record<string, never>`, whose index signature let from() accept any
+       * name at all, so this query typechecked by accident; giving the views
+       * a real shape took that away and left this the one undeclared table.
+       */
+      employees: {
+        Row: {
+          id: string
+          ecode: string
+          name: string
+          auth_user_id: string | null
+          avatar: string | null
+          active: boolean
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
     }
-    Views: Record<string, never>
+    Views: {
+      /**
+       * The client catalogue with its tagging progress worked out (0074).
+       *
+       * The item master pages a hundred rows at a time through thousands,
+       * so "show me everything still pending" cannot be answered by
+       * filtering what arrived -- that would filter the page and report a
+       * count for it. The status is computed in the database so the
+       * filter, the paging and the total all agree.
+       *
+       * Read-only, and only read when a status filter is on: the plain
+       * table is cheaper when it isn't.
+       */
+      bluestar_item_tagging: {
+        // Spelled out rather than intersected with the table's Row: naming
+        // Database inside its own declaration is circular, and TypeScript
+        // resolves the whole interface to `never` when it cannot unwind it
+        // -- which surfaces as unrelated queries elsewhere losing their
+        // column names.
+        Row: {
+          id: string
+          item_code: string
+          item_name: string
+          cyrix_item_code: string | null
+          cyrix_item_name: string | null
+          quantity: number | null
+          attributes: Record<string, string>
+          name_normalized: string
+          active: boolean
+          created_at: string
+          updated_at: string
+          tagged_count: number
+          tagging_status: 'pending' | 'partial' | 'complete' | 'unknown'
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+    }
     Functions: {
       resolve_edit_request: {
         Args: { request_id: string; approve: boolean; note?: string | null }
