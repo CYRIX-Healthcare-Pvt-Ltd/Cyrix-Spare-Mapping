@@ -127,27 +127,31 @@ export function QRScanner({
       setState('success')
     }
 
-    const config = { fps: 10, qrbox: { width: 250, height: 250 } }
-    const attempt = (video: MediaTrackConstraints) =>
-      scanner.start(video, config, onDecoded, () => {
-        /* fires continuously while no code is in frame — expected, ignore */
-      })
-
-    // Each request is looser than the one before, and the last asks for
-    // nothing at all but a camera. `facingMode: 'environment'` is not a
-    // preference to every browser -- some treat it as a requirement and
-    // refuse outright when they cannot satisfy it, which on a device
-    // whose back camera is not enumerated the way they expect means no
-    // camera rather than the front one.
-    const retry = async (video: MediaTrackConstraints) => {
-      if (scanner.isScanning) await scanner.stop().catch(() => {})
-      return attempt(video)
-    }
-
-    attempt({ facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } })
-      .catch(() => retry({ facingMode: 'environment' }))
-      .catch(() => retry({ facingMode: { ideal: 'environment' } }))
-      .catch(() => retry({}))
+    /*
+     * One request, and nothing clever.
+     *
+     * Asking for a resolution and retrying on refusal both cost the
+     * camera outright. html5-qrcode holds a state machine around start(),
+     * and calling it again after a failed attempt raises "Cannot
+     * transition to a new state, already under transition" -- so the
+     * retry chain that was meant to be a safety net became the thing
+     * breaking the camera, and reported itself as the camera being
+     * unavailable.
+     *
+     * This is the call that worked before any of it. A 12mm sticker
+     * wanting more detail than the default is a real problem and this is
+     * not the way to fix it: the zoom control below does the same job
+     * without touching how the camera is opened.
+     */
+    scanner
+      .start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        onDecoded,
+        () => {
+          /* fires continuously while no code is in frame — expected, ignore */
+        }
+      )
       .then(() => {
         setState((s) => (s === 'starting' ? 'scanning' : s))
 
