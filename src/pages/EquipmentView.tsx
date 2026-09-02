@@ -408,12 +408,18 @@ export default function EquipmentView() {
   }
 
   /**
-   * Retire the spare.
+   * Delete the spare.
    *
-   * Never a row deletion: `equipment_history` and `edit_requests` both
-   * cascade from `equipment`, so removing it would take the spare's whole
-   * history and the approval that authorised the removal along with it.
-   * The row stays, marked, and leaves every list.
+   * A real row deletion (0079). This is used for a tag added by mistake,
+   * and flagging the row left it there to be opened by anybody with the
+   * URL, still reading back every field it was given.
+   *
+   * `equipment_history` and `edit_requests` cascade, so the spare's own
+   * history and any request about it go with it -- including, for an
+   * approved request, the approval that authorised the removal. What
+   * stays is the catalogue's mapping trail, which is ON DELETE SET NULL:
+   * which client item pointed at which Cyrix item is a fact about the
+   * catalogue rather than about this unit.
    */
   async function submitDelete() {
     if (!equipment || !profile) return
@@ -421,21 +427,10 @@ export default function EquipmentView() {
     setActionError(null)
 
     if (canEditDirectly) {
-      const { error: e } = await supabase
-        .from('equipment')
-        .update({
-          deleted_at: new Date().toISOString(),
-          deleted_by: profile.id,
-          updated_by: profile.id,
-        })
-        .eq('id', equipment.id)
+      // No history row first: it would name an equipment_id that the
+      // delete cascades away in the next breath.
+      const { error: e } = await supabase.from('equipment').delete().eq('id', equipment.id)
       if (e) { setActionError(e.message); setSubmitting(false); return }
-      await supabase.from('equipment_history').insert({
-        equipment_id: equipment.id,
-        action: 'deleted',
-        changes: reason.trim() ? { reason: reason.trim() } : {},
-        performed_by: profile.id,
-      })
       setSubmitting(false)
       navigate('/tagged')
       return
@@ -653,25 +648,15 @@ export default function EquipmentView() {
       ) : (
         <>
           {/*
-            A retired spare is still reachable — its code is still on a
-            sticker somewhere, and scanning it lands here. Saying so is the
-            whole reason the row was kept rather than deleted, so it is the
-            first thing on the page and nothing below it offers to edit.
+            No "this was deleted" banner any more. A deleted spare is gone
+            from the table (0079), so there is nothing left to open and
+            nothing to explain: scanning its old sticker finds no row and
+            offers to tag it afresh, which is the right answer for a code
+            that is no longer claimed.
           */}
-          {equipment.deleted_at && (
-            <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-              <p className="text-sm font-medium text-red-800">This spare was deleted</p>
-              <p className="mt-0.5 text-xs text-red-700">
-                {formatDate(equipment.deleted_at)}. It no longer appears in the tagged
-                list or counts towards its item. The record is kept so its history can
-                still be read.
-              </p>
-            </div>
-          )}
-
           <div className="mb-1 flex items-start justify-between gap-2">
             <h1 className="text-lg font-semibold text-slate-900">{equipment.name}</h1>
-            {!equipment.deleted_at && (canEditDirectly || !hasPendingRequest) && (
+            {(canEditDirectly || !hasPendingRequest) && (
               <button
                 onClick={() => setEditing(true)}
                 className="flex shrink-0 items-center gap-1 rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-50"

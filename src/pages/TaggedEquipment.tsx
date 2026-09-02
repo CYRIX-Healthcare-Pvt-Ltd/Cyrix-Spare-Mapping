@@ -126,27 +126,24 @@ export default function TaggedEquipment() {
     if (ids.length === 0 || !profile) return
     setDeleting(true)
     /*
-     * Retired, not removed — the same thing an approved delete request
-     * does (0064), so "deleted" means one thing in this app rather than
-     * two. Removing the row would cascade away the spare's history and
-     * any request attached to it, which is the record of what happened
-     * to a physical asset.
+     * Removed, not retired — the same thing an approved delete request
+     * does (0079), so "deleted" means one thing in this app rather than
+     * two.
      *
-     * The rows leave every list either way; they are simply still there
-     * to be asked about.
+     * This is used for a tag added by mistake: wrong sticker, wrong code,
+     * a test. Flagging the row left it there to be opened by anybody with
+     * the URL, still reading back every field it was given, which is not
+     * what deleting it was meant to do.
+     *
+     * The spare's own history and any request about it go with it, by
+     * cascade. What stays is the catalogue's mapping trail, which is
+     * ON DELETE SET NULL: which client item pointed at which Cyrix item
+     * is a fact about the catalogue, not about this unit.
+     *
+     * No history row is written first — it would name an equipment_id
+     * that the delete immediately cascades away.
      */
-    await supabase
-      .from('equipment')
-      .update({ deleted_at: new Date().toISOString(), deleted_by: profile.id })
-      .in('id', ids)
-    await supabase.from('equipment_history').insert(
-      ids.map((equipment_id) => ({
-        equipment_id,
-        action: 'deleted' as const,
-        changes: { by: 'manager', direct: true },
-        performed_by: profile.id,
-      })),
-    )
+    await supabase.from('equipment').delete().in('id', ids)
     setDeleting(false)
     setConfirmMode(null)
     setSelected([])
