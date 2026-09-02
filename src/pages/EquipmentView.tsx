@@ -27,10 +27,6 @@ type PerformEdit = (values: EquipmentFormValues) => Promise<void>
 
 function toFormValues(eq: EquipmentRow): EquipmentFormValues {
   return {
-    // Carried, not asked for: an older spare keeps the warehouse it was
-    // filed against instead of being unfiled by a form that no longer
-    // mentions one.
-    facility_id: eq.facility_id ?? '',
     custom_fields: eq.custom_fields,
     // The Cyrix item this particular unit was mapped to. Undefined rather than
     // null when there is none: nothing to unlink, nothing to change.
@@ -41,7 +37,6 @@ function toFormValues(eq: EquipmentRow): EquipmentFormValues {
 
 function buildDiff(original: EquipmentFormValues, updated: EquipmentFormValues) {
   const diff: Record<string, unknown> = {}
-  if (updated.facility_id !== original.facility_id) diff.facility_id = updated.facility_id
 
   const customDiff: Record<string, unknown> = {}
   for (const key of Object.keys(updated.custom_fields)) {
@@ -61,9 +56,6 @@ function buildDiff(original: EquipmentFormValues, updated: EquipmentFormValues) 
 // resolve_edit_request() merges it straight into equipment.custom_fields.
 function buildHistoryChanges(original: EquipmentFormValues, updated: EquipmentFormValues) {
   const changes: Record<string, unknown> = {}
-  if (updated.facility_id !== original.facility_id) {
-    changes.facility_id = { from: original.facility_id, to: updated.facility_id }
-  }
 
   const customChanges: Record<string, unknown> = {}
   for (const key of Object.keys(updated.custom_fields)) {
@@ -184,8 +176,11 @@ export default function EquipmentView() {
 
     const { error: updateError } = await supabase
       .from('equipment')
+      // facility_id is deliberately absent. The form does not offer to
+      // move a spare between warehouses, so an edit must leave the column
+      // exactly as it found it -- writing it back sent '' for a spare that
+      // has none, which the database rejects as an invalid uuid.
       .update({
-        facility_id: values.facility_id,
         custom_fields: values.custom_fields,
         updated_by: profile.id,
       })

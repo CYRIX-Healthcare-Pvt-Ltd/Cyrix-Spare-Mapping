@@ -12,10 +12,16 @@ import { SearchInput } from '../components/SearchInput'
 import { taggedCreatorIds } from '../lib/taggedScope'
 import { ImageLightbox, ThumbnailStack } from '../components/ImageLightbox'
 
+/*
+ * No warehouse, district or city.
+ *
+ * The tag form stopped asking for a warehouse in 0073, so all three read
+ * an em dash on every spare tagged since -- three columns of nothing,
+ * pushing the columns that say what the spare is off the side of the
+ * table. What describes a spare is the admin's to choose on the custom
+ * fields screen, and those render below.
+ */
 interface DisplayRow extends EquipmentRow {
-  facilityName: string
-  facilityDistrict: string | null
-  facilityCity: string | null
   taggerName: string | null
   taggerEcode: string | null
 }
@@ -61,33 +67,22 @@ export default function TaggedEquipment() {
     const list = equipmentRows ?? []
     setFieldDefs(fields ?? [])
 
-    // Spares tagged since 0073 name no warehouse, so the nulls are dropped
-    // rather than sent to the database as an `in` list of nothing.
-    const facilityIds = [...new Set(list.map((e) => e.facility_id).filter((id): id is string => !!id))]
+    // Warehouses are no longer looked up: nothing on this table shows one,
+    // so fetching them was a round trip per load answering a question the
+    // page had stopped asking.
     const creatorIdsSeen = [...new Set(list.map((e) => e.created_by).filter((id): id is string => !!id))]
 
-    const [{ data: facilityRows }, { data: profileRows }] = await Promise.all([
-      facilityIds.length
-        ? supabase.from('facilities').select('id, name, district, city').in('id', facilityIds)
-        : Promise.resolve({ data: [] }),
+    const { data: profileRows } =
       attribution && creatorIdsSeen.length
-        ? supabase.from('profiles').select('id, full_name, ecode').in('id', creatorIdsSeen)
-        : Promise.resolve({ data: [] }),
-    ])
+        ? await supabase.from('profiles').select('id, full_name, ecode').in('id', creatorIdsSeen)
+        : { data: [] }
 
-    const facilityMap = new Map((facilityRows ?? []).map((f) => [f.id, f]))
     const profileMap = new Map((profileRows ?? []).map((p) => [p.id, p]))
 
     setRows(
       list.map((e) => {
         return {
           ...e,
-          // Blank rather than "Unknown warehouse" when none was named:
-          // most spares have none now, and the column should read as
-          // empty, not as a lookup that went wrong.
-          facilityName: e.facility_id ? (facilityMap.get(e.facility_id)?.name ?? 'Unknown warehouse') : '',
-          facilityDistrict: e.facility_id ? (facilityMap.get(e.facility_id)?.district ?? null) : null,
-          facilityCity: e.facility_id ? (facilityMap.get(e.facility_id)?.city ?? null) : null,
           taggerName: e.created_by ? (profileMap.get(e.created_by)?.full_name ?? null) : null,
           taggerEcode: e.created_by ? (profileMap.get(e.created_by)?.ecode ?? null) : null,
         }
@@ -108,9 +103,6 @@ export default function TaggedEquipment() {
     if (!q) return rows
     return rows.filter((r) =>
       [
-        r.facilityName,
-        r.facilityCity,
-        r.facilityDistrict,
         r.qr_value,
         r.cyrix_item_code,
         r.cyrix_item_name,
@@ -181,7 +173,7 @@ export default function TaggedEquipment() {
             <SearchInput
               value={search}
               onChange={setSearch}
-              placeholder="Search spare, code, warehouse…"
+              placeholder="Search spare, code, or who tagged it…"
               className="flex-1 sm:w-72 sm:flex-none"
             />
           </div>
@@ -239,14 +231,11 @@ export default function TaggedEquipment() {
                       />
                     </th>
                   )}
-                  {/* Reads left to right the way the spare is identified: where
-                      it is, what the client calls it, what we call it, then the
-                      photo and who tagged it. Photos go last of the field
-                      columns because a thumbnail is the widest thing in a row
-                      and would otherwise split the codes apart. */}
-                  <th className={th}>District</th>
-                  <th className={th}>City</th>
-                  <th className={th}>Warehouse</th>
+                  {/* Reads left to right the way the spare is identified: what
+                      the client calls it, what we call it, then the photo and
+                      who tagged it. Photos go last of the field columns
+                      because a thumbnail is the widest thing in a row and
+                      would otherwise split the codes apart. */}
                   {dataFields.map((f) => (
                     <th key={f.id} className={th}>
                       {f.label}
@@ -288,9 +277,6 @@ export default function TaggedEquipment() {
                         />
                       </td>
                     )}
-                    <td className={`${td} whitespace-nowrap text-slate-600`}>{r.facilityDistrict ?? '—'}</td>
-                    <td className={`${td} whitespace-nowrap text-slate-600`}>{r.facilityCity ?? '—'}</td>
-                    <td className={`${td} whitespace-nowrap font-medium text-slate-900`}>{r.facilityName}</td>
                     {dataFields.map((f) => {
                       const raw = r.custom_fields[f.field_key]
                       const shown = formatFieldValue(f, raw)

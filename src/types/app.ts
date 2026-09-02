@@ -14,10 +14,14 @@ export type MappingHistoryRow = Database['public']['Tables']['bluestar_item_mapp
 // Nothing here is hardcoded any more. The warehouse was the last field
 // the app itself insisted on, and 0073 released it: what an engineer is
 // asked for is entirely the admin's to decide on the custom fields
-// screen. `facility_id` stays so a spare filed against a warehouse before
-// then keeps it through an edit rather than being quietly unfiled.
+// screen.
+//
+// No facility_id. Carrying one the form could not edit meant an edit
+// wrote the column back anyway -- and for a spare with no warehouse that
+// was the empty string, which the database rejected outright as
+// "invalid input syntax for type uuid". A form that does not ask a
+// question must not answer it.
 export interface EquipmentFormValues {
-  facility_id: string
   custom_fields: Record<string, unknown>
   // The Cyrix item this spare is linked to. Not a column on equipment: it is
   // applied to the spare's Blue Star catalogue row when the tag is saved, so

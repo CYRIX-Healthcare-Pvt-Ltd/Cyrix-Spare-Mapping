@@ -67,10 +67,8 @@ export default function EquipmentNew() {
       .from('equipment')
       .insert({
         qr_value: qr,
-        // Null unless an older spare is already carrying one: the form no
-        // longer asks, and 0073 made the column nullable so it need not
-        // invent a warehouse to satisfy a constraint.
-        facility_id: values.facility_id || null,
+        // No facility_id: the form does not ask for a warehouse, and 0073
+        // made the column nullable so a spare need not be filed at one.
         name: autoName,
         location: '',
         custom_fields: values.custom_fields,
@@ -149,7 +147,6 @@ export default function EquipmentNew() {
         <EquipmentForm
           fieldDefs={fieldDefs}
           initialValues={{
-            facility_id: '',
             custom_fields: {},
             cyrix_item_code: undefined,
             cyrix_item_name: null,
